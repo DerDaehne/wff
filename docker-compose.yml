@@ -1,11 +1,12 @@
 services:
   db:
-    image: postgres:16
+    image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-wff}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wff}
       POSTGRES_DB: ${POSTGRES_DB:-wff}
+      TIMESCALEDB_TELEMETRY: "off"
     volumes:
       - db-data:/var/lib/postgresql/data
     ports:

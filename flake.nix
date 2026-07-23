@@ -9,7 +9,12 @@
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
       linuxSystems = [ "x86_64-linux" "aarch64-linux" ];
-      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
+      # TimescaleDB ist in nixpkgs als unfree markiert (bündelt Timescale-License-Anteile
+      # neben dem Apache-2.0-Kern) — für lokale Postgres+Timescale-Dev-Instanz nötig.
+      forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs {
+        inherit system;
+        config.allowUnfree = true;
+      }));
     in
     {
       # Backend-Binary: `nix build .#backend`; Docker-Image (nur Linux): `nix build .#docker`
@@ -36,38 +41,48 @@
         });
 
       # Entwicklungsumgebung: `nix develop`
-      devShells = forAllSystems (pkgs: {
-        default = pkgs.mkShell {
-          name = "wff-dev";
+      devShells = forAllSystems (pkgs:
+        let
+          # nixpkgs' go-migrate baut standardmäßig ALLE Treiber mit (inkl. snowflake),
+          # dessen CA-Cert-Init in dieser Umgebung unconditional paniced. Wir brauchen
+          # nur postgres/pgx5 — schlanker und tatsächlich lauffähig.
+          go-migrate-postgres = pkgs.go-migrate.overrideAttrs (_: { tags = [ "postgres" "pgx5" ]; });
+          # postgresql_16 + TimescaleDB-Extension für lokale Hypertable-Entwicklung ohne Docker.
+          postgresqlWithTimescale = pkgs.postgresql_16.withPackages (ps: [ ps.timescaledb ]);
+        in
+        {
+          default = pkgs.mkShell {
+            name = "wff-dev";
 
-          packages = with pkgs; [
-            # Backend (Go) — siehe ADR 001
-            go
-            gopls
-            gotools # goimports u. a.
-            go-tools # staticcheck
+            packages = with pkgs; [
+              # Backend (Go) — siehe ADR 001
+              go
+              gopls
+              gotools # goimports u. a.
+              go-tools # staticcheck
 
-            # Frontend (SvelteKit / PWA)
-            nodejs_22
-            pnpm
+              # Frontend (SvelteKit / PWA)
+              nodejs_22
+              pnpm
 
-            # Datenbank (lokal)
-            postgresql_16
+              # Datenbank (lokal, mit TimescaleDB-Extension — siehe #547 / arch-wff-datenmodell)
+              postgresqlWithTimescale
+              go-migrate-postgres
 
-            # Hilfsmittel
-            just
-            git
-            docker-compose
-          ];
+              # Hilfsmittel
+              just
+              git
+              docker-compose
+            ];
 
-          shellHook = ''
-            echo "WFF devShell — Go $(go version | awk '{print $3}'), Node $(node --version), $(psql --version)"
-            # Lokale Postgres-Instanz im Projektordner (nicht eingecheckt)
-            export PGDATA="$PWD/.pgdata"
-            export DATABASE_URL="postgres://wff:wff@localhost:5432/wff?sslmode=disable"
-          '';
-        };
-      });
+            shellHook = ''
+              echo "WFF devShell — Go $(go version | awk '{print $3}'), Node $(node --version), $(psql --version)"
+              # Lokale Postgres-Instanz im Projektordner (nicht eingecheckt)
+              export PGDATA="$PWD/.pgdata"
+              export DATABASE_URL="postgres://wff:wff@localhost:5432/wff?sslmode=disable"
+            '';
+          };
+        });
 
       formatter = forAllSystems (pkgs: pkgs.nixpkgs-fmt);
     };
