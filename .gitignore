@@ -1,0 +1,31 @@
+# Nix
+result
+result-*
+
+# direnv
+.direnv/
+
+# Lokale Postgres-Daten (aus devShell shellHook)
+.pgdata/
+
+# Umgebungs-/Secrets
+.env
+.env.*
+!.env.example
+
+# Go
+/backend/bin/
+/backend/tmp/
+*.test
+*.out
+
+# Node / SvelteKit
+node_modules/
+/frontend/.svelte-kit/
+/frontend/build/
+/frontend/.output/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
