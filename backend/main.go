@@ -1,8 +1,10 @@
 package main
 
 import (
+	"cmp"
 	"log"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -12,7 +14,7 @@ func main() {
 		w.Write([]byte("ok"))
 	})
 
-	addr := ":8080"
+	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("wff backend listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatal(err)

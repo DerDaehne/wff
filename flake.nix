@@ -57,6 +57,7 @@
             # Hilfsmittel
             just
             git
+            docker-compose
           ];
 
           shellHook = ''

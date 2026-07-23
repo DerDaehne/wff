@@ -23,7 +23,16 @@ Personal-Instanz für wenige feste Nutzer (leichte Auth, Mandantentrennung über
 ## Entwicklung
 
 ```sh
-nix develop        # Dev-Shell mit Go, Node/pnpm, PostgreSQL
+nix develop        # Dev-Shell mit Go, Node/pnpm, PostgreSQL, docker-compose
+```
+
+## Build & Deploy
+
+```sh
+nix build .#backend            # statisches Go-Binary (result/bin/wff)
+nix build .#docker              # distroless OCI-Image (nur x86_64/aarch64-linux)
+docker load < result            # Image lokal als wff-backend:latest verfügbar machen
+cp .env.example .env && docker compose up   # App + PostgreSQL lokal starten
 ```
 
 Struktur:
