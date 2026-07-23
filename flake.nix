@@ -8,11 +8,34 @@
   outputs = { self, nixpkgs }:
     let
       systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      linuxSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f (import nixpkgs { inherit system; }));
     in
     {
+      # Backend-Binary: `nix build .#backend`; Docker-Image (nur Linux): `nix build .#docker`
+      packages = forAllSystems (pkgs:
+        let
+          backend = pkgs.buildGoModule {
+            pname = "wff-backend";
+            version = "0.1.0";
+            src = ./backend;
+            vendorHash = null; # aktuell nur Go-Stdlib als Dependency
+          };
+        in
+        { inherit backend; }
+        // nixpkgs.lib.optionalAttrs (builtins.elem pkgs.system linuxSystems) {
+          docker = pkgs.dockerTools.buildLayeredImage {
+            name = "wff-backend";
+            tag = "latest";
+            contents = [ backend ];
+            config = {
+              Cmd = [ "${backend}/bin/wff" ];
+              ExposedPorts = { "8080/tcp" = { }; };
+            };
+          };
+        });
+
       # Entwicklungsumgebung: `nix develop`
-      # Packaging (buildGoModule), Docker-Image und docker-compose folgen in Epic #553.
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
           name = "wff-dev";
@@ -26,7 +49,7 @@
 
             # Frontend (SvelteKit / PWA)
             nodejs_22
-            nodePackages.pnpm
+            pnpm
 
             # Datenbank (lokal)
             postgresql_16
