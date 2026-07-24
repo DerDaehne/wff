@@ -6,12 +6,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Activity computes and persists NP/IF/TSS for one activity from its power
-// samples and the owning user's FTP, writing into the existing
+// Activity computes and persists TSS (and NP/IF where the power path
+// applies) for one activity, writing into the existing
 // activities.normalized_power_watts/intensity_factor/training_stress_score
-// columns (from #547). A no-op — not an error — if there are no power
-// samples (candidate for the HR fallback, see ticket "HR-Fallback") or the
-// user hasn't configured an FTP yet.
+// columns (from #547). Power is authoritative whenever it's present: the HR
+// fallback only ever runs for a ride with zero power samples, never as a
+// "better safe than sorry" double-check, and never to paper over a missing
+// FTP (that stays NULL on purpose — see arch-wff-analyze) — a rider with a
+// power meter but no FTP configured should fix that, not silently get a
+// worse HR-based number instead.
 func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 	var userID int64
 	var elapsedSeconds int
@@ -21,52 +24,87 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 		return err
 	}
 
-	var ftpWatts *int
+	var ftpWatts, lthrBpm *int
 	if err := pool.QueryRow(ctx,
-		`SELECT ftp_watts FROM users WHERE id = $1`, userID,
-	).Scan(&ftpWatts); err != nil {
+		`SELECT ftp_watts, lthr_bpm FROM users WHERE id = $1`, userID,
+	).Scan(&ftpWatts, &lthrBpm); err != nil {
 		return err
 	}
-	if ftpWatts == nil {
-		return nil
-	}
 
-	rows, err := pool.Query(ctx,
-		`SELECT power_watts FROM samples WHERE activity_id = $1 AND power_watts IS NOT NULL ORDER BY time`,
-		activityID,
-	)
+	powerWatts, err := loadSampleFloats(ctx, pool, activityID, "power_watts")
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
 
-	var powerWatts []float64
-	for rows.Next() {
-		var p int
-		if err := rows.Scan(&p); err != nil {
-			return err
+	if len(powerWatts) > 0 {
+		if ftpWatts == nil {
+			return nil
 		}
-		powerWatts = append(powerWatts, float64(p))
-	}
-	if err := rows.Err(); err != nil {
+		metrics := ComputePowerMetrics(powerWatts, elapsedSeconds, *ftpWatts)
+		if metrics == nil {
+			return nil
+		}
+		_, err := pool.Exec(ctx, `
+			UPDATE activities SET
+				normalized_power_watts = $2,
+				intensity_factor = $3,
+				training_stress_score = $4
+			WHERE id = $1`,
+			activityID, metrics.NormalizedPowerWatts, metrics.IntensityFactor, metrics.TSS,
+		)
 		return err
 	}
-	if len(powerWatts) == 0 {
+
+	if lthrBpm == nil {
 		return nil
 	}
-
-	metrics := ComputePowerMetrics(powerWatts, elapsedSeconds, *ftpWatts)
-	if metrics == nil {
+	heartRates, err := loadSampleFloats(ctx, pool, activityID, "heart_rate")
+	if err != nil {
+		return err
+	}
+	if len(heartRates) == 0 {
 		return nil
 	}
+	var sum float64
+	for _, hr := range heartRates {
+		sum += hr
+	}
+	avgHeartRate := sum / float64(len(heartRates))
 
+	hrMetrics := ComputeHRMetrics(avgHeartRate, elapsedSeconds, *lthrBpm)
+	if hrMetrics == nil {
+		return nil
+	}
 	_, err = pool.Exec(ctx, `
 		UPDATE activities SET
-			normalized_power_watts = $2,
-			intensity_factor = $3,
-			training_stress_score = $4
+			intensity_factor = $2,
+			training_stress_score = $3
 		WHERE id = $1`,
-		activityID, metrics.NormalizedPowerWatts, metrics.IntensityFactor, metrics.TSS,
+		activityID, hrMetrics.IntensityFactor, hrMetrics.TSS,
 	)
 	return err
+}
+
+// loadSampleFloats reads a single non-null numeric column from samples,
+// ordered by time. column is always a fixed internal string (power_watts or
+// heart_rate), never user input.
+func loadSampleFloats(ctx context.Context, pool *pgxpool.Pool, activityID int64, column string) ([]float64, error) {
+	rows, err := pool.Query(ctx,
+		`SELECT `+column+` FROM samples WHERE activity_id = $1 AND `+column+` IS NOT NULL ORDER BY time`,
+		activityID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var values []float64
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		values = append(values, float64(v))
+	}
+	return values, rows.Err()
 }
