@@ -24,7 +24,7 @@
             pname = "wff-backend";
             version = "0.1.0";
             src = ./backend;
-            vendorHash = null; # aktuell nur Go-Stdlib als Dependency
+            vendorHash = "sha256-o7nRypLnRe0XzvO0djDKR4v7i5NKp78ynyiieyALlTU=";
           };
         in
         { inherit backend; }
