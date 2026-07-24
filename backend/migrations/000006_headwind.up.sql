@@ -1,0 +1,1 @@
+ALTER TABLE enrichment ADD COLUMN headwind_mps DOUBLE PRECISION;
