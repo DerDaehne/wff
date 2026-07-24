@@ -18,7 +18,11 @@ import (
 
 var ErrDuplicateActivity = errors.New("activity already exists for this user")
 
-const uniqueViolation = "23505"
+const (
+	uniqueViolation  = "23505"
+	deadlockDetected = "40P01"
+	maxStoreAttempts = 3
+)
 
 // ExternalUID derives a deterministic per-user dedup key from a FIT FileId.
 // Device-based (SerialNumber+TimeCreated) rather than a content hash: a
@@ -38,7 +42,28 @@ func ExternalUID(fileID fitparse.FileID, rawContent []byte) string {
 // Store persists a parsed activity and its samples for userID in a single
 // transaction. Returns ErrDuplicateActivity if (userID, externalUID) already
 // exists; the caller decides how to surface that (e.g. HTTP 409).
+//
+// Concurrent inserts into a TimescaleDB hypertable that both need to create
+// the same new chunk can deadlock (SQLSTATE 40P01, confirmed via the #557
+// end-to-end regression run: two test processes uploading around the same
+// time reliably reproduced it). Deadlock is retried from scratch a few
+// times, per Postgres's own recommended handling of 40P01 — the transaction
+// did no partial work (it never committed), so a clean retry is safe.
 func Store(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitparse.Activity, externalUID string) (activityID int64, err error) {
+	for attempt := 1; attempt <= maxStoreAttempts; attempt++ {
+		activityID, err = storeOnce(ctx, pool, userID, act, externalUID)
+		if err == nil || errors.Is(err, ErrDuplicateActivity) {
+			return activityID, err
+		}
+		var pgErr *pgconn.PgError
+		if !errors.As(err, &pgErr) || pgErr.Code != deadlockDetected {
+			return 0, err
+		}
+	}
+	return 0, err
+}
+
+func storeOnce(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitparse.Activity, externalUID string) (activityID int64, err error) {
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return 0, err
