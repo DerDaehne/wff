@@ -3,7 +3,7 @@
 Go-API-Server: `.fit`-Ingestion, Persistenz (PostgreSQL), Anreicherung
 (Open-Meteo) und Analyse (NP/IF/TSS, CTL/ATL/TSB).
 
-Modulpfad: `codeberg.org/danszek/wff`. Aktuell nur ein `/healthz`-Endpoint
+Modulpfad: `github.com/DerDaehne/wff`. Aktuell nur ein `/healthz`-Endpoint
 als Rauchtest für das Nix-Packaging (Epic #553); Fachlogik folgt in
 #546/#547/#548/#550/#551.
 
