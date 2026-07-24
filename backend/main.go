@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DerDaehne/wff/internal/activities"
+	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/DerDaehne/wff/internal/db"
 	"github.com/DerDaehne/wff/internal/enrich"
@@ -49,6 +50,7 @@ func runServer() {
 	auth.NewHandlers(pool, wa).Register(mux)
 	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads"), weather).Register(mux)
 	profile.NewHandlers(pool).Register(mux)
+	analyze.NewHandlers(pool).Register(mux)
 
 	go enrich.RunPoller(ctx, pool, weather, enrichmentPollInterval())
 

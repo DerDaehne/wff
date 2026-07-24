@@ -4,7 +4,7 @@ package analyze
 // training load. Rule-based only — no ML, no training-plan generation (see
 // arch-wff-analyze on why that's out of scope).
 type Insight struct {
-	Message string
+	Message string `json:"message"`
 }
 
 // minHistoryDaysForInsights is how far back the CTL-trend rules look.

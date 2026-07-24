@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/fitparse"
@@ -98,6 +99,14 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 	); err != nil {
 		http.Error(w, "could not store activity", http.StatusInternalServerError)
 		return
+	}
+
+	// NP/IF/TSS: pure CPU work over samples already on disk, no external
+	// API call like enrichment — safe to compute synchronously. A failure
+	// here just leaves those columns NULL; it doesn't invalidate the upload
+	// itself (the activity + samples are already correctly stored).
+	if err := analyze.Activity(r.Context(), h.pool, activityID); err != nil {
+		log.Printf("analyze: activity %d: %v", activityID, err)
 	}
 
 	// Best-effort immediate attempt: usually a no-op wait (ERA5 has ~5 day

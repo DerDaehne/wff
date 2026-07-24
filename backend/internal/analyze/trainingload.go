@@ -16,11 +16,11 @@ const (
 // that day (0 on rest days) plus the resulting CTL/ATL and the TSB the
 // rider had entering the day.
 type DayLoad struct {
-	Date time.Time // UTC calendar day, midnight
-	TSS  float64
-	CTL  float64
-	ATL  float64
-	TSB  float64
+	Date time.Time `json:"date"` // UTC calendar day, midnight
+	TSS  float64   `json:"tss"`
+	CTL  float64   `json:"ctl"`
+	ATL  float64   `json:"atl"`
+	TSB  float64   `json:"tsb"`
 }
 
 // TrainingLoad computes the daily CTL/ATL/TSB series for a user, from their
