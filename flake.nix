@@ -24,7 +24,7 @@
             pname = "wff-backend";
             version = "0.1.0";
             src = ./backend;
-            vendorHash = "sha256-o7nRypLnRe0XzvO0djDKR4v7i5NKp78ynyiieyALlTU=";
+            vendorHash = "sha256-Ekh3+r05lW0+qmZ1LAXaN4XEeaYtvTsANIUduzlLqZk=";
           };
         in
         { inherit backend; }
