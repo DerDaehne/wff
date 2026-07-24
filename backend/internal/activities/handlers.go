@@ -3,16 +3,20 @@
 package activities
 
 import (
+	"context"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/DerDaehne/wff/internal/auth"
+	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/fitparse"
 	"github.com/DerDaehne/wff/internal/ingest"
+	"github.com/DerDaehne/wff/internal/openmeteo"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -23,10 +27,11 @@ const maxUploadBytes = 50 << 20
 type Handlers struct {
 	pool      *pgxpool.Pool
 	uploadDir string
+	weather   *openmeteo.Client
 }
 
-func NewHandlers(pool *pgxpool.Pool, uploadDir string) *Handlers {
-	return &Handlers{pool: pool, uploadDir: uploadDir}
+func NewHandlers(pool *pgxpool.Pool, uploadDir string, weather *openmeteo.Client) *Handlers {
+	return &Handlers{pool: pool, uploadDir: uploadDir, weather: weather}
 }
 
 func (h *Handlers) Register(mux *http.ServeMux) {
@@ -94,6 +99,17 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not store activity", http.StatusInternalServerError)
 		return
 	}
+
+	// Best-effort immediate attempt: usually a no-op wait (ERA5 has ~5 day
+	// lag) or a no-op for GPS-less rides, but occasionally data is already
+	// there. Uses its own background context — the HTTP response below has
+	// already gone out by the time this runs. The retry poller (started in
+	// main) is the durable path; this is purely a latency optimization.
+	go func() {
+		if _, err := enrich.Activity(context.Background(), h.pool, h.weather, activityID); err != nil {
+			log.Printf("enrich: immediate attempt for activity %d: %v", activityID, err)
+		}
+	}()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

@@ -7,10 +7,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/DerDaehne/wff/internal/activities"
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/DerDaehne/wff/internal/db"
+	"github.com/DerDaehne/wff/internal/enrich"
+	"github.com/DerDaehne/wff/internal/openmeteo"
 )
 
 func main() {
@@ -40,8 +43,12 @@ func runServer() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+	weather := openmeteo.New(os.Getenv("OPENMETEO_BASE_URL"))
+
 	auth.NewHandlers(pool, wa).Register(mux)
-	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads")).Register(mux)
+	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads"), weather).Register(mux)
+
+	go enrich.RunPoller(ctx, pool, weather, enrichmentPollInterval())
 
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("wff backend listening on %s", addr)
@@ -78,6 +85,24 @@ func runInviteCLI(args []string) {
 		return
 	}
 	fmt.Printf("Invite for %s (valid %s): %s/auth/invite/%s\n", username, auth.InviteTTL, base, token)
+}
+
+// enrichmentPollInterval reads ENRICHMENT_POLL_INTERVAL (Go duration
+// string, e.g. "1h"). ERA5 has ~5 day ingest lag, so polling more often
+// than hourly wouldn't find anything new — 1h is a sane default, not a
+// performance-tuned one.
+func enrichmentPollInterval() time.Duration {
+	const defaultInterval = time.Hour
+	v := os.Getenv("ENRICHMENT_POLL_INTERVAL")
+	if v == "" {
+		return defaultInterval
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		log.Printf("invalid ENRICHMENT_POLL_INTERVAL %q, using default %s: %v", v, defaultInterval, err)
+		return defaultInterval
+	}
+	return d
 }
 
 func requireEnv(name string) string {

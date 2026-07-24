@@ -27,6 +27,8 @@ services:
       PORT: 8080
       DATABASE_URL: postgres://${POSTGRES_USER:-wff}:${POSTGRES_PASSWORD:-wff}@db:5432/${POSTGRES_DB:-wff}?sslmode=disable
       UPLOAD_DIR: /data/uploads
+      ENRICHMENT_POLL_INTERVAL: ${ENRICHMENT_POLL_INTERVAL:-1h}
+      OPENMETEO_BASE_URL: ${OPENMETEO_BASE_URL:-}
     volumes:
       - upload-data:/data/uploads
     ports:

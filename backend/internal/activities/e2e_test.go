@@ -26,6 +26,7 @@ import (
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/DerDaehne/wff/internal/db"
 	"github.com/DerDaehne/wff/internal/fitparse/fitfixture"
+	"github.com/DerDaehne/wff/internal/openmeteo"
 	"github.com/descope/virtualwebauthn"
 )
 
@@ -59,9 +60,19 @@ func TestUploadEndpoint(t *testing.T) {
 		t.Fatalf("NewWebAuthn: %v", err)
 	}
 	uploadDir := t.TempDir()
+
+	// Fake Open-Meteo server: upload() fires a best-effort enrichment
+	// attempt in a background goroutine, which must never reach the real
+	// internet during tests. Returning null values ("not yet available")
+	// keeps that goroutine fast and deterministic.
+	weatherServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"hourly":{"time":[],"temperature_2m":[],"wind_speed_10m":[],"wind_direction_10m":[],"precipitation":[]}}`))
+	}))
+	defer weatherServer.Close()
+
 	mux := http.NewServeMux()
 	auth.NewHandlers(pool, wa).Register(mux)
-	activities.NewHandlers(pool, uploadDir).Register(mux)
+	activities.NewHandlers(pool, uploadDir, openmeteo.New(weatherServer.URL)).Register(mux)
 	server.Config.Handler = mux
 	server.Start()
 	defer server.Close()
@@ -140,6 +151,109 @@ func TestUploadEndpoint(t *testing.T) {
 	_, emptyStatus := doUploadMultipart(t, client, server.URL, nil)
 	if emptyStatus != http.StatusBadRequest {
 		t.Fatalf("empty upload: status = %d, want 400", emptyStatus)
+	}
+}
+
+// TestUploadTriggersImmediateEnrichment verifies #560's async-trigger half:
+// a successful upload kicks off enrichment in the background without
+// delaying the HTTP response. Since it's genuinely asynchronous, this polls
+// the DB briefly rather than asserting immediately after the response.
+func TestUploadTriggersImmediateEnrichment(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — skipping live-Postgres integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer pool.Close()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	server := httptest.NewUnstartedServer(nil)
+	server.Listener.Close()
+	server.Listener = listener
+
+	os.Setenv("WEBAUTHN_RPID", "localhost")
+	os.Setenv("WEBAUTHN_ORIGIN", "http://"+listener.Addr().String())
+	os.Setenv("COOKIE_SECURE", "false")
+
+	wa, err := auth.NewWebAuthn()
+	if err != nil {
+		t.Fatalf("NewWebAuthn: %v", err)
+	}
+
+	// This time the fake weather server has data ready immediately, so the
+	// background attempt fired by upload() should complete on its own,
+	// without waiting for the retry poller.
+	weatherServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"hourly":{"time":["2026-07-20T08:00"],"temperature_2m":[19.5],"wind_speed_10m":[4.0],"wind_direction_10m":[90],"precipitation":[0.2]}}`))
+	}))
+	defer weatherServer.Close()
+
+	mux := http.NewServeMux()
+	auth.NewHandlers(pool, wa).Register(mux)
+	activities.NewHandlers(pool, t.TempDir(), openmeteo.New(weatherServer.URL)).Register(mux)
+	server.Config.Handler = mux
+	server.Start()
+	defer server.Close()
+
+	rp := virtualwebauthn.RelyingParty{Name: "WFF", ID: "localhost", Origin: server.URL}
+	stamp := time.Now().UnixNano()
+	username := fmt.Sprintf("enrich-trigger-test-%d", stamp)
+
+	token, err := auth.CreateInvite(ctx, pool, username, "Enrich Trigger Test")
+	if err != nil {
+		t.Fatalf("CreateInvite: %v", err)
+	}
+	jar, _ := cookiejar.New(nil)
+	client := &http.Client{Jar: jar}
+
+	attestationBody := getBody(t, client, server.URL+"/auth/invite/"+token, http.StatusOK)
+	attestationOptions, err := virtualwebauthn.ParseAttestationOptions(attestationBody)
+	if err != nil {
+		t.Fatalf("ParseAttestationOptions: %v", err)
+	}
+	authenticator := virtualwebauthn.NewAuthenticator()
+	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
+	postMultipart(t, client, server.URL+"/auth/invite/"+token, "application/json", []byte(attestationResponse), http.StatusCreated)
+
+	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
+	validFIT := fitfixture.ValidActivity(777222, created, 15)
+
+	body, status := doUploadMultipart(t, client, server.URL, validFIT)
+	if status != http.StatusCreated {
+		t.Fatalf("upload: status = %d, body: %s", status, body)
+	}
+	var created201 struct {
+		ActivityID int64 `json:"activity_id"`
+	}
+	if err := json.Unmarshal(body, &created201); err != nil {
+		t.Fatalf("decode response: %v (body: %s)", err, body)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var rowCount int
+	for time.Now().Before(deadline) {
+		if err := pool.QueryRow(ctx,
+			`SELECT count(*) FROM enrichment WHERE activity_id = $1`, created201.ActivityID,
+		).Scan(&rowCount); err != nil {
+			t.Fatalf("count enrichment rows: %v", err)
+		}
+		if rowCount > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if rowCount == 0 {
+		t.Fatalf("no enrichment row appeared within 2s of upload — immediate background attempt did not run (or did not complete)")
 	}
 }
 
