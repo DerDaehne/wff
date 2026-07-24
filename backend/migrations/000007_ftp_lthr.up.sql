@@ -1,0 +1,2 @@
+ALTER TABLE users ADD COLUMN ftp_watts INTEGER;
+ALTER TABLE users ADD COLUMN lthr_bpm INTEGER;

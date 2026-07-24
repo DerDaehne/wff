@@ -14,6 +14,7 @@ import (
 	"github.com/DerDaehne/wff/internal/db"
 	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/openmeteo"
+	"github.com/DerDaehne/wff/internal/profile"
 )
 
 func main() {
@@ -47,6 +48,7 @@ func runServer() {
 
 	auth.NewHandlers(pool, wa).Register(mux)
 	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads"), weather).Register(mux)
+	profile.NewHandlers(pool).Register(mux)
 
 	go enrich.RunPoller(ctx, pool, weather, enrichmentPollInterval())
 
