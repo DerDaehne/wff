@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/DerDaehne/wff/internal/activities"
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/DerDaehne/wff/internal/db"
 )
@@ -40,6 +41,7 @@ func runServer() {
 		w.Write([]byte("ok"))
 	})
 	auth.NewHandlers(pool, wa).Register(mux)
+	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads")).Register(mux)
 
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("wff backend listening on %s", addr)
