@@ -30,10 +30,23 @@ nix develop        # Dev-Shell mit Go, Node/pnpm, PostgreSQL, docker-compose
 
 ## Build & Deploy
 
+Über Nix (primärer/Referenz-Build-Weg):
+
 ```sh
 nix build .#backend            # statisches Go-Binary (result/bin/wff), Frontend eingebettet
 nix build .#docker              # distroless OCI-Image (nur x86_64/aarch64-linux)
 docker load < result            # Image lokal als wff-backend:latest verfügbar machen
+```
+
+Ohne Nix (reines `docker build`, z. B. für einen Server ohne Nix):
+
+```sh
+docker build -t wff-backend:latest .
+```
+
+Beide Wege erzeugen dasselbe Image (`wff-backend:latest`), das `docker-compose.yml` erwartet:
+
+```sh
 cp .env.example .env && docker compose up   # App + PostgreSQL lokal starten
 ```
 
