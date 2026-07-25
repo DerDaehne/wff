@@ -17,7 +17,8 @@
       }));
     in
     {
-      # Backend-Binary: `nix build .#backend`; Docker-Image (nur Linux): `nix build .#docker`
+      # Backend-Binary: `nix build .#backend`; Frontend-PWA-Static-Build: `nix build .#frontend`;
+      # Docker-Image (nur Linux): `nix build .#docker`
       packages = forAllSystems (pkgs:
         let
           backend = pkgs.buildGoModule {
@@ -26,8 +27,34 @@
             src = ./backend;
             vendorHash = "sha256-Ekh3+r05lW0+qmZ1LAXaN4XEeaYtvTsANIUduzlLqZk=";
           };
+
+          frontend = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {
+            pname = "wff-frontend";
+            version = "0.1.0";
+            src = ./frontend;
+
+            pnpmDeps = pkgs.fetchPnpmDeps {
+              inherit (finalAttrs) pname version src;
+              fetcherVersion = 4;
+              hash = "sha256-Kel3ziGTjSyYzCfG8FOjFZcZ4QLLLqbVXHAz3WrgZ7o=";
+            };
+
+            nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm pkgs.pnpmConfigHook ];
+
+            buildPhase = ''
+              runHook preBuild
+              pnpm build
+              runHook postBuild
+            '';
+
+            installPhase = ''
+              runHook preInstall
+              cp -r build "$out"
+              runHook postInstall
+            '';
+          });
         in
-        { inherit backend; }
+        { inherit backend frontend; }
         // nixpkgs.lib.optionalAttrs (builtins.elem pkgs.system linuxSystems) {
           docker = pkgs.dockerTools.buildLayeredImage {
             name = "wff-backend";
