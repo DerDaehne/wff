@@ -85,10 +85,11 @@ func runInviteCLI(args []string) {
 	base := os.Getenv("PUBLIC_BASE_URL")
 	if base == "" {
 		fmt.Printf("Invite token for %s (valid %s): %s\n", username, auth.InviteTTL, token)
-		fmt.Println("Redeem at: <PUBLIC_BASE_URL>/auth/invite/" + token)
+		// /invite/{token} is the frontend page (calls /auth/invite/{token} itself)
+		fmt.Println("Redeem at: <PUBLIC_BASE_URL>/invite/" + token)
 		return
 	}
-	fmt.Printf("Invite for %s (valid %s): %s/auth/invite/%s\n", username, auth.InviteTTL, base, token)
+	fmt.Printf("Invite for %s (valid %s): %s/invite/%s\n", username, auth.InviteTTL, base, token)
 }
 
 // enrichmentPollInterval reads ENRICHMENT_POLL_INTERVAL (Go duration
