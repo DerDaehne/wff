@@ -31,6 +31,14 @@ services:
       UPLOAD_DIR: /data/uploads
       ENRICHMENT_POLL_INTERVAL: ${ENRICHMENT_POLL_INTERVAL:-1h}
       OPENMETEO_BASE_URL: ${OPENMETEO_BASE_URL:-}
+      # Passkeys are bound to these at registration time — they MUST match
+      # the real public origin (see arch-wff-auth), or WebAuthn will reject
+      # every ceremony. No safe default for a real deployment; set these in
+      # .env. COOKIE_SECURE only needs to be "false" for plain-HTTP local
+      # testing (session cookies require HTTPS otherwise).
+      WEBAUTHN_RPID: ${WEBAUTHN_RPID:?set WEBAUTHN_RPID to your domain, e.g. wff.example.com}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:?set WEBAUTHN_ORIGIN to your public origin, e.g. https://wff.example.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
     volumes:
       - upload-data:/data/uploads
     ports:
