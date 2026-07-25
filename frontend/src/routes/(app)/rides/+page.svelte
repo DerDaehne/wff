@@ -1,0 +1,66 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { listActivities, formatDistance, formatDuration, type ActivitySummary } from '$lib/rides';
+	import { ApiError } from '$lib/api';
+
+	let viewState: 'loading' | 'empty' | 'error' | 'ready' = $state('loading');
+	let rides: ActivitySummary[] = $state([]);
+	let errorMessage = $state('');
+
+	onMount(async () => {
+		try {
+			rides = await listActivities();
+			viewState = rides.length === 0 ? 'empty' : 'ready';
+		} catch (err) {
+			errorMessage = err instanceof ApiError ? err.message : 'Fahrten konnten nicht geladen werden.';
+			viewState = 'error';
+		}
+	});
+</script>
+
+<h1>Fahrten</h1>
+
+{#if viewState === 'loading'}
+	<p>Lädt…</p>
+{:else if viewState === 'error'}
+	<p role="alert">{errorMessage}</p>
+{:else if viewState === 'empty'}
+	<p>Noch keine Aktivitäten hochgeladen.</p>
+	<p><a href="/upload">Erste Fahrt hochladen</a></p>
+{:else}
+	<ul class="rides">
+		{#each rides as ride (ride.id)}
+			<li>
+				<a href="/rides/{ride.id}">
+					<strong>{new Date(ride.started_at).toLocaleDateString('de-DE')}</strong>
+					— {formatDistance(ride.distance_meters)} · {formatDuration(ride.moving_seconds)}
+					{#if ride.training_stress_score !== null}
+						· TSS {ride.training_stress_score.toFixed(0)}
+					{/if}
+				</a>
+			</li>
+		{/each}
+	</ul>
+{/if}
+
+<style>
+	.rides {
+		list-style: none;
+		padding: 0;
+	}
+
+	.rides li {
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.rides a {
+		display: block;
+		padding: 0.75rem 0;
+		color: inherit;
+		text-decoration: none;
+	}
+
+	.rides a:hover {
+		background: #f8fafc;
+	}
+</style>

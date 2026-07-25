@@ -4,6 +4,7 @@ package activities
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
@@ -37,6 +39,115 @@ func NewHandlers(pool *pgxpool.Pool, uploadDir string, weather *openmeteo.Client
 
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.upload)))
+	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
+	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
+}
+
+type activitySummary struct {
+	ID                  int64     `json:"id"`
+	StartedAt           time.Time `json:"started_at"`
+	Sport               string    `json:"sport"`
+	ElapsedSeconds      int       `json:"elapsed_seconds"`
+	MovingSeconds       int       `json:"moving_seconds"`
+	DistanceMeters      *float64  `json:"distance_meters"`
+	TrainingStressScore *float64  `json:"training_stress_score"`
+}
+
+// list returns the requesting person's activities, most recent first — the
+// Ride-Liste view's data source (#572).
+func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT id, started_at, sport, elapsed_seconds, moving_seconds, distance_meters, training_stress_score
+		 FROM activities WHERE user_id = $1 ORDER BY started_at DESC`,
+		userID,
+	)
+	if err != nil {
+		http.Error(w, "could not load activities", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	activities := []activitySummary{} // never null in the JSON response
+	for rows.Next() {
+		var a activitySummary
+		if err := rows.Scan(&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore); err != nil {
+			http.Error(w, "could not load activities", http.StatusInternalServerError)
+			return
+		}
+		activities = append(activities, a)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "could not load activities", http.StatusInternalServerError)
+		return
+	}
+
+	writeActivitiesJSON(w, activities)
+}
+
+type sampleDTO struct {
+	Time           time.Time `json:"time"`
+	Lat            *float64  `json:"lat"`
+	Lon            *float64  `json:"lon"`
+	AltitudeMeters *float64  `json:"altitude_meters"`
+	PowerWatts     *int      `json:"power_watts"`
+	HeartRate      *int      `json:"heart_rate"`
+}
+
+// samples returns an activity's raw time series (GPS track, elevation,
+// power, heart rate) for the Ride-Detail view (#572): map, elevation
+// profile, power/HR curve. Ownership is checked explicitly — RequireAuth
+// only proves who's asking, not that the activity is theirs.
+func (h *Handlers) samples(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid activity id", http.StatusBadRequest)
+		return
+	}
+
+	var ownerID int64
+	err = h.pool.QueryRow(r.Context(), `SELECT user_id FROM activities WHERE id = $1`, activityID).Scan(&ownerID)
+	if err != nil || ownerID != userID {
+		// Same response whether the activity doesn't exist or belongs to
+		// someone else — don't leak which via the status code.
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT time, lat, lon, altitude_meters, power_watts, heart_rate
+		 FROM samples WHERE activity_id = $1 ORDER BY time`,
+		activityID,
+	)
+	if err != nil {
+		http.Error(w, "could not load samples", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	samples := []sampleDTO{} // never null in the JSON response
+	for rows.Next() {
+		var s sampleDTO
+		if err := rows.Scan(&s.Time, &s.Lat, &s.Lon, &s.AltitudeMeters, &s.PowerWatts, &s.HeartRate); err != nil {
+			http.Error(w, "could not load samples", http.StatusInternalServerError)
+			return
+		}
+		samples = append(samples, s)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "could not load samples", http.StatusInternalServerError)
+		return
+	}
+
+	writeActivitiesJSON(w, samples)
+}
+
+func writeActivitiesJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(v)
 }
 
 func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {

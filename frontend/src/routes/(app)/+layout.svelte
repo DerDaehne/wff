@@ -24,6 +24,7 @@
 
 	const navItems = [
 		{ href: '/', label: 'Start' },
+		{ href: '/rides', label: 'Fahrten' },
 		{ href: '/upload', label: 'Upload' }
 	];
 </script>

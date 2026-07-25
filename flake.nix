@@ -36,7 +36,7 @@
             pnpmDeps = pkgs.fetchPnpmDeps {
               inherit (finalAttrs) pname version src;
               fetcherVersion = 4;
-              hash = "sha256-5T1a9LI3ucsYf/qCY/ChBZF7zSzDSLkR0ITFnl57y/c=";
+              hash = "sha256-9P+wZqzUwULtSQqfIq+CMUOvWswHJlUTGtdR10ENJB4=";
             };
 
             nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm pkgs.pnpmConfigHook ];

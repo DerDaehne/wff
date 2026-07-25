@@ -257,6 +257,170 @@ func TestUploadTriggersImmediateEnrichment(t *testing.T) {
 	}
 }
 
+// TestListAndSamplesEndpoints covers #572's new read endpoints: the
+// Ride-Liste data source (GET /api/activities) and the Ride-Detail data
+// source (GET /api/activities/{id}/samples), including the ownership check
+// on samples — a second person must not be able to read someone else's ride.
+func TestListAndSamplesEndpoints(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — skipping live-Postgres integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer pool.Close()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	server := httptest.NewUnstartedServer(nil)
+	server.Listener.Close()
+	server.Listener = listener
+
+	os.Setenv("WEBAUTHN_RPID", "localhost")
+	os.Setenv("WEBAUTHN_ORIGIN", "http://"+listener.Addr().String())
+	os.Setenv("COOKIE_SECURE", "false")
+
+	wa, err := auth.NewWebAuthn()
+	if err != nil {
+		t.Fatalf("NewWebAuthn: %v", err)
+	}
+
+	weatherServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"hourly":{"time":[],"temperature_2m":[],"wind_speed_10m":[],"wind_direction_10m":[],"precipitation":[]}}`))
+	}))
+	defer weatherServer.Close()
+
+	mux := http.NewServeMux()
+	auth.NewHandlers(pool, wa).Register(mux)
+	activities.NewHandlers(pool, t.TempDir(), openmeteo.New(weatherServer.URL)).Register(mux)
+	server.Config.Handler = mux
+	server.Start()
+	defer server.Close()
+
+	rp := virtualwebauthn.RelyingParty{Name: "WFF", ID: "localhost", Origin: server.URL}
+	stamp := time.Now().UnixNano()
+
+	registerRider := func(username string) *http.Client {
+		token, err := auth.CreateInvite(ctx, pool, username, username)
+		if err != nil {
+			t.Fatalf("CreateInvite: %v", err)
+		}
+		jar, _ := cookiejar.New(nil)
+		client := &http.Client{Jar: jar}
+		attestationBody := getBody(t, client, server.URL+"/auth/invite/"+token, http.StatusOK)
+		attestationOptions, err := virtualwebauthn.ParseAttestationOptions(attestationBody)
+		if err != nil {
+			t.Fatalf("ParseAttestationOptions: %v", err)
+		}
+		authenticator := virtualwebauthn.NewAuthenticator()
+		credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
+		attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
+		postMultipart(t, client, server.URL+"/auth/invite/"+token, "application/json", []byte(attestationResponse), http.StatusCreated)
+		return client
+	}
+
+	rider := registerRider(fmt.Sprintf("list-samples-rider-%d", stamp))
+	otherRider := registerRider(fmt.Sprintf("list-samples-other-%d", stamp))
+
+	created := time.Date(2026, 7, 21, 8, 0, 0, 0, time.UTC)
+	validFIT := fitfixture.ValidActivity(999333, created, 20)
+
+	body, status := doUploadMultipart(t, rider, server.URL, validFIT)
+	if status != http.StatusCreated {
+		t.Fatalf("upload: status = %d, body: %s", status, body)
+	}
+	var uploaded struct {
+		ActivityID int64 `json:"activity_id"`
+	}
+	if err := json.Unmarshal(body, &uploaded); err != nil {
+		t.Fatalf("decode upload response: %v", err)
+	}
+
+	t.Run("list returns the rider's own activity", func(t *testing.T) {
+		listBody := getBody(t, rider, server.URL+"/api/activities", http.StatusOK)
+		var list []struct {
+			ID     int64  `json:"id"`
+			Sport  string `json:"sport"`
+			Moving int    `json:"moving_seconds"`
+		}
+		if err := json.Unmarshal([]byte(listBody), &list); err != nil {
+			t.Fatalf("decode list response: %v (body: %s)", err, listBody)
+		}
+		found := false
+		for _, a := range list {
+			if a.ID == uploaded.ActivityID {
+				found = true
+				if a.Sport != "cycling" {
+					t.Fatalf("sport = %q, want cycling", a.Sport)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("uploaded activity %d not present in list: %s", uploaded.ActivityID, listBody)
+		}
+	})
+
+	t.Run("list is empty for a rider with no activities", func(t *testing.T) {
+		listBody := getBody(t, otherRider, server.URL+"/api/activities", http.StatusOK)
+		var list []any
+		if err := json.Unmarshal([]byte(listBody), &list); err != nil {
+			t.Fatalf("decode list response: %v (body: %s)", err, listBody)
+		}
+		if len(list) != 0 {
+			t.Fatalf("other rider's list = %v, want empty", list)
+		}
+	})
+
+	t.Run("samples returns real time-series data for the owner", func(t *testing.T) {
+		samplesURL := fmt.Sprintf("%s/api/activities/%d/samples", server.URL, uploaded.ActivityID)
+		samplesBody := getBody(t, rider, samplesURL, http.StatusOK)
+		var samples []struct {
+			Time       time.Time `json:"time"`
+			Lat        *float64  `json:"lat"`
+			PowerWatts *int      `json:"power_watts"`
+		}
+		if err := json.Unmarshal([]byte(samplesBody), &samples); err != nil {
+			t.Fatalf("decode samples response: %v (body: %s)", err, samplesBody)
+		}
+		if len(samples) != 20 {
+			t.Fatalf("len(samples) = %d, want 20", len(samples))
+		}
+		if samples[0].PowerWatts == nil {
+			t.Fatalf("samples[0].PowerWatts is nil, want a value")
+		}
+	})
+
+	t.Run("samples 404s for another rider's activity", func(t *testing.T) {
+		samplesURL := fmt.Sprintf("%s/api/activities/%d/samples", server.URL, uploaded.ActivityID)
+		resp, err := otherRider.Get(samplesURL)
+		if err != nil {
+			t.Fatalf("GET samples: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("other rider GET samples: status = %d, want 404", resp.StatusCode)
+		}
+	})
+
+	t.Run("samples 404s for a nonexistent activity", func(t *testing.T) {
+		samplesURL := fmt.Sprintf("%s/api/activities/999999999/samples", server.URL)
+		resp, err := rider.Get(samplesURL)
+		if err != nil {
+			t.Fatalf("GET samples: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("nonexistent activity: status = %d, want 404", resp.StatusCode)
+		}
+	})
+}
+
 func getBody(t *testing.T, client *http.Client, url string, wantStatus int) string {
 	t.Helper()
 	resp, err := client.Get(url)
