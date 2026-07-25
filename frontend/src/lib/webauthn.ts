@@ -41,9 +41,17 @@ export async function logout(): Promise<void> {
 }
 
 export async function whoAmI(): Promise<{ user_id: number } | null> {
-	const res = await fetch('/api/me');
-	if (!res.ok) return null;
-	return res.json();
+	// A network failure (e.g. offline, app shell served from the SW cache)
+	// is treated the same as "not logged in" here — the alternative would
+	// be a third UI state just for "can't tell," which isn't worth it for
+	// what's meant to be a basic offline shell, not full offline sessions.
+	try {
+		const res = await fetch('/api/me');
+		if (!res.ok) return null;
+		return await res.json();
+	} catch {
+		return null;
+	}
 }
 
 /** Human-readable message for the invite/login form's error state. */

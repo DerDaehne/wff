@@ -16,6 +16,7 @@ import (
 	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/openmeteo"
 	"github.com/DerDaehne/wff/internal/profile"
+	"github.com/DerDaehne/wff/internal/webui"
 )
 
 func main() {
@@ -51,6 +52,11 @@ func runServer() {
 	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads"), weather).Register(mux)
 	profile.NewHandlers(pool).Register(mux)
 	analyze.NewHandlers(pool).Register(mux)
+
+	// Catch-all: the embedded frontend build. Registered last for
+	// readability only — Go 1.22+'s ServeMux prioritizes the more specific
+	// patterns above regardless of registration order.
+	mux.Handle("/", webui.Handler())
 
 	go enrich.RunPoller(ctx, pool, weather, enrichmentPollInterval())
 

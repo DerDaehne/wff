@@ -11,8 +11,10 @@ Siehe **ADR 001** in der kabai-Wissensbasis (`adr-001-wff-tech-stack`).
 - **Backend:** Go (`tormoder/fit` fürs `.fit`-Parsing) + PostgreSQL
 - **Frontend:** SvelteKit als installierbare **PWA**
 - **Wetter/Wind:** Open-Meteo (ERA5-History, kein API-Key, self-hostbar)
-- **Karte:** MapLibre GL + self-hosted Tiles (PMTiles)
-- **Build/Deploy:** Nix-Flake → Docker-Container
+- **Karte:** MapLibre GL — aktuell öffentliche, keyless OpenFreeMap-Vektor-Tiles;
+  self-hosted PMTiles bleibt späteres Scope (Epic #549)
+- **Build/Deploy:** Nix-Flake → ein Docker-Container (Frontend via `go:embed`
+  im Go-Binary, kein separater Frontend-Service)
 
 ## Nutzung
 
@@ -29,11 +31,14 @@ nix develop        # Dev-Shell mit Go, Node/pnpm, PostgreSQL, docker-compose
 ## Build & Deploy
 
 ```sh
-nix build .#backend            # statisches Go-Binary (result/bin/wff)
+nix build .#backend            # statisches Go-Binary (result/bin/wff), Frontend eingebettet
 nix build .#docker              # distroless OCI-Image (nur x86_64/aarch64-linux)
 docker load < result            # Image lokal als wff-backend:latest verfügbar machen
 cp .env.example .env && docker compose up   # App + PostgreSQL lokal starten
 ```
+
+Ein Container liefert sowohl die API als auch die installierbare PWA aus (kein
+separater Frontend-Service in `docker-compose.yml`).
 
 Struktur:
 

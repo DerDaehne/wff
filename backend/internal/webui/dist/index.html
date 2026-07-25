@@ -1,0 +1,19 @@
+<!doctype html>
+<!--
+  Placeholder, checked into git so `go:embed all:dist` always has at least
+  one file to embed — without it, a fresh checkout can't even compile the
+  backend before the frontend has ever been built (see #573).
+
+  The real frontend build (`nix build .#frontend`, or `pnpm build` in
+  frontend/) overwrites this directory's contents before the Go binary is
+  compiled. If you're seeing this in a browser, that hasn't happened yet.
+-->
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<title>WFF</title>
+	</head>
+	<body>
+		<p>Frontend not built yet — see backend/internal/webui/embed.go.</p>
+	</body>
+</html>

@@ -17,7 +17,8 @@
       }));
     in
     {
-      # Backend-Binary: `nix build .#backend`; Frontend-PWA-Static-Build: `nix build .#frontend`;
+      # Backend-Binary (PWA eingebettet via go:embed, #573): `nix build .#backend`;
+      # Frontend-PWA-Static-Build allein: `nix build .#frontend`;
       # Docker-Image (nur Linux): `nix build .#docker`
       packages = forAllSystems (pkgs:
         let
@@ -26,6 +27,15 @@
             version = "0.1.0";
             src = ./backend;
             vendorHash = "sha256-Ekh3+r05lW0+qmZ1LAXaN4XEeaYtvTsANIUduzlLqZk=";
+
+            # internal/webui/dist ships a placeholder (so the module always
+            # compiles on its own) — overwrite it with the real static build
+            # before `go build` runs, so the single binary serves both API
+            # and PWA (#573).
+            preBuild = ''
+              rm -rf internal/webui/dist
+              cp -r ${frontend} internal/webui/dist
+            '';
           };
 
           frontend = pkgs.stdenvNoCC.mkDerivation (finalAttrs: {

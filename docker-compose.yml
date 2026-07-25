@@ -17,6 +17,8 @@ services:
       timeout: 3s
       retries: 10
 
+  # Serves both the API and the installable PWA (frontend embedded into the
+  # binary via go:embed, #573) — no separate frontend/nginx service needed.
   app:
     image: wff-backend:latest
     restart: unless-stopped
