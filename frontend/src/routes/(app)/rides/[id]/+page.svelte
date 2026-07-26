@@ -3,13 +3,19 @@
 	import { page } from '$app/state';
 	import { Map, LngLatBounds } from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
-	import { getActivitySamples, type Sample } from '$lib/rides';
+	import {
+		getActivitySamples,
+		getActivityWeather,
+		type Sample,
+		type WeatherSummary
+	} from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
 
 	let viewState: 'loading' | 'error' | 'ready' = $state('loading');
 	let errorMessage = $state('');
 	let samples: Sample[] = $state([]);
+	let weather: WeatherSummary | null = $state(null);
 	let mapContainer: HTMLDivElement = $state()!;
 	let map: Map | null = null;
 
@@ -50,10 +56,23 @@
 			.map((s) => [s.lon, s.lat] as [number, number])
 	);
 
+	let windLabel = $derived.by(() => {
+		if (!weather || weather.buckets_enriched === 0 || weather.avg_headwind_mps === null)
+			return null;
+		const kind = weather.avg_headwind_mps >= 0 ? 'Gegenwind' : 'Rückenwind';
+		return `⌀ ${Math.abs(weather.avg_headwind_mps).toFixed(1)} m/s ${kind}`;
+	});
+
 	onMount(async () => {
 		try {
-			samples = await getActivitySamples(Number(page.params.id));
+			const activityId = Number(page.params.id);
+			samples = await getActivitySamples(activityId);
 			viewState = 'ready';
+			// Best-effort — a ride not yet enriched (or without GPS) just shows
+			// no weather context, not an error for the whole page.
+			getActivityWeather(activityId)
+				.then((w) => (weather = w))
+				.catch(() => {});
 		} catch (err) {
 			errorMessage = err instanceof ApiError ? err.message : 'Fahrt konnte nicht geladen werden.';
 			viewState = 'error';
@@ -102,6 +121,16 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
+	{#if windLabel !== null || weather?.avg_temperature_celsius != null}
+		<p class="weather-context">
+			{#if weather?.avg_temperature_celsius != null}
+				{Math.round(weather.avg_temperature_celsius)}°C
+			{/if}
+			{#if windLabel !== null}
+				· {windLabel}
+			{/if}
+		</p>
+	{/if}
 	{#if gpsCoords.length > 1}
 		<div class="map" bind:this={mapContainer}></div>
 	{:else}
@@ -166,5 +195,11 @@
 		height: 300px;
 		border-radius: 0.5rem;
 		overflow: hidden;
+	}
+
+	.weather-context {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		margin-top: -0.5rem;
 	}
 </style>

@@ -62,7 +62,7 @@
 			{ name: 'TSB (Form)', color: tsbColor, values: series.map((d) => d.tsb) }
 		]}
 		xFormat={formatDay}
-		yFormat={(y) => y.toFixed(0)}
+		yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1))}
 		ariaLabel="CTL/ATL/TSB-Verlauf"
 	/>
 

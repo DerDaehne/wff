@@ -41,6 +41,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.upload)))
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
+	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
 }
 
 type activitySummary struct {
@@ -143,6 +144,45 @@ func (h *Handlers) samples(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeActivitiesJSON(w, samples)
+}
+
+type weatherSummaryDTO struct {
+	AvgWindSpeedMps       *float64 `json:"avg_wind_speed_mps"`
+	AvgHeadwindMps        *float64 `json:"avg_headwind_mps"`
+	AvgTemperatureCelsius *float64 `json:"avg_temperature_celsius"`
+	BucketsEnriched       int      `json:"buckets_enriched"`
+}
+
+// weatherSummary returns the activity's average wind/temperature context
+// (see internal/enrich) for the Ride-Detail view. BucketsEnriched == 0 means
+// not yet enriched (or no GPS data) — not an error, just nothing to show.
+func (h *Handlers) weatherSummary(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid activity id", http.StatusBadRequest)
+		return
+	}
+
+	var ownerID int64
+	err = h.pool.QueryRow(r.Context(), `SELECT user_id FROM activities WHERE id = $1`, activityID).Scan(&ownerID)
+	if err != nil || ownerID != userID {
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+
+	var summary weatherSummaryDTO
+	if err := h.pool.QueryRow(r.Context(), `
+		SELECT avg(wind_speed_mps), avg(headwind_mps), avg(temperature_celsius), count(*)
+		FROM enrichment WHERE activity_id = $1`,
+		activityID,
+	).Scan(&summary.AvgWindSpeedMps, &summary.AvgHeadwindMps, &summary.AvgTemperatureCelsius, &summary.BucketsEnriched); err != nil {
+		http.Error(w, "could not load weather summary", http.StatusInternalServerError)
+		return
+	}
+
+	writeActivitiesJSON(w, summary)
 }
 
 func writeActivitiesJSON(w http.ResponseWriter, v any) {

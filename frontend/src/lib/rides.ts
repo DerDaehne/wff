@@ -31,6 +31,18 @@ export async function getActivitySamples(id: number): Promise<Sample[]> {
 	return data ?? [];
 }
 
+export interface WeatherSummary {
+	avg_wind_speed_mps: number | null;
+	avg_headwind_mps: number | null;
+	avg_temperature_celsius: number | null;
+	buckets_enriched: number;
+}
+
+export async function getActivityWeather(id: number): Promise<WeatherSummary> {
+	const res = await apiFetch(`/api/activities/${id}/weather`);
+	return res.json();
+}
+
 export function formatDistance(meters: number | null): string {
 	if (meters === null) return '–';
 	return `${(meters / 1000).toFixed(1)} km`;
