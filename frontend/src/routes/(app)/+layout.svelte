@@ -26,7 +26,8 @@
 	const navItems = [
 		{ href: resolve('/(app)'), label: 'Start' },
 		{ href: resolve('/(app)/rides'), label: 'Fahrten' },
-		{ href: resolve('/(app)/upload'), label: 'Upload' }
+		{ href: resolve('/(app)/upload'), label: 'Upload' },
+		{ href: resolve('/(app)/profile'), label: 'Profil' }
 	];
 </script>
 

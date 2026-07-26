@@ -2,20 +2,32 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { getTrainingLoad, type DayLoad, type Insight } from '$lib/trainingload';
+	import { listActivities } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
 
-	let viewState: 'loading' | 'empty' | 'error' | 'ready' = $state('loading');
+	// 'no-activities' (upload something) and 'no-training-load' (activities
+	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
+	// the profile, not actually "nothing uploaded") are deliberately distinct:
+	// they need different, accurate messages.
+	let viewState: 'loading' | 'no-activities' | 'no-training-load' | 'error' | 'ready' =
+		$state('loading');
 	let series: DayLoad[] = $state([]);
 	let insights: Insight[] = $state([]);
 	let errorMessage = $state('');
 
 	onMount(async () => {
 		try {
-			const data = await getTrainingLoad();
-			series = data.series;
-			insights = data.insights;
-			viewState = series.length === 0 ? 'empty' : 'ready';
+			const [trainingLoad, activities] = await Promise.all([getTrainingLoad(), listActivities()]);
+			series = trainingLoad.series;
+			insights = trainingLoad.insights;
+			if (series.length > 0) {
+				viewState = 'ready';
+			} else if (activities.length > 0) {
+				viewState = 'no-training-load';
+			} else {
+				viewState = 'no-activities';
+			}
 		} catch (err) {
 			errorMessage =
 				err instanceof ApiError ? err.message : 'Trainingsdaten konnten nicht geladen werden.';
@@ -53,9 +65,15 @@
 	<p>Lädt…</p>
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
-{:else if viewState === 'empty'}
+{:else if viewState === 'no-activities'}
 	<p>Noch keine Aktivitäten hochgeladen.</p>
 	<p><a href={resolve('/(app)/upload')}>Erste Fahrt hochladen</a></p>
+{:else if viewState === 'no-training-load'}
+	<p>
+		Fahrten sind hochgeladen, aber es fehlt eine FTP- oder Puls-Schwellenwert-Konfiguration, um
+		daraus eine Trainingsbelastung zu berechnen.
+	</p>
+	<p><a href={resolve('/(app)/profile')}>FTP/LTHR im Profil hinterlegen</a></p>
 {:else if viewState === 'ready'}
 	<p>
 		Aktuelle Form (TSB): <strong style="color: {tsbColor}">{latestTSB?.toFixed(1)}</strong>
