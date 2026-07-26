@@ -23,6 +23,10 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 type trainingLoadResponse struct {
 	Series   []DayLoad `json:"series"`
 	Insights []Insight `json:"insights"`
+	// Status says in plain language how the rider is doing, in the same shape
+	// as a single ride's story (#602) — the chart below it is the evidence,
+	// this is the answer.
+	Status Story `json:"status"`
 }
 
 func (h *Handlers) trainingLoad(w http.ResponseWriter, r *http.Request) {
@@ -38,5 +42,6 @@ func (h *Handlers) trainingLoad(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(trainingLoadResponse{
 		Series:   series,
 		Insights: Insights(series),
+		Status:   TrainingStatus(series),
 	})
 }

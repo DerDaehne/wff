@@ -49,7 +49,17 @@ export async function getActivityWeather(id: number): Promise<WeatherSummary> {
 export interface RideStatement {
 	text: string;
 	metric?: string;
-	kind: 'effort' | 'load' | 'pace' | 'context' | 'comparison' | 'hint_profile' | 'hint_history';
+	kind:
+		| 'effort'
+		| 'load'
+		| 'pace'
+		| 'context'
+		| 'comparison'
+		// Dashboard kinds (#602): current form, and whether fitness is going up.
+		| 'form'
+		| 'trend'
+		| 'hint_profile'
+		| 'hint_history';
 }
 
 /** A headline figure, split so the number can be set large and the unit small. */
