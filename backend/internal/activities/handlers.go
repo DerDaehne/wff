@@ -42,6 +42,79 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
+	mux.Handle("GET /api/activities/{id}/story", auth.RequireAuth(h.pool)(http.HandlerFunc(h.story)))
+}
+
+// story returns the ride explained in plain language (#601): what kind of
+// session it was, what it did to the rider, and why it felt that way. The
+// wording and the thresholds behind it live in analyze.RideStory — this
+// handler only gathers the facts.
+func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid activity id", http.StatusBadRequest)
+		return
+	}
+
+	var (
+		facts           analyze.RideFacts
+		normalizedPower *float64
+		startedAt       time.Time
+		ownerID         int64
+	)
+	err = h.pool.QueryRow(r.Context(), `
+		SELECT user_id, started_at, elapsed_seconds, moving_seconds, distance_meters,
+		       elevation_gain_meters, intensity_factor, training_stress_score, normalized_power_watts
+		FROM activities WHERE id = $1`,
+		activityID,
+	).Scan(&ownerID, &startedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
+		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower)
+	if err != nil || ownerID != userID {
+		// Same 404 for "not yours" and "doesn't exist" — see samples().
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+	facts.FromPower = normalizedPower != nil
+
+	// Weather is best-effort context: a ride that was never enriched (or has
+	// no GPS) simply gets no wind/temperature statement.
+	_ = h.pool.QueryRow(r.Context(), `
+		SELECT avg(headwind_mps), avg(temperature_celsius)
+		FROM enrichment WHERE activity_id = $1`,
+		activityID,
+	).Scan(&facts.HeadwindMps, &facts.TemperatureCelsius)
+
+	// Earlier rides only: including this ride (or later ones) in its own
+	// baseline would flatten exactly the difference the comparison shows.
+	// ponytail: last 30 rides is plenty for a median; widen if the baseline
+	// ever needs to be season-aware.
+	rows, err := h.pool.Query(r.Context(), `
+		SELECT training_stress_score FROM activities
+		WHERE user_id = $1 AND started_at < $2 AND training_stress_score IS NOT NULL
+		ORDER BY started_at DESC LIMIT 30`,
+		userID, startedAt,
+	)
+	if err != nil {
+		http.Error(w, "could not load ride history", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tss float64
+		if err := rows.Scan(&tss); err != nil {
+			http.Error(w, "could not load ride history", http.StatusInternalServerError)
+			return
+		}
+		facts.PriorTSS = append(facts.PriorTSS, tss)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "could not load ride history", http.StatusInternalServerError)
+		return
+	}
+
+	writeActivitiesJSON(w, analyze.RideStory(facts))
 }
 
 type activitySummary struct {

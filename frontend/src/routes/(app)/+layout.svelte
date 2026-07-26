@@ -117,6 +117,21 @@
 		background: rgba(255, 255, 255, 0.22);
 	}
 
+	/* Four nav items plus the logout button don't fit a ~390px phone at full
+	   padding — the button ran off the right edge. Tighten rather than wrap: a
+	   bottom bar that grows to two rows is worse than a snug one. */
+	@media (max-width: 430px) {
+		.nav {
+			padding: 0.5rem;
+		}
+
+		.nav a,
+		.nav .logout {
+			font-size: var(--text-sm);
+			padding: 0.5rem;
+		}
+	}
+
 	/* Desktop: sidebar instead of bottom bar */
 	@media (min-width: 768px) {
 		.app-shell {

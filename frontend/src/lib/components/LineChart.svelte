@@ -161,8 +161,16 @@
 				>{yFormat(tick)}</text
 			>
 		{/each}
-		{#each xTicks as tick (tick)}
-			<text x={scaleX(tick)} y={height - 8} text-anchor="middle">{xFormat(tick)}</text>
+		{#each xTicks as tick, i (tick)}
+			<!-- The outermost ticks sit on the plot edges, so a centred label
+			     runs off the SVG and gets clipped mid-word ("25 mii"). Anchor
+			     them inwards instead. -->
+			<text
+				x={scaleX(tick)}
+				y={height - 8}
+				text-anchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
+				>{xFormat(tick)}</text
+			>
 		{/each}
 		{#if hoverX !== null}
 			<rect

@@ -43,6 +43,25 @@ export async function getActivityWeather(id: number): Promise<WeatherSummary> {
 	return res.json();
 }
 
+/** One plain-language statement about a ride, with the number behind it as a
+ *  secondary label. Wording and thresholds come from the backend
+ *  (internal/analyze/ridestory.go) so they have a single home — see #601. */
+export interface RideStatement {
+	text: string;
+	metric?: string;
+	kind: 'effort' | 'load' | 'context' | 'comparison' | 'hint_profile' | 'hint_history';
+}
+
+export interface RideStory {
+	headline: string;
+	statements: RideStatement[];
+}
+
+export async function getActivityStory(id: number): Promise<RideStory> {
+	const res = await apiFetch(`/api/activities/${id}/story`);
+	return res.json();
+}
+
 export function formatDistance(meters: number | null): string {
 	if (meters === null) return '–';
 	return `${(meters / 1000).toFixed(1)} km`;

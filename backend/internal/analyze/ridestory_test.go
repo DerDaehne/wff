@@ -1,0 +1,156 @@
+package analyze
+
+import (
+	"strings"
+	"testing"
+)
+
+func f64(v float64) *float64 { return &v }
+
+// kinds present in a story, for asserting what did and did not get said.
+func kinds(s Story) map[string]string {
+	out := map[string]string{}
+	for _, st := range s.Statements {
+		out[st.Kind] = st.Text
+	}
+	return out
+}
+
+func TestRideStorySessionBands(t *testing.T) {
+	for _, tc := range []struct {
+		ifactor  float64
+		headline string
+	}{
+		{0.55, "Erholungsfahrt"},
+		{0.70, "Grundlagenfahrt"},
+		{0.80, "Zügige Tempofahrt"},
+		{0.90, "Harte Einheit"},
+		{1.05, "Sehr harte Einheit"},
+	} {
+		story := RideStory(RideFacts{
+			IntensityFactor: f64(tc.ifactor),
+			DistanceMeters:  f64(42300),
+			ElapsedSeconds:  5400,
+			FromPower:       true,
+		})
+		if !strings.HasPrefix(story.Headline, tc.headline) {
+			t.Errorf("IF %.2f: headline %q, want prefix %q", tc.ifactor, story.Headline, tc.headline)
+		}
+		if !strings.Contains(story.Headline, "42,3 km") || !strings.Contains(story.Headline, "1:30 h") {
+			t.Errorf("IF %.2f: headline %q lost distance/duration", tc.ifactor, story.Headline)
+		}
+	}
+}
+
+// Without FTP or LTHR there is no intensity at all — the story must say so
+// instead of pretending the ride was easy.
+func TestRideStoryWithoutIntensity(t *testing.T) {
+	story := RideStory(RideFacts{DistanceMeters: f64(20000), ElapsedSeconds: 3600})
+
+	k := kinds(story)
+	if _, ok := k["effort"]; ok {
+		t.Error("effort statement made up despite missing intensity factor")
+	}
+	hint, ok := k["hint_profile"]
+	if !ok || !strings.Contains(hint, "FTP") {
+		t.Errorf("expected a hint pointing at the missing FTP/LTHR, got %q", hint)
+	}
+	if _, ok := k["load"]; ok {
+		t.Error("load statement made up despite missing TSS")
+	}
+}
+
+func TestRideStoryHeartRatePathIsLabelledAsEstimate(t *testing.T) {
+	fromHR := RideStory(RideFacts{IntensityFactor: f64(0.8), ElapsedSeconds: 3600, FromPower: false})
+	fromPower := RideStory(RideFacts{IntensityFactor: f64(0.8), ElapsedSeconds: 3600, FromPower: true})
+
+	if !strings.Contains(fromHR.Statements[0].Metric, "Puls") {
+		t.Errorf("HR path not labelled as an estimate: %q", fromHR.Statements[0].Metric)
+	}
+	if !strings.Contains(fromPower.Statements[0].Metric, "Leistung") {
+		t.Errorf("power path mislabelled: %q", fromPower.Statements[0].Metric)
+	}
+}
+
+func TestRideStoryComparisonNeedsHistory(t *testing.T) {
+	base := RideFacts{IntensityFactor: f64(0.7), TSS: f64(80), ElapsedSeconds: 3600, FromPower: true}
+
+	// Too few earlier rides: an honest "can't compare yet", never a verdict.
+	base.PriorTSS = []float64{70, 75}
+	if k := kinds(RideStory(base)); k["comparison"] != "" {
+		t.Errorf("compared against %d prior rides: %q", len(base.PriorTSS), k["comparison"])
+	}
+
+	base.PriorTSS = []float64{50, 55, 60} // median 55, ratio 80/55 ≈ 1.45
+	if k := kinds(RideStory(base)); !strings.Contains(k["comparison"], "Deutlich anstrengender") {
+		t.Errorf("hard ride not called out: %q", k["comparison"])
+	}
+
+	base.PriorTSS = []float64{140, 150, 160} // median 150, ratio 80/150 ≈ 0.53
+	if k := kinds(RideStory(base)); !strings.Contains(k["comparison"], "Ruhiger") {
+		t.Errorf("easy ride not called out: %q", k["comparison"])
+	}
+
+	base.PriorTSS = []float64{75, 80, 85} // median 80, ratio 1.0
+	if k := kinds(RideStory(base)); !strings.Contains(k["comparison"], "im Rahmen") {
+		t.Errorf("typical ride not called out: %q", k["comparison"])
+	}
+}
+
+func TestRideStoryContextOnlyWhenNoticeable(t *testing.T) {
+	quiet := RideStory(RideFacts{
+		IntensityFactor:     f64(0.7),
+		ElapsedSeconds:      3600,
+		HeadwindMps:         f64(0.3), // barely a breeze
+		ElevationGainMeters: f64(120), // flat-ish
+		TemperatureCelsius:  f64(18),  // pleasant
+	})
+	for _, s := range quiet.Statements {
+		if s.Kind == "context" {
+			t.Errorf("unremarkable conditions produced context noise: %q / %q", s.Text, s.Metric)
+		}
+	}
+
+	windy := RideStory(RideFacts{
+		IntensityFactor:     f64(0.7),
+		ElapsedSeconds:      3600,
+		HeadwindMps:         f64(2.5),
+		ElevationGainMeters: f64(800),
+		TemperatureCelsius:  f64(31),
+	})
+	var context []Statement
+	for _, s := range windy.Statements {
+		if s.Kind == "context" {
+			context = append(context, s)
+		}
+	}
+	if len(context) != 3 {
+		t.Fatalf("want wind + hills + heat context, got %d: %+v", len(context), context)
+	}
+	if !strings.Contains(context[0].Metric, "Gegenwind") {
+		t.Errorf("headwind mislabelled: %q", context[0].Metric)
+	}
+
+	tailwind := RideStory(RideFacts{IntensityFactor: f64(0.7), ElapsedSeconds: 3600, HeadwindMps: f64(-2.5)})
+	if !strings.Contains(tailwind.Statements[1].Metric, "Rückenwind") {
+		t.Errorf("negative headwind is tailwind, got %q", tailwind.Statements[1].Metric)
+	}
+}
+
+func TestRideStoryLoadBands(t *testing.T) {
+	for _, tc := range []struct {
+		tss  float64
+		want string
+	}{
+		{30, "morgen bist du wieder frisch"},
+		{80, "über Nacht"},
+		{150, "in den Beinen spüren"},
+		{250, "ein bis zwei ruhige Tage"},
+		{400, "mehrere Tage Erholung"},
+	} {
+		k := kinds(RideStory(RideFacts{IntensityFactor: f64(0.7), TSS: f64(tc.tss), ElapsedSeconds: 3600}))
+		if !strings.Contains(k["load"], tc.want) {
+			t.Errorf("TSS %.0f: got %q, want it to mention %q", tc.tss, k["load"], tc.want)
+		}
+	}
+}
