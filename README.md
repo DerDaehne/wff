@@ -53,6 +53,19 @@ cp .env.example .env && docker compose up   # App + PostgreSQL lokal starten
 Ein Container liefert sowohl die API als auch die installierbare PWA aus (kein
 separater Frontend-Service in `docker-compose.yml`).
 
+Migrationen (`backend/migrations/`) sind per `go:embed` ins Binary eingebettet
+und laufen bei jedem Start automatisch (`internal/db.Migrate`, no-op wenn das
+Schema schon aktuell ist) — kein separater Migrationsschritt nötig.
+
+Erster Nutzer (keine offene Registrierung — Einladungslink erzeugen):
+
+```sh
+docker compose exec app wff invite create <username> <anzeigename>
+```
+
+Gibt einen `/invite/<token>`-Link aus (gültig `auth.InviteTTL`), über den sich
+der Nutzer per Passkey registriert.
+
 Struktur:
 
 - `backend/`  — Go-API, `.fit`-Ingestion, Analyse

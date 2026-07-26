@@ -36,6 +36,10 @@ func runServer() {
 	}
 	defer pool.Close()
 
+	if err := db.Migrate(pool, migrationsFS); err != nil {
+		log.Fatalf("migrate: %v", err)
+	}
+
 	wa, err := auth.NewWebAuthn()
 	if err != nil {
 		log.Fatalf("webauthn: %v", err)

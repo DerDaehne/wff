@@ -26,7 +26,7 @@
             pname = "wff-backend";
             version = "0.1.0";
             src = ./backend;
-            vendorHash = "sha256-Ekh3+r05lW0+qmZ1LAXaN4XEeaYtvTsANIUduzlLqZk=";
+            vendorHash = "sha256-XsHVjCASBzBMRy/cbpHuC5Vj9nfauadFgS/HGHw71FQ=";
 
             # internal/webui/dist ships a placeholder (so the module always
             # compiles on its own) — overwrite it with the real static build
