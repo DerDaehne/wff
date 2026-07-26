@@ -29,7 +29,7 @@
 		xFormat,
 		yFormat,
 		ariaLabel,
-		width = 800,
+		maxWidth = 800,
 		height = 220
 	}: {
 		xValues: number[];
@@ -37,16 +37,27 @@
 		xFormat: (x: number) => string;
 		yFormat: (y: number) => string;
 		ariaLabel: string;
-		width?: number;
+		maxWidth?: number;
 		height?: number;
 	} = $props();
 
 	const instanceId = nextInstanceId();
 
-	const padLeft = 44;
+	// The viewBox tracks the measured width so one SVG unit is one CSS pixel.
+	// It used to be a fixed 800 stretched to 100 %, which on a 390 px phone
+	// scaled everything down by more than half — an 11px axis label rendered
+	// at 5px and was simply unreadable (#605). Nothing inside scales now.
+	let measuredWidth = $state(0);
+	let width = $derived(Math.min(measuredWidth || maxWidth, maxWidth));
+
+	// A phone can't fit five date labels without them colliding, and it needs
+	// less room for the y-axis because the numbers are the same but the plot is
+	// narrower.
+	let narrow = $derived(width < 480);
+	let padLeft = $derived(narrow ? 38 : 44);
 	const padRight = 12;
 	const padTop = 12;
-	const padBottom = 28;
+	let padBottom = $derived(narrow ? 24 : 28);
 
 	function niceTicks(min: number, max: number, count: number): number[] {
 		if (min === max) return [min];
@@ -78,7 +89,7 @@
 		return height - padBottom - ((y - yMin) / (yMax - yMin)) * (height - padTop - padBottom);
 	}
 
-	let xTicks = $derived(niceTicks(xMin, xMax, Math.min(5, xValues.length || 1)));
+	let xTicks = $derived(niceTicks(xMin, xMax, Math.min(narrow ? 3 : 5, xValues.length || 1)));
 
 	let lines = $derived(
 		series.map((s, seriesIndex) => {
@@ -103,7 +114,11 @@
 
 	let hoverIndex: number | null = $state(null);
 
-	function onMove(e: MouseEvent & { currentTarget: SVGSVGElement }) {
+	// Pointer rather than mouse events: the same handler then serves touch and
+	// pen, so the tooltip works on the phone this app is mostly used on. The
+	// stylesheet sets touch-action: pan-y so a vertical swipe still scrolls the
+	// page while a horizontal drag scrubs the chart.
+	function onMove(e: PointerEvent & { currentTarget: SVGSVGElement }) {
 		if (xValues.length === 0) return;
 		const rect = e.currentTarget.getBoundingClientRect();
 		const relX = ((e.clientX - rect.left) / rect.width) * width;
@@ -136,73 +151,78 @@
 			{/each}
 		</ul>
 	{/if}
-	<svg
-		viewBox="0 0 {width} {height}"
-		role="img"
-		aria-label={ariaLabel}
-		onmousemove={onMove}
-		onmouseleave={onLeave}
-	>
-		<defs>
-			{#each lines as line (line.name)}
-				<linearGradient id={line.gradientId} x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" style="stop-color: {line.color}; stop-opacity: 0.25" />
-					<stop offset="100%" style="stop-color: {line.color}; stop-opacity: 0" />
+	<!-- Measured on a padding-free wrapper: clientWidth on the card would
+	     include its padding and reintroduce a small scale factor. -->
+	<div class="plot" bind:clientWidth={measuredWidth}>
+		<svg
+			viewBox="0 0 {width} {height}"
+			role="img"
+			aria-label={ariaLabel}
+			onpointermove={onMove}
+			onpointerleave={onLeave}
+			onpointercancel={onLeave}
+		>
+			<defs>
+				{#each lines as line (line.name)}
+					<linearGradient id={line.gradientId} x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" style="stop-color: {line.color}; stop-opacity: 0.25" />
+						<stop offset="100%" style="stop-color: {line.color}; stop-opacity: 0" />
+					</linearGradient>
+				{/each}
+				<linearGradient id="chart-hover-band-{instanceId}" x1="0" y1="0" x2="1" y2="0">
+					<stop offset="0%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
+					<stop offset="50%" style="stop-color: var(--color-text-muted); stop-opacity: 0.12" />
+					<stop offset="100%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
 				</linearGradient>
+			</defs>
+			{#each yTicks as tick (tick)}
+				<text x={padLeft - 8} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
+					>{yFormat(tick)}</text
+				>
 			{/each}
-			<linearGradient id="chart-hover-band-{instanceId}" x1="0" y1="0" x2="1" y2="0">
-				<stop offset="0%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
-				<stop offset="50%" style="stop-color: var(--color-text-muted); stop-opacity: 0.12" />
-				<stop offset="100%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
-			</linearGradient>
-		</defs>
-		{#each yTicks as tick (tick)}
-			<text x={padLeft - 8} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
-				>{yFormat(tick)}</text
-			>
-		{/each}
-		{#each xTicks as tick, i (tick)}
-			<!-- The outermost ticks sit on the plot edges, so a centred label
+			{#each xTicks as tick, i (tick)}
+				<!-- The outermost ticks sit on the plot edges, so a centred label
 			     runs off the SVG and gets clipped mid-word ("25 mii"). Anchor
 			     them inwards instead. -->
-			<text
-				x={scaleX(tick)}
-				y={height - 8}
-				text-anchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
-				>{xFormat(tick)}</text
-			>
-		{/each}
-		{#if hoverX !== null}
-			<rect
-				x={hoverX - 14}
-				y={padTop}
-				width="28"
-				height={height - padTop - padBottom}
-				fill="url(#chart-hover-band-{instanceId})"
-			/>
-		{/if}
-		{#each lines as line (line.name)}
-			{#if line.area}
-				<path d={line.area} fill="url(#{line.gradientId})" stroke="none" />
-			{/if}
-			<polyline
-				points={line.polyline}
-				fill="none"
-				stroke={line.color}
-				stroke-width="2"
-				stroke-linejoin="round"
-				stroke-linecap="round"
-			/>
-		{/each}
-		{#if hoverX !== null && hoverIndex !== null}
-			{#each series as s (s.name)}
-				{@const v = s.values[hoverIndex]}
-				{#if v !== null}
-					<circle cx={hoverX} cy={scaleY(v)} r="4" fill={s.color} />
-				{/if}
+				<text
+					x={scaleX(tick)}
+					y={height - 8}
+					text-anchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
+					>{xFormat(tick)}</text
+				>
 			{/each}
-		{/if}
-	</svg>
+			{#if hoverX !== null}
+				<rect
+					x={hoverX - 14}
+					y={padTop}
+					width="28"
+					height={height - padTop - padBottom}
+					fill="url(#chart-hover-band-{instanceId})"
+				/>
+			{/if}
+			{#each lines as line (line.name)}
+				{#if line.area}
+					<path d={line.area} fill="url(#{line.gradientId})" stroke="none" />
+				{/if}
+				<polyline
+					points={line.polyline}
+					fill="none"
+					stroke={line.color}
+					stroke-width="2"
+					stroke-linejoin="round"
+					stroke-linecap="round"
+				/>
+			{/each}
+			{#if hoverX !== null && hoverIndex !== null}
+				{#each series as s (s.name)}
+					{@const v = s.values[hoverIndex]}
+					{#if v !== null}
+						<circle cx={hoverX} cy={scaleY(v)} r="4" fill={s.color} />
+					{/if}
+				{/each}
+			{/if}
+		</svg>
+	</div>
 	{#if hoverIndex !== null}
 		<div class="tooltip">
 			<strong>{xFormat(xValues[hoverIndex])}</strong>
@@ -219,6 +239,14 @@
 </div>
 
 <style>
+	.plot {
+		width: 100%;
+		/* Caps the CSS width at the same value the viewBox caps at, so the
+		   scale factor stays exactly 1 on wide screens too — otherwise the
+		   chart is stretched and the labels grow past their intended size. */
+		max-width: 800px;
+	}
+
 	.chart-card {
 		position: relative;
 		background: var(--color-surface);
@@ -231,8 +259,11 @@
 		display: block;
 		width: 100%;
 		height: auto;
-		max-width: 800px;
 		cursor: crosshair;
+		/* Vertical swipes still scroll the page; horizontal drags scrub the
+		   chart. Without this the browser claims the gesture and the tooltip
+		   never fires on touch. */
+		touch-action: pan-y;
 	}
 
 	text {
