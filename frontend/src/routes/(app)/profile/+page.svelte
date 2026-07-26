@@ -1,6 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getSettings, updateSettings, type Estimate, type Estimates } from '$lib/profile';
+	import {
+		getSettings,
+		updateSettings,
+		type Estimate,
+		type Estimates,
+		type Gap
+	} from '$lib/profile';
 	import { ApiError } from '$lib/api';
 	import { progressMetrics } from '$lib/progress';
 
@@ -11,6 +17,7 @@
 	let weightKg: number | '' = $state('');
 	let primaryMetric = $state('distance');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
+	let gaps: Gap[] = $state([]);
 	let saveState: 'idle' | 'saving' | 'saved' | 'error' = $state('idle');
 
 	onMount(async () => {
@@ -21,6 +28,7 @@
 			weightKg = settings.weight_kg ?? '';
 			primaryMetric = settings.primary_metric ?? 'distance';
 			estimates = settings.estimates;
+			gaps = settings.gaps;
 			viewState = 'ready';
 		} catch (err) {
 			errorMessage =
@@ -157,19 +165,6 @@
 				/>
 			</div>
 
-			{#if !estimates.ftp_watts && !estimates.lthr_bpm}
-				<div class="suggestion">
-					<p><strong>Du kennst deine Werte nicht? Dann fahr sie einfach ein.</strong></p>
-					<p class="suggestion-source">
-						Such dir eine Strecke, auf der du 20 Minuten am Stück fahren kannst, ohne anhalten zu
-						müssen — leicht ansteigend ist ideal, weil dein Tempo dann von allein gleichmäßig
-						bleibt. Fahr so schnell, wie du es gerade noch 20 Minuten durchhältst: am Ende soll es
-						richtig wehtun, aber du sollst nicht schon vorher einbrechen. Danach lädst du die Fahrt
-						hoch wie immer — den Rest rechnet die App aus und schlägt dir die Werte hier vor.
-					</p>
-				</div>
-			{/if}
-
 			<button class="btn btn-primary" type="submit" disabled={saveState === 'saving'}>
 				{saveState === 'saving' ? 'Speichert…' : 'Speichern'}
 			</button>
@@ -183,9 +178,57 @@
 			{/if}
 		</form>
 	</div>
+
+	{#if gaps.length > 0}
+		<section class="gaps">
+			<h2>Was die App noch nicht über dich weiß</h2>
+			<p class="hint">
+				Kein Test-Modus, kein Knopf während der Fahrt — die Fahrt normal hochladen genügt, den Rest
+				rechnet die App aus.
+			</p>
+			{#each gaps as gap (gap.key)}
+				<article class="gap">
+					<p class="gap-unlocks">{gap.unlocks}</p>
+					<p class="gap-instruction">{gap.instruction}</p>
+				</article>
+			{/each}
+		</section>
+	{/if}
 {/if}
 
 <style>
+	.gaps {
+		max-width: 34rem;
+		margin-top: 2.5rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.gaps h2 {
+		margin: 0;
+	}
+
+	/* Deliberately not styled as a warning: these are things the rider hasn't
+	   done yet, not things they got wrong. */
+	.gap {
+		background: var(--color-surface);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-sm);
+		padding: 1.25rem;
+	}
+
+	.gap-unlocks {
+		margin: 0 0 0.5rem;
+		font-weight: 700;
+	}
+
+	.gap-instruction {
+		margin: 0;
+		color: var(--color-text-muted);
+		line-height: 1.5;
+	}
+
 	.card {
 		max-width: 34rem;
 		display: flex;

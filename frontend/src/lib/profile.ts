@@ -23,14 +23,28 @@ export interface Estimates {
 	lthr_bpm: Estimate | null;
 }
 
+/** Something the app can't tell you yet, plus the ride that would change it.
+ *  The instruction is the point — "you're missing an FTP value" is a dead end
+ *  for someone who doesn't know what FTP is (#612). */
+export interface Gap {
+	key: string;
+	unlocks: string;
+	instruction: string;
+}
+
 export interface SettingsResponse extends Settings {
 	estimates: Estimates;
+	gaps: Gap[];
 }
 
 export async function getSettings(): Promise<SettingsResponse> {
 	const res = await apiFetch('/api/me/settings');
 	const data = await res.json();
-	return { ...data, estimates: data.estimates ?? { ftp_watts: null, lthr_bpm: null } };
+	return {
+		...data,
+		estimates: data.estimates ?? { ftp_watts: null, lthr_bpm: null },
+		gaps: data.gaps ?? []
+	};
 }
 
 export async function updateSettings(patch: Partial<Settings>): Promise<Settings> {

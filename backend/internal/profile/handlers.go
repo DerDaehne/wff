@@ -57,6 +57,9 @@ var allowedMetrics = map[string]bool{
 type settingsResponse struct {
 	settings
 	Estimates analyze.Estimates `json:"estimates"`
+	// Gaps say what the app still cannot tell this rider, and which ride would
+	// change that (#612).
+	Gaps []analyze.Gap `json:"gaps"`
 }
 
 func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +79,12 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 		log.Printf("profile: could not estimate thresholds for user %d: %v", userID, err)
 	}
 
-	writeJSON(w, settingsResponse{settings: s, Estimates: estimates})
+	gaps, err := analyze.DataGaps(r.Context(), h.pool, userID, estimates)
+	if err != nil {
+		log.Printf("profile: could not determine data gaps for user %d: %v", userID, err)
+	}
+
+	writeJSON(w, settingsResponse{settings: s, Estimates: estimates, Gaps: gaps})
 }
 
 // update is a partial PATCH: omitted fields keep their current value. There
