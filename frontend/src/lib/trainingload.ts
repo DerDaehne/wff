@@ -10,6 +10,7 @@ export interface DayLoad {
 
 export interface Insight {
 	message: string;
+	severity: 'info' | 'success' | 'warning';
 }
 
 export interface TrainingLoad {

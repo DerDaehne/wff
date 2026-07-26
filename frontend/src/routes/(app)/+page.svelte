@@ -39,6 +39,12 @@
 					? 'var(--color-success)'
 					: 'var(--chart-tsb)'
 	);
+
+	const severityIcon: Record<Insight['severity'], string> = {
+		success: '✓',
+		warning: '⚠',
+		info: 'ℹ'
+	};
 </script>
 
 <h1>Dashboard</h1>
@@ -67,9 +73,49 @@
 	/>
 
 	<h2>Insights</h2>
-	<ul>
+	<div class="insights">
 		{#each insights as insight, i (i)}
-			<li>{insight.message}</li>
+			<div class="insight insight-{insight.severity}">
+				<span class="insight-icon">{severityIcon[insight.severity]}</span>
+				<span>{insight.message}</span>
+			</div>
 		{/each}
-	</ul>
+	</div>
 {/if}
+
+<style>
+	.insights {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.insight {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.75rem;
+		border-radius: 12px;
+		padding: 0.875rem 1rem;
+		box-shadow: var(--shadow-sm);
+	}
+
+	.insight-icon {
+		font-weight: 700;
+		flex-shrink: 0;
+	}
+
+	.insight-success {
+		background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface));
+		color: color-mix(in srgb, var(--color-success) 70%, var(--color-text));
+	}
+
+	.insight-warning {
+		background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+		color: color-mix(in srgb, var(--color-warning) 70%, var(--color-text));
+	}
+
+	.insight-info {
+		background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
+		color: var(--color-text);
+	}
+</style>
