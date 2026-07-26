@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { Map, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
-	import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+	import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 	import {
 		getActivitySamples,
 		getActivityWeather,
@@ -14,15 +14,16 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 
 	// maplibre-gl's own worker-URL construction is a runtime string template
-	// (`./${t}`), which Vite's static import analysis can't follow — the
-	// worker chunk never gets emitted, so the browser requests a URL that
-	// doesn't exist. Our SPA-fallback (internal/webui.Handler) then serves
-	// index.html (200, text/html) for that missing path instead of a 404,
-	// which the module-worker loader rejects with "non-JavaScript MIME
-	// type" (verified: this exact error shows up in a real browser, not
-	// just this dev setup). The `?url` import is a static reference Vite
-	// *can* see, so it bundles the worker as a real, hashed asset — point
-	// MapLibre at that instead of letting it guess.
+	// (`new URL('./maplibre-gl-worker.mjs', import.meta.url)`), which Vite's
+	// static import analysis can't follow — the worker chunk never gets
+	// emitted and the browser requests a URL that doesn't exist. So point
+	// MapLibre at a URL Vite does emit.
+	//
+	// It has to be `?worker&url`, not plain `?url`: the dist worker is not
+	// self-contained, it imports `./maplibre-gl-shared.mjs`. Plain `?url`
+	// copies only the one file, so that sibling import 404s at runtime and
+	// the worker dies silently — no map error event, no tile requests, just
+	// an empty canvas. `?worker` bundles the worker with its dependencies.
 	setWorkerUrl(maplibreWorkerUrl);
 
 	let viewState: 'loading' | 'error' | 'ready' = $state('loading');

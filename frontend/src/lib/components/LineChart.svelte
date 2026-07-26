@@ -130,9 +130,9 @@
 	{#if series.length > 1}
 		<ul class="legend">
 			{#each series as s (s.name)}
-				<li title={s.description}
-					><span class="swatch" style="background: {s.color}"></span>{s.name}</li
-				>
+				<li title={s.description}>
+					<span class="swatch" style="background: {s.color}"></span>{s.name}
+				</li>
 			{/each}
 		</ul>
 	{/if}

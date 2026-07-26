@@ -12,6 +12,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 //go:embed all:dist
@@ -36,6 +37,14 @@ func Handler() http.Handler {
 			path = "."
 		}
 		if info, err := fs.Stat(sub, path); err != nil || info.IsDir() {
+			// A missing build asset is a bug, not a client-side route. Serving
+			// index.html for it hands the browser HTML where it expects JS and
+			// produces a misleading "non-JavaScript MIME type" error instead of
+			// a plain 404 (cost two rounds of misdiagnosis in #580).
+			if strings.HasPrefix(path, "_app/") {
+				http.NotFound(w, r)
+				return
+			}
 			r2 := r.Clone(r.Context())
 			r2.URL.Path = "/"
 			fileServer.ServeHTTP(w, r2)

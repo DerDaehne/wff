@@ -37,7 +37,8 @@
 					<strong>{new Date(ride.started_at).toLocaleDateString('de-DE')}</strong>
 					— {formatDistance(ride.distance_meters)} · {formatDuration(ride.moving_seconds)}
 					{#if ride.training_stress_score !== null}
-						· <span title="Training Stress Score – Trainingsbelastung dieser Fahrt (100 = 1h bei Schwellenleistung)"
+						· <span
+							title="Training Stress Score – Trainingsbelastung dieser Fahrt (100 = 1h bei Schwellenleistung)"
 							>TSS {ride.training_stress_score.toFixed(0)}</span
 						>
 					{/if}

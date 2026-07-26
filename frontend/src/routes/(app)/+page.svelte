@@ -77,8 +77,8 @@
 {:else if viewState === 'ready'}
 	<p class="metric-hint">
 		<strong>CTL</strong> (Fitness) und <strong>ATL</strong> (Ermüdung) sind gleitende Mittelwerte
-		deiner täglichen Trainingsbelastung (42 bzw. 7 Tage) — <strong>TSB</strong> (Form) ist die
-		Differenz aus beiden: positiv heißt erholt/frisch, negativ heißt du trainierst gerade hart.
+		deiner täglichen Trainingsbelastung (42 bzw. 7 Tage) — <strong>TSB</strong> (Form) ist die Differenz
+		aus beiden: positiv heißt erholt/frisch, negativ heißt du trainierst gerade hart.
 	</p>
 	<p>
 		Aktuelle Form (TSB): <strong style="color: {tsbColor}">{latestTSB?.toFixed(1)}</strong>
@@ -111,7 +111,9 @@
 	/>
 
 	<h2>Insights</h2>
-	<p class="metric-hint">Automatische Einschätzung deines Trainingsverlaufs, regelbasiert aus CTL/ATL/TSB.</p>
+	<p class="metric-hint">
+		Automatische Einschätzung deines Trainingsverlaufs, regelbasiert aus CTL/ATL/TSB.
+	</p>
 	<div class="insights">
 		{#each insights as insight, i (i)}
 			<div class="insight insight-{insight.severity}">
