@@ -30,8 +30,8 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 }
 
 type settings struct {
-	FTPWatts *int     `json:"ftp_watts"`
-	LTHRBpm  *int     `json:"lthr_bpm"`
+	FTPWatts *int `json:"ftp_watts"`
+	LTHRBpm  *int `json:"lthr_bpm"`
 	// WeightKg turns climbing speed into a power estimate (#610); optional,
 	// because everything else works without it.
 	WeightKg *float64 `json:"weight_kg"`
