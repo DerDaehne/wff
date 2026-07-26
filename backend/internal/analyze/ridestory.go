@@ -89,6 +89,9 @@ type RideFacts struct {
 	Course *CourseStats
 	// StartedAt drives the subtitle. Zero time simply means no subtitle.
 	StartedAt time.Time
+	// WeightKg turns climbing speed into a relative-power estimate (#610).
+	// Nil simply means that part goes unsaid.
+	WeightKg *float64
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -165,6 +168,7 @@ func RideStory(f RideFacts) Story {
 	add(effortStatement(f))
 	add(loadStatement(f))
 	add(paceStatement(f))
+	add(climbStatement(f))
 	for _, s := range contextStatements(f) {
 		add(s, true)
 	}
@@ -374,6 +378,39 @@ func paceStatement(f RideFacts) (Statement, bool) {
 
 	metric := fmt.Sprintf("⌀ %s km/h · %s km", decimal(speed, 1), decimal(f.distanceMeters()/1000, 1))
 	return Statement{Text: text, Metric: metric, Kind: "pace"}, true
+}
+
+// climbStatement reports the ride's best ascent in climbing speed (VAM) —
+// vertical metres per hour. It needs nothing but elevation and time, which
+// makes it the one hard performance number available to a rider with no power
+// meter and no heart-rate strap, and it is comparable across rides and riders.
+//
+// With a body weight on file it also gives relative power via Ferrari's
+// approximation. That is explicitly a rough conversion, and the text says so —
+// presenting it as measured watts would be a lie dressed as precision.
+func climbStatement(f RideFacts) (Statement, bool) {
+	if f.Course == nil || f.Course.BestClimb == nil {
+		return Statement{}, false
+	}
+	c := *f.Course.BestClimb
+
+	text := fmt.Sprintf(
+		"Dein längster Anstieg ging über %s km bei %s %% Steigung. Du bist ihn mit %d Höhenmetern "+
+			"pro Stunde hochgefahren — diese Kletterrate kannst du direkt mit anderen Fahrten "+
+			"vergleichen, ganz ohne Messgeräte am Rad.",
+		decimal(c.DistanceMeters/1000, 1), decimal(c.GradePct, 1), int(c.VAM+0.5))
+
+	metric := fmt.Sprintf("%d hm/h · %d Höhenmeter · %s", int(c.VAM+0.5), int(c.GainMeters+0.5), duration(int(c.Seconds)))
+
+	if wkg, ok := c.RelativePowerWkg(); ok && f.WeightKg != nil && *f.WeightKg > 0 {
+		text += fmt.Sprintf(
+			" Bei deinem Gewicht entspricht das grob %s Watt pro Kilogramm, also rund %d Watt — "+
+				"überschlagen aus Steigung und Tempo, nicht gemessen.",
+			decimal(wkg, 1), int(wkg**f.WeightKg+0.5))
+		metric += fmt.Sprintf(" · ≈ %s W/kg", decimal(wkg, 1))
+	}
+
+	return Statement{Text: text, Metric: metric, Kind: "climb"}, true
 }
 
 // contextStatements explain why a ride felt harder or easier than the bare

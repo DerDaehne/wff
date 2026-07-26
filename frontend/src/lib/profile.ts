@@ -3,6 +3,8 @@ import { apiFetch } from './api';
 export interface Settings {
 	ftp_watts: number | null;
 	lthr_bpm: number | null;
+	/** Optional: turns climbing speed into a rough power figure (#610). */
+	weight_kg: number | null;
 }
 
 /** A threshold derived from the rider's own rides, carrying the ride it came

@@ -64,12 +64,13 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 		ownerID         int64
 	)
 	err = h.pool.QueryRow(r.Context(), `
-		SELECT user_id, started_at, elapsed_seconds, moving_seconds, distance_meters,
-		       elevation_gain_meters, intensity_factor, training_stress_score, normalized_power_watts
-		FROM activities WHERE id = $1`,
+		SELECT a.user_id, a.started_at, a.elapsed_seconds, a.moving_seconds, a.distance_meters,
+		       a.elevation_gain_meters, a.intensity_factor, a.training_stress_score, a.normalized_power_watts, u.weight_kg
+		FROM activities a JOIN users u ON u.id = a.user_id
+		WHERE a.id = $1`,
 		activityID,
 	).Scan(&ownerID, &facts.StartedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
-		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower)
+		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower, &facts.WeightKg)
 	if err != nil || ownerID != userID {
 		// Same 404 for "not yours" and "doesn't exist" — see samples().
 		http.Error(w, "activity not found", http.StatusNotFound)

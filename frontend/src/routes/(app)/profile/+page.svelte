@@ -7,6 +7,7 @@
 	let errorMessage = $state('');
 	let ftpWatts: number | '' = $state('');
 	let lthrBpm: number | '' = $state('');
+	let weightKg: number | '' = $state('');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
 	let saveState: 'idle' | 'saving' | 'saved' | 'error' = $state('idle');
 
@@ -15,6 +16,7 @@
 			const settings = await getSettings();
 			ftpWatts = settings.ftp_watts ?? '';
 			lthrBpm = settings.lthr_bpm ?? '';
+			weightKg = settings.weight_kg ?? '';
 			estimates = settings.estimates;
 			viewState = 'ready';
 		} catch (err) {
@@ -44,7 +46,8 @@
 		try {
 			await updateSettings({
 				ftp_watts: ftpWatts === '' ? null : ftpWatts,
-				lthr_bpm: lthrBpm === '' ? null : lthrBpm
+				lthr_bpm: lthrBpm === '' ? null : lthrBpm,
+				weight_kg: weightKg === '' ? null : weightKg
 			});
 			saveState = 'saved';
 		} catch {
@@ -116,6 +119,23 @@
 						</button>
 					</div>
 				{/if}
+			</div>
+
+			<div class="field">
+				<label for="weight">Körpergewicht in Kilogramm</label>
+				<p class="field-hint">
+					Optional. Damit kann die App aus deinem Tempo am Berg überschlagen, wie viel Kraft du
+					dabei getreten hast — auch ganz ohne Leistungsmesser.
+				</p>
+				<input
+					id="weight"
+					class="input"
+					type="number"
+					min="20"
+					max="300"
+					step="0.5"
+					bind:value={weightKg}
+				/>
 			</div>
 
 			{#if !estimates.ftp_watts && !estimates.lthr_bpm}

@@ -53,6 +53,7 @@ export interface RideStatement {
 		| 'effort'
 		| 'load'
 		| 'pace'
+		| 'climb'
 		| 'context'
 		| 'comparison'
 		// Dashboard kinds (#602): current form, and whether fitness is going up.

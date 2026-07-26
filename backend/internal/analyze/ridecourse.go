@@ -42,6 +42,10 @@ type CourseStats struct {
 	SteepestGradePct    float64 // steepest sustained stretch, not a single spike
 	HasTerrain          bool
 
+	// BestClimb is the ride's most significant continuous ascent. Present only
+	// when the ride actually contains one worth talking about.
+	BestClimb *Climb
+
 	HeadwindShare  float64 // shares of DISTANCE, not of time or of samples
 	TailwindShare  float64
 	CrosswindShare float64
@@ -53,7 +57,46 @@ type CourseStats struct {
 	HasWind              bool
 }
 
+// Climb is one continuous ascent, described the way a rider talks about it:
+// how long, how steep, and how fast they got up it.
+//
+// VAM (Velocità Ascensionale Media, vertical metres per hour) is the most
+// useful number WFF can give a rider with no sensors at all — it needs only
+// elevation and time, and it is directly comparable between rides and between
+// riders.
+type Climb struct {
+	DistanceMeters float64
+	GainMeters     float64
+	GradePct       float64
+	Seconds        float64
+	VAM            float64 // vertical metres per hour
+}
+
+// RelativePowerWkg applies Ferrari's approximation, the standard back-of-the-
+// envelope conversion from climbing speed to relative power:
+//
+//	W/kg ≈ VAM / (200 + 10 × grade%)
+//
+// It deliberately ignores bike weight, rolling resistance and air drag, which
+// is why it only holds on real climbs: below about 5 % gradient air resistance
+// dominates and the number becomes meaningless. Returns false there rather
+// than a figure that looks precise and isn't.
+func (c Climb) RelativePowerWkg() (float64, bool) {
+	if c.GradePct < minGradeForPowerEstimate || c.VAM <= 0 {
+		return 0, false
+	}
+	return c.VAM / (200 + 10*c.GradePct), true
+}
+
 const (
+	// minClimbMeters / minClimbGainMeters: below this it is a rise in the road,
+	// not a climb worth reporting as "your best ascent".
+	minClimbMeters     = 500
+	minClimbGainMeters = 30
+	// minGradeForPowerEstimate — Ferrari's formula assumes gravity dominates.
+	// Below ~5 % air resistance does, and the estimate stops meaning anything.
+	minGradeForPowerEstimate = 5.0
+
 	// gradeWindowMeters smooths elevation before any grade is derived. Raw
 	// consecutive samples give absurd gradients (a 1 m barometric wobble over a
 	// 3 m step is 30 %), so grade is only ever computed over a window.
@@ -163,6 +206,7 @@ func Course(samples []CourseSample, winds []WindBucket) CourseStats {
 			stats.HeadwindOnClimbShare = headwindClimbDistance / climbDistance
 		}
 		stats.SteepestGradePct = steepestSustainedGrade(windows)
+		stats.BestClimb = bestClimb(windows)
 	}
 
 	return stats
@@ -170,6 +214,7 @@ func Course(samples []CourseSample, winds []WindBucket) CourseStats {
 
 type segment struct {
 	time     time.Time
+	seconds  float64
 	meters   float64
 	bearing  float64
 	altFrom  *float64
@@ -190,8 +235,15 @@ func buildSegments(samples []CourseSample) []segment {
 			// Sub-metre steps are GPS jitter, not travel: their bearing is
 			// random and would smear the wind shares.
 			if meters >= 1 {
+				seconds := s.Time.Sub(prev.Time).Seconds()
+				// A gap of minutes is a stop, not riding time — counting it
+				// would drag a climb's VAM down to nothing.
+				if seconds < 0 || seconds > 60 {
+					seconds = 0
+				}
 				segments = append(segments, segment{
 					time:    prev.Time,
+					seconds: seconds,
 					meters:  meters,
 					bearing: enrich.BearingDeg(*prev.Lat, *prev.Lon, *s.Lat, *s.Lon),
 					altFrom: prev.AltitudeMeters,
@@ -207,6 +259,7 @@ func buildSegments(samples []CourseSample) []segment {
 
 type gradeWindow struct {
 	meters         float64
+	seconds        float64
 	gainMeters     float64
 	gradePct       float64
 	intoWindMeters float64
@@ -240,6 +293,7 @@ func buildGradeWindows(segments []segment) []gradeWindow {
 		}
 		end = s.altTo
 		open.meters += s.meters
+		open.seconds += s.seconds
 		if s.intoWind {
 			open.intoWindMeters += s.meters
 		}
@@ -249,6 +303,55 @@ func buildGradeWindows(segments []segment) []gradeWindow {
 	}
 	flush()
 	return windows
+}
+
+// bestClimb picks the ride's most significant continuous ascent: consecutive
+// uphill windows, scored by height gained rather than by length or steepness
+// alone — that is what a rider means by "the big climb" of a ride.
+//
+// A single flat window is allowed to sit inside a climb (a short flat bit or a
+// hairpin doesn't end it), but two in a row do.
+func bestClimb(windows []gradeWindow) *Climb {
+	var best *Climb
+	var run gradeWindow
+	flatWindows := 0
+
+	closeRun := func() {
+		if run.meters >= minClimbMeters && run.gainMeters >= minClimbGainMeters && run.seconds > 0 {
+			climb := Climb{
+				DistanceMeters: run.meters,
+				GainMeters:     run.gainMeters,
+				GradePct:       run.gainMeters / run.meters * 100,
+				Seconds:        run.seconds,
+				VAM:            run.gainMeters / (run.seconds / 3600),
+			}
+			if best == nil || climb.GainMeters > best.GainMeters {
+				best = &climb
+			}
+		}
+		run, flatWindows = gradeWindow{}, 0
+	}
+
+	for _, w := range windows {
+		if w.gradePct >= climbGradePct {
+			run.meters += w.meters
+			run.seconds += w.seconds
+			run.gainMeters += w.gainMeters
+			flatWindows = 0
+			continue
+		}
+		if run.meters > 0 && w.gradePct > -1 && flatWindows == 0 {
+			// One level stretch inside the climb: carry it along.
+			run.meters += w.meters
+			run.seconds += w.seconds
+			run.gainMeters += w.gainMeters
+			flatWindows++
+			continue
+		}
+		closeRun()
+	}
+	closeRun()
+	return best
 }
 
 // steepestSustainedGrade finds the steepest stretch of at least

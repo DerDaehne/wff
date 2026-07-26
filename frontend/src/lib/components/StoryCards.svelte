@@ -10,6 +10,7 @@
 		effort: 'Wie hart war es',
 		load: 'Was es gebracht hat',
 		pace: 'Wie schnell du warst',
+		climb: 'Wie gut du geklettert bist',
 		context: 'Warum es sich so anfühlte',
 		comparison: 'Im Vergleich zu sonst',
 		form: 'Wie es dir gerade geht',
@@ -113,6 +114,10 @@
 
 	.statement-pace {
 		--chip-color: var(--chart-speed);
+	}
+
+	.statement-climb {
+		--chip-color: var(--chart-elevation);
 	}
 
 	.statement-context {
