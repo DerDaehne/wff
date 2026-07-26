@@ -9,8 +9,11 @@ export interface DayLoad {
 	tsb: number;
 }
 
+/** A tip says what to do (action) and why (reason) — an empty action means
+ *  the data does not support advice yet, and only the reason is shown (#603). */
 export interface Insight {
-	message: string;
+	action: string;
+	reason: string;
 	severity: 'info' | 'success' | 'warning';
 }
 

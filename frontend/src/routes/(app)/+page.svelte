@@ -122,13 +122,18 @@
 	</section>
 
 	<section class="panel">
-		<h2>Was dir das sagt</h2>
-		<p class="panel-sub">Automatisch aus deinem Trainingsverlauf abgeleitet.</p>
+		<h2>Was du jetzt tun kannst</h2>
+		<p class="panel-sub">
+			Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
+		</p>
 		<div class="insights">
 			{#each insights as insight, i (i)}
 				<div class="insight insight-{insight.severity}">
 					<span class="insight-icon">{severityIcon[insight.severity]}</span>
-					<span>{insight.message}</span>
+					<div>
+						{#if insight.action}<p class="insight-action">{insight.action}</p>{/if}
+						<p class="insight-reason">{insight.reason}</p>
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -178,6 +183,18 @@
 		border-radius: var(--radius-sm);
 		padding: 0.75rem 1rem;
 		background: color-mix(in srgb, var(--color-info) var(--wash-strength), var(--wash-base));
+	}
+
+	/* The instruction carries the weight; the reason explains it underneath. */
+	.insight-action {
+		font-weight: 700;
+		margin: 0 0 0.25rem;
+	}
+
+	.insight-reason {
+		margin: 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 
 	.insight-icon {
