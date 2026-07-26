@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { Map, LngLatBounds } from 'maplibre-gl';
+	import { Map, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
+	import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 	import {
 		getActivitySamples,
 		getActivityWeather,
@@ -11,6 +12,18 @@
 	} from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
+
+	// maplibre-gl's own worker-URL construction is a runtime string template
+	// (`./${t}`), which Vite's static import analysis can't follow — the
+	// worker chunk never gets emitted, so the browser requests a URL that
+	// doesn't exist. Our SPA-fallback (internal/webui.Handler) then serves
+	// index.html (200, text/html) for that missing path instead of a 404,
+	// which the module-worker loader rejects with "non-JavaScript MIME
+	// type" (verified: this exact error shows up in a real browser, not
+	// just this dev setup). The `?url` import is a static reference Vite
+	// *can* see, so it bundles the worker as a real, hashed asset — point
+	// MapLibre at that instead of letting it guess.
+	setWorkerUrl(maplibreWorkerUrl);
 
 	let viewState: 'loading' | 'error' | 'ready' = $state('loading');
 	let errorMessage = $state('');
