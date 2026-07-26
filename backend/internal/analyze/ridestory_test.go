@@ -50,16 +50,16 @@ func TestRideStorySessionBands(t *testing.T) {
 		if stats["Dauer"] != "1:30 h" {
 			t.Errorf("IF %.2f: duration stat %q", tc.ifactor, stats["Dauer"])
 		}
-		if story.Intensity == nil {
+		if story.Gauge == nil {
 			t.Fatalf("IF %.2f: no intensity gauge", tc.ifactor)
 		}
 		// The bar clamps at 100 %, the label keeps the true reading.
 		wantPercent := int(tc.ifactor*100 + 0.5)
-		if story.Intensity.Percent != min(wantPercent, 100) {
-			t.Errorf("IF %.2f: gauge %d %%", tc.ifactor, story.Intensity.Percent)
+		if story.Gauge.Percent != min(wantPercent, 100) {
+			t.Errorf("IF %.2f: gauge %d %%", tc.ifactor, story.Gauge.Percent)
 		}
-		if !strings.Contains(story.Intensity.Label, fmt.Sprint(wantPercent)) {
-			t.Errorf("IF %.2f: gauge label %q lost the real value", tc.ifactor, story.Intensity.Label)
+		if !strings.Contains(story.Gauge.Label, fmt.Sprint(wantPercent)) {
+			t.Errorf("IF %.2f: gauge label %q lost the real value", tc.ifactor, story.Gauge.Label)
 		}
 	}
 }

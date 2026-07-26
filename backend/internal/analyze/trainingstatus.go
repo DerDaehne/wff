@@ -1,6 +1,9 @@
 package analyze
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
 
 // trendWindowDays is how far back the "is my fitness going up or down?"
 // comparison looks. Four weeks: long enough that a single hard weekend doesn't
@@ -25,6 +28,7 @@ func TrainingStatus(series []DayLoad) Story {
 
 	story := Story{
 		Title: formTitle(latest.TSB),
+		Gauge: trainingLevel(series),
 		Stats: []Stat{
 			{Value: fmt.Sprintf("%d", int(latest.CTL+0.5)), Label: "Fitness (CTL)"},
 			{Value: fmt.Sprintf("%d", int(latest.ATL+0.5)), Label: "Müdigkeit (ATL)"},
@@ -42,6 +46,56 @@ func TrainingStatus(series []DayLoad) Story {
 		story.Statements = append(story.Statements, s)
 	}
 	return story
+}
+
+// trainingLevels translate CTL into something a rider can place themselves in.
+// CTL already IS the "training level score" — it just has no name and no scale,
+// so 41 says nothing about whether that is a lot.
+//
+// The boundaries are not invented. They follow the CTL ranges commonly cited
+// for weekly training volume: roughly 30–50 for recreational riders at 3–5 h a
+// week, 60–90 for committed amateurs at 8–12 h, 80–110 for club racers, 100–140
+// for elite amateurs, 140+ for professionals. Rounded to memorable numbers,
+// because the exact cut is far less meaningful than the band.
+var trainingLevels = []struct {
+	upTo    float64
+	name    string
+	caption string
+}{
+	{20, "Einstieg", "ein paar Fahrten in den letzten Wochen"},
+	{40, "Gelegenheitsfahrer", "etwa 3 bis 5 Stunden pro Woche"},
+	{70, "Regelmäßig im Sattel", "etwa 6 bis 8 Stunden pro Woche"},
+	{100, "Ambitioniert", "etwa 8 bis 12 Stunden pro Woche"},
+	{math.MaxFloat64, "Wettkampfniveau", "so viel wie ambitionierte Rennfahrer"},
+}
+
+// trainingLevel turns CTL into a named band plus how far through it you are.
+// Nil below minDaysForTrend: with a week of history the number describes the
+// last few days, not a training level.
+func trainingLevel(series []DayLoad) *Gauge {
+	if len(series) < minDaysForTrend {
+		return nil
+	}
+	ctl := series[len(series)-1].CTL
+
+	lower := 0.0
+	for _, level := range trainingLevels {
+		if ctl < level.upTo {
+			// Progress through the current band. The open-ended top band has no
+			// "through" to speak of, so it simply reads full.
+			percent := 100
+			if level.upTo != math.MaxFloat64 {
+				percent = int((ctl - lower) / (level.upTo - lower) * 100)
+			}
+			return &Gauge{
+				Percent: min(max(percent, 0), 100),
+				Label:   fmt.Sprintf("Trainingsniveau: %s", level.name),
+				Caption: level.caption,
+			}
+		}
+		lower = level.upTo
+	}
+	return nil
 }
 
 // formTitle states the situation. Bands follow the usual TSB reading: clearly

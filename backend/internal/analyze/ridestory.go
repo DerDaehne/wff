@@ -24,9 +24,10 @@ type Story struct {
 	// split into value/unit so it can typeset the number large and the unit
 	// small (#607).
 	Stats []Stat `json:"stats"`
-	// Intensity drives a filled bar instead of four digits of text. Nil when
-	// there is no intensity factor to show one for.
-	Intensity  *Gauge      `json:"intensity,omitempty"`
+	// Gauge is the one bar this view shows: ride intensity on a ride,
+	// training level on the dashboard. Nil when there is nothing to show one
+	// for.
+	Gauge      *Gauge      `json:"gauge,omitempty"`
 	Statements []Statement `json:"statements"`
 }
 
@@ -148,10 +149,10 @@ func (f RideFacts) metersPerKm() float64 {
 // what IS known first, not an apology for what isn't.
 func RideStory(f RideFacts) Story {
 	story := Story{
-		Title:     rideTitle(f),
-		Subtitle:  germanDate(f.StartedAt),
-		Stats:     headlineStats(f),
-		Intensity: intensityGauge(f),
+		Title:    rideTitle(f),
+		Subtitle: germanDate(f.StartedAt),
+		Stats:    headlineStats(f),
+		Gauge:    intensityGauge(f),
 	}
 	var hints []Statement
 

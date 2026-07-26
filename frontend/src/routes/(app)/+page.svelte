@@ -81,7 +81,7 @@
 {:else if viewState === 'ready'}
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->
-	<StoryHero story={status} fallbackTitle="Dein Trainingsstand" />
+	<StoryHero story={status} fallbackTitle="Dein Trainingsstand" meterColor="var(--chart-ctl)" />
 	<StoryCards statements={status?.statements ?? []} label="Dein aktueller Trainingsstand" />
 
 	<section class="panel">

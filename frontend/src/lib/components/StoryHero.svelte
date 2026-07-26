@@ -7,8 +7,14 @@
 	let {
 		story,
 		fallbackTitle,
-		note
-	}: { story: RideStory | null; fallbackTitle: string; note?: string } = $props();
+		note,
+		meterColor = 'var(--chart-power)'
+	}: {
+		story: RideStory | null;
+		fallbackTitle: string;
+		note?: string;
+		meterColor?: string;
+	} = $props();
 </script>
 
 <header class="hero">
@@ -31,12 +37,12 @@
 		</div>
 	{/if}
 
-	{#if story?.intensity}
+	{#if story?.gauge}
 		<div class="hero-meter">
-			<div class="meter" style="--meter-color: var(--chart-power)">
-				<span style="width: {story.intensity.percent}%"></span>
+			<div class="meter" style="--meter-color: {meterColor}">
+				<span style="width: {story.gauge.percent}%"></span>
 			</div>
-			<p class="hero-note">{story.intensity.label} · {story.intensity.caption}</p>
+			<p class="hero-note">{story.gauge.label} · {story.gauge.caption}</p>
 		</div>
 	{/if}
 

@@ -82,7 +82,8 @@ export interface RideStory {
 	title: string;
 	subtitle: string;
 	stats: RideStat[];
-	intensity?: RideGauge;
+	/** The one bar a view shows: ride intensity, or training level (#611). */
+	gauge?: RideGauge;
 	statements: RideStatement[];
 }
 
