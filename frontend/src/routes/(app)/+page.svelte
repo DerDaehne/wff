@@ -4,6 +4,12 @@
 	import { getTrainingLoad, type DayLoad, type Insight } from '$lib/trainingload';
 	import { listActivities, type RideStory } from '$lib/rides';
 	import { ApiError } from '$lib/api';
+	import {
+		getProgress,
+		progressMetrics,
+		type Progress,
+		type ProgressMetricKey
+	} from '$lib/progress';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
@@ -18,6 +24,9 @@
 	let insights: Insight[] = $state([]);
 	let status: RideStory | null = $state(null);
 	let errorMessage = $state('');
+	let progress: Progress | null = $state(null);
+	let metricKey: ProgressMetricKey = $state('avg_speed_kmh');
+	let metric = $derived(progressMetrics.find((m) => m.key === metricKey)!);
 
 	onMount(async () => {
 		try {
@@ -25,6 +34,11 @@
 			series = trainingLoad.series;
 			insights = trainingLoad.insights;
 			status = trainingLoad.status;
+			// Best effort: the weekly history is an extra panel, not a reason to
+			// fail the whole page.
+			getProgress()
+				.then((p) => (progress = p))
+				.catch(() => {});
 			if (series.length > 0) {
 				viewState = 'ready';
 			} else if (activities.length > 0) {
@@ -139,6 +153,43 @@
 		</div>
 	</section>
 
+	{#if progress && progress.weeks.length > 0}
+		<section class="panel">
+			<h2>Wirst du besser?</h2>
+			<p class="panel-sub">
+				Woche für Woche statt Fahrt für Fahrt — eine einzelne Ausfahrt sagt zu wenig, weil Wind und
+				Strecke sie zu stark bestimmen.
+			</p>
+			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
+				{#each progressMetrics as m (m.key)}
+					<button
+						type="button"
+						class="btn {metricKey === m.key ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={metricKey === m.key}
+						onclick={() => (metricKey = m.key)}
+					>
+						{m.label}
+					</button>
+				{/each}
+			</div>
+			<LineChart
+				xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
+				series={[
+					{
+						name: metric.label,
+						color: metric.color,
+						values: progress.weeks.map((w) => w[metric.key])
+					}
+				]}
+				xFormat={formatDay}
+				yFormat={metric.format}
+				ariaLabel="Wochenverlauf {metric.label}"
+				height={200}
+			/>
+		</section>
+		<StoryCards statements={progress.statements} label="Fortschritt über die Wochen" />
+	{/if}
+
 	<p class="glossary-hint">
 		Fitness, Müdigkeit, Frische — was dahinter steckt, steht im
 		<a href={resolve('/(app)/glossar')}>Glossar</a>.
@@ -163,6 +214,13 @@
 		font-size: var(--text-sm);
 		margin: 0.25rem 0 1rem;
 		max-width: 60ch;
+	}
+
+	.metric-switch {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
 	}
 
 	.glossary-hint {

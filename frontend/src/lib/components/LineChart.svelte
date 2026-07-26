@@ -50,11 +50,8 @@
 	let measuredWidth = $state(0);
 	let width = $derived(Math.min(measuredWidth || maxWidth, maxWidth));
 
-	// A phone can't fit five date labels without them colliding, and it needs
-	// less room for the y-axis because the numbers are the same but the plot is
-	// narrower.
+	// A phone can't fit five date labels without them colliding.
 	let narrow = $derived(width < 480);
-	let padLeft = $derived(narrow ? 38 : 44);
 	const padRight = 12;
 	const padTop = 12;
 	let padBottom = $derived(narrow ? 24 : 28);
@@ -71,6 +68,16 @@
 		const min = Math.min(...allValues);
 		const max = Math.max(...allValues);
 		return niceTicks(min, max, 5);
+	});
+
+	// The y-axis gutter has to fit the widest label the formatter produces, not
+	// a fixed guess: "24.7 km/h" needs twice the room of "41", and a constant
+	// padLeft simply clipped it to ".7 km/h". Estimated from the character
+	// count (~6.2px per glyph at 11px) rather than measured, which would mean
+	// a DOM round-trip for a value that only needs to be roughly right.
+	let padLeft = $derived.by(() => {
+		const widest = yTicks.reduce((max, tick) => Math.max(max, yFormat(tick).length), 0);
+		return Math.max(narrow ? 34 : 38, Math.ceil(widest * 6.2) + 12);
 	});
 
 	let yMin = $derived(yTicks.length > 0 ? yTicks[0] : 0);

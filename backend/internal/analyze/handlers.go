@@ -18,6 +18,7 @@ func NewHandlers(pool *pgxpool.Pool) *Handlers {
 
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/training-load", auth.RequireAuth(h.pool)(http.HandlerFunc(h.trainingLoad)))
+	mux.Handle("GET /api/progress", auth.RequireAuth(h.pool)(http.HandlerFunc(h.progress)))
 }
 
 type trainingLoadResponse struct {
@@ -44,4 +45,21 @@ func (h *Handlers) trainingLoad(w http.ResponseWriter, r *http.Request) {
 		Insights: Insights(series),
 		Status:   TrainingStatus(series),
 	})
+}
+
+// progress returns the weekly history of the plain figures — distance, time,
+// climbing, speed — plus what their direction means (#618). Separate from
+// training-load because it answers a different question: that one is "how am I
+// right now", this one is "am I getting anywhere".
+func (h *Handlers) progress(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	progress, err := WeeklyProgress(r.Context(), h.pool, userID)
+	if err != nil {
+		http.Error(w, "could not compute progress", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(progress)
 }
