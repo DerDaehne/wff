@@ -2,12 +2,14 @@
 	import { onMount } from 'svelte';
 	import { getSettings, updateSettings, type Estimate, type Estimates } from '$lib/profile';
 	import { ApiError } from '$lib/api';
+	import { progressMetrics } from '$lib/progress';
 
 	let viewState: 'loading' | 'ready' | 'error' = $state('loading');
 	let errorMessage = $state('');
 	let ftpWatts: number | '' = $state('');
 	let lthrBpm: number | '' = $state('');
 	let weightKg: number | '' = $state('');
+	let primaryMetric = $state('distance');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
 	let saveState: 'idle' | 'saving' | 'saved' | 'error' = $state('idle');
 
@@ -17,6 +19,7 @@
 			ftpWatts = settings.ftp_watts ?? '';
 			lthrBpm = settings.lthr_bpm ?? '';
 			weightKg = settings.weight_kg ?? '';
+			primaryMetric = settings.primary_metric ?? 'distance';
 			estimates = settings.estimates;
 			viewState = 'ready';
 		} catch (err) {
@@ -47,7 +50,8 @@
 			await updateSettings({
 				ftp_watts: ftpWatts === '' ? null : ftpWatts,
 				lthr_bpm: lthrBpm === '' ? null : lthrBpm,
-				weight_kg: weightKg === '' ? null : weightKg
+				weight_kg: weightKg === '' ? null : weightKg,
+				primary_metric: primaryMetric
 			});
 			saveState = 'saved';
 		} catch {
@@ -119,6 +123,21 @@
 						</button>
 					</div>
 				{/if}
+			</div>
+
+			<div class="field">
+				<label for="primary-metric">Wichtigste Zahl</label>
+				<p class="field-hint">
+					Die Zahl, die bei jeder Fahrt zuerst und am größten steht. Wenn eine Fahrt sie nicht
+					hergibt — etwa Höhenmeter ohne Barometer — rückt die nächste nach.
+				</p>
+				<select id="primary-metric" class="input" bind:value={primaryMetric}>
+					<option value="distance">Distanz</option>
+					{#each progressMetrics.filter((m) => m.setting !== 'distance') as m (m.setting)}
+						<option value={m.setting}>{m.label}</option>
+					{/each}
+					<option value="load">Belastung</option>
+				</select>
 			</div>
 
 			<div class="field">

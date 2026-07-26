@@ -35,6 +35,19 @@ type settings struct {
 	// WeightKg turns climbing speed into a power estimate (#610); optional,
 	// because everything else works without it.
 	WeightKg *float64 `json:"weight_kg"`
+	// PrimaryMetric is the figure the rider wants to see first (#616).
+	PrimaryMetric *string `json:"primary_metric"`
+}
+
+// allowedMetrics guards the one settings field that is a free-form string.
+// Anything outside this set would silently fall back to the default order,
+// which looks like the setting being ignored — better to reject it.
+var allowedMetrics = map[string]bool{
+	analyze.MetricDistance:  true,
+	analyze.MetricSpeed:     true,
+	analyze.MetricDuration:  true,
+	analyze.MetricElevation: true,
+	analyze.MetricLoad:      true,
 }
 
 // settingsResponse carries the stored values plus what the rider's own rides
@@ -51,8 +64,8 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 
 	var s settings
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT ftp_watts, lthr_bpm, weight_kg FROM users WHERE id = $1`, userID,
-	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg); err != nil {
+		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric FROM users WHERE id = $1`, userID,
+	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric); err != nil {
 		http.Error(w, "could not load settings", http.StatusInternalServerError)
 		return
 	}
@@ -91,14 +104,19 @@ func (h *Handlers) update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "weight_kg must be between 20 and 300", http.StatusBadRequest)
 		return
 	}
+	if body.PrimaryMetric != nil && !allowedMetrics[*body.PrimaryMetric] {
+		http.Error(w, "unknown primary_metric", http.StatusBadRequest)
+		return
+	}
 
 	if _, err := h.pool.Exec(r.Context(), `
 		UPDATE users SET
 			ftp_watts = COALESCE($2, ftp_watts),
 			lthr_bpm = COALESCE($3, lthr_bpm),
-			weight_kg = COALESCE($4, weight_kg)
+			weight_kg = COALESCE($4, weight_kg),
+			primary_metric = COALESCE($5, primary_metric)
 		WHERE id = $1`,
-		userID, body.FTPWatts, body.LTHRBpm, body.WeightKg,
+		userID, body.FTPWatts, body.LTHRBpm, body.WeightKg, body.PrimaryMetric,
 	); err != nil {
 		http.Error(w, "could not update settings", http.StatusInternalServerError)
 		return

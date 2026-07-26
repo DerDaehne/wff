@@ -6,10 +6,12 @@
 	import { ApiError } from '$lib/api';
 	import {
 		getProgress,
+		metricKeyFor,
 		progressMetrics,
 		type Progress,
 		type ProgressMetricKey
 	} from '$lib/progress';
+	import { getSettings } from '$lib/profile';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
@@ -38,6 +40,11 @@
 			// fail the whole page.
 			getProgress()
 				.then((p) => (progress = p))
+				.catch(() => {});
+			// The chart opens on the figure the rider chose in their profile
+			// (#616); failing to read it just means the default stands.
+			getSettings()
+				.then((settings) => (metricKey = metricKeyFor(settings.primary_metric)))
 				.catch(() => {});
 			if (series.length > 0) {
 				viewState = 'ready';

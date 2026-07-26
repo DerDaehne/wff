@@ -93,6 +93,9 @@ type RideFacts struct {
 	// WeightKg turns climbing speed into a relative-power estimate (#610).
 	// Nil simply means that part goes unsaid.
 	WeightKg *float64
+	// PrimaryMetric is the figure this rider wants to lead with (#616). Empty
+	// keeps the previous order.
+	PrimaryMetric string
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -229,17 +232,42 @@ func germanDate(t time.Time) string {
 		local.Hour(), local.Minute())
 }
 
-// headlineStats are the figures that lead the page: distance first because it
-// is the one every rider quotes, then time, then climbing when there was any
-// worth mentioning.
+// PrimaryMetric names the figure a rider wants to see first (#616). The
+// values are the API contract; an unknown or empty one simply falls back to
+// the default order.
+const (
+	MetricDistance  = "distance"
+	MetricSpeed     = "speed"
+	MetricDuration  = "duration"
+	MetricElevation = "elevation"
+	MetricLoad      = "load"
+)
+
+// defaultMetricOrder is what the page showed before anyone could choose:
+// distance first because it is the figure every rider quotes.
+var defaultMetricOrder = []string{
+	MetricDistance, MetricDuration, MetricElevation, MetricSpeed, MetricLoad,
+}
+
+// headlineStatsLimit — three figures fit the hero on a phone without the block
+// eating the screen; a fourth would wrap to its own row.
+const headlineStatsLimit = 3
+
+// headlineStats are the figures that lead the page, the rider's preferred one
+// first.
+//
+// A metric that this particular ride has no value for (no climbing recorded,
+// no training load without FTP) is skipped rather than shown empty, so the
+// next one moves up — a preference must not turn into a gap.
 func headlineStats(f RideFacts) []Stat {
-	var stats []Stat
+	available := map[string]Stat{}
+
 	if km := f.distanceMeters() / 1000; km > 0 {
-		stats = append(stats, Stat{Value: decimal(km, 1), Unit: "km", Label: "Distanz"})
+		available[MetricDistance] = Stat{Value: decimal(km, 1), Unit: "km", Label: "Distanz"}
 	}
 	if seconds := f.ElapsedSeconds; seconds > 0 {
 		value, unit := durationParts(seconds)
-		stats = append(stats, Stat{Value: value, Unit: unit, Label: "Dauer"})
+		available[MetricDuration] = Stat{Value: value, Unit: unit, Label: "Dauer"}
 	}
 	gain := 0.0
 	switch {
@@ -249,9 +277,32 @@ func headlineStats(f RideFacts) []Stat {
 		gain = f.Course.ElevationGainMeters
 	}
 	if gain >= 50 {
-		stats = append(stats, Stat{
+		available[MetricElevation] = Stat{
 			Value: fmt.Sprintf("%d", int(gain+0.5)), Unit: "hm", Label: "Anstieg",
-		})
+		}
+	}
+	if speed := f.avgSpeedKmh(); speed > 0 {
+		available[MetricSpeed] = Stat{Value: decimal(speed, 1), Unit: "km/h", Label: "⌀ Tempo"}
+	}
+	if f.TSS != nil {
+		available[MetricLoad] = Stat{
+			Value: fmt.Sprintf("%d", int(*f.TSS+0.5)), Label: "Belastung",
+		}
+	}
+
+	var stats []Stat
+	seen := map[string]bool{}
+	for _, metric := range append([]string{f.PrimaryMetric}, defaultMetricOrder...) {
+		if metric == "" || seen[metric] {
+			continue
+		}
+		seen[metric] = true
+		if stat, ok := available[metric]; ok {
+			stats = append(stats, stat)
+		}
+		if len(stats) == headlineStatsLimit {
+			break
+		}
 	}
 	return stats
 }

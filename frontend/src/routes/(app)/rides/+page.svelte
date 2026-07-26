@@ -3,15 +3,48 @@
 	import { resolve } from '$app/paths';
 	import { listActivities, formatDistance, formatDuration, type ActivitySummary } from '$lib/rides';
 	import { ApiError } from '$lib/api';
+	import { getSettings } from '$lib/profile';
 
 	let viewState: 'loading' | 'empty' | 'error' | 'ready' = $state('loading');
 	let rides: ActivitySummary[] = $state([]);
 	let errorMessage = $state('');
+	let primaryMetric = $state('distance');
+
+	// The same order the ride's own hero uses (#616) — the list and the detail
+	// view must not disagree about what matters. Figures a ride has no value
+	// for are dropped, so a preference never leaves a gap.
+	function figuresFor(ride: ActivitySummary) {
+		const figures = [
+			{ metric: 'distance', value: formatDistance(ride.distance_meters), label: 'Distanz' },
+			{ metric: 'duration', value: formatDuration(ride.moving_seconds), label: 'Dauer' }
+		];
+		if (ride.moving_seconds > 0 && ride.distance_meters !== null) {
+			figures.push({
+				metric: 'speed',
+				value: `${((ride.distance_meters / ride.moving_seconds) * 3.6).toFixed(1)} km/h`,
+				label: '⌀ Tempo'
+			});
+		}
+		if (ride.training_stress_score !== null) {
+			figures.push({
+				metric: 'load',
+				value: ride.training_stress_score.toFixed(0),
+				label: 'Belastung'
+			});
+		}
+		const preferred = figures.filter((f) => f.metric === primaryMetric);
+		const rest = figures.filter((f) => f.metric !== primaryMetric);
+		return [...preferred, ...rest].slice(0, 3);
+	}
 
 	onMount(async () => {
 		try {
 			rides = await listActivities();
 			viewState = rides.length === 0 ? 'empty' : 'ready';
+			// Best effort: without the preference the default order stands.
+			getSettings()
+				.then((settings) => (primaryMetric = settings.primary_metric ?? 'distance'))
+				.catch(() => {});
 		} catch (err) {
 			errorMessage =
 				err instanceof ApiError ? err.message : 'Fahrten konnten nicht geladen werden.';
@@ -44,25 +77,17 @@
 			<li>
 				<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
 					<span class="ride-date">{rideDate(ride.started_at)}</span>
+					<!-- Same order as the ride's own hero: the list and the detail view
+					     must not disagree about what matters. "TSS 101" became a
+					     labelled figure — the abbreviation said nothing to anyone who
+					     hadn't already looked it up. -->
 					<span class="ride-figures">
-						<!-- Distance leads, as it does in the ride's own hero — the two
-						     views should read as the same app. "TSS 101" became a
-						     labelled figure: the abbreviation said nothing to anyone who
-						     hadn't already looked it up. -->
-						<span class="figure">
-							<strong>{formatDistance(ride.distance_meters)}</strong>
-							<span class="figure-label">Distanz</span>
-						</span>
-						<span class="figure">
-							<strong>{formatDuration(ride.moving_seconds)}</strong>
-							<span class="figure-label">Dauer</span>
-						</span>
-						{#if ride.training_stress_score !== null}
+						{#each figuresFor(ride) as figure (figure.metric)}
 							<span class="figure">
-								<strong>{ride.training_stress_score.toFixed(0)}</strong>
-								<span class="figure-label">Belastung</span>
+								<strong>{figure.value}</strong>
+								<span class="figure-label">{figure.label}</span>
 							</span>
-						{/if}
+						{/each}
 					</span>
 				</a>
 			</li>

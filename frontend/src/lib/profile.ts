@@ -5,6 +5,8 @@ export interface Settings {
 	lthr_bpm: number | null;
 	/** Optional: turns climbing speed into a rough power figure (#610). */
 	weight_kg: number | null;
+	/** Which figure the rider wants to see first (#616); null = default order. */
+	primary_metric: string | null;
 }
 
 /** A threshold derived from the rider's own rides, carrying the ride it came
