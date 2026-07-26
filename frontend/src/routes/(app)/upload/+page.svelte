@@ -80,22 +80,27 @@
 
 {#if status === 'success'}
 	<p role="status">Erfolgreich hochgeladen (Activity #{activityId}).</p>
-	<button onclick={reset}>Weitere Datei hochladen</button>
+	<button class="btn btn-primary" onclick={reset}>Weitere Datei hochladen</button>
 {:else if status === 'error'}
 	<p role="alert">{errorMessage}</p>
-	<button onclick={reset}>Erneut versuchen</button>
+	<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
 {/if}
 
 <style>
 	.dropzone {
-		border: 2px dashed #0f766e;
-		border-radius: 0.5rem;
+		background: color-mix(in srgb, var(--color-brand) 6%, var(--color-surface));
+		box-shadow: var(--shadow-md);
+		border-radius: var(--radius-md);
 		padding: 3rem 1rem;
 		text-align: center;
 		cursor: pointer;
+		transition:
+			box-shadow 0.15s ease,
+			background 0.15s ease;
 	}
 
 	.dropzone.dragover {
-		background: #ccfbf1;
+		background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
+		box-shadow: var(--shadow-lg);
 	}
 </style>

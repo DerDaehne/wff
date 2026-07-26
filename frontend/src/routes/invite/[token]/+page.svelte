@@ -20,15 +20,45 @@
 	}
 </script>
 
-<h1>Willkommen bei WFF</h1>
-<p>Richte einen Passkey ein, um dein Konto zu aktivieren.</p>
+<div class="auth-page">
+	<div class="card auth-card">
+		<h1>Willkommen bei WFF</h1>
+		<p>Richte einen Passkey ein, um dein Konto zu aktivieren.</p>
 
-<button onclick={register} disabled={status === 'working'}>
-	{status === 'working' ? 'Warte auf Passkey…' : 'Passkey einrichten'}
-</button>
+		<button class="btn btn-primary" onclick={register} disabled={status === 'working'}>
+			{status === 'working' ? 'Warte auf Passkey…' : 'Passkey einrichten'}
+		</button>
 
-{#if status === 'error'}
-	<p role="alert">{errorMessage}</p>
-{/if}
+		{#if status === 'error'}
+			<p class="error" role="alert">{errorMessage}</p>
+		{/if}
 
-<p><a href={resolve('/login')}>Schon registriert? Hier anmelden.</a></p>
+		<p class="alt-link"><a href={resolve('/login')}>Schon registriert? Hier anmelden.</a></p>
+	</div>
+</div>
+
+<style>
+	.auth-page {
+		display: flex;
+		justify-content: center;
+		padding-top: 15vh;
+	}
+
+	.auth-card {
+		width: 100%;
+		max-width: 22rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.error {
+		color: var(--color-danger);
+		font-size: var(--text-sm);
+	}
+
+	.alt-link {
+		font-size: var(--text-sm);
+		color: var(--color-text-muted);
+	}
+</style>

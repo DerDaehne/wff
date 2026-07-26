@@ -57,3 +57,74 @@ h2,
 h3 {
 	line-height: 1.2;
 }
+
+/* Component base patterns from design-wff-ui-konzept — shared across pages
+   so buttons/inputs/cards look consistent without per-page duplication. */
+
+button {
+	font: inherit;
+}
+
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	border: none;
+	border-radius: 8px;
+	padding: 0.625rem 1.25rem;
+	font-size: var(--text-base);
+	font-weight: 600;
+	cursor: pointer;
+	transition:
+		box-shadow 0.15s ease,
+		transform 0.15s ease;
+}
+
+.btn:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.btn-primary {
+	background: var(--color-brand);
+	color: white;
+	box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:not(:disabled):hover {
+	box-shadow: var(--shadow-md);
+	transform: translateY(-1px);
+}
+
+.btn-secondary {
+	background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+	color: var(--color-brand);
+}
+
+.btn-secondary:not(:disabled):hover {
+	background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+}
+
+.input {
+	display: block;
+	width: 100%;
+	border: none;
+	border-radius: 10px;
+	background: var(--color-bg);
+	padding: 0.625rem 0.875rem;
+	font-size: var(--text-base);
+	color: var(--color-text);
+}
+
+.input:focus {
+	outline: none;
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 25%, transparent);
+}
+
+.card {
+	background: var(--color-surface);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-md);
+	padding: 1.5rem;
+}

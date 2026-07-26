@@ -44,7 +44,7 @@
 					</li>
 				{/each}
 			</ul>
-			<button onclick={handleLogout}>Abmelden</button>
+			<button class="logout" onclick={handleLogout}>Abmelden</button>
 		</nav>
 		<main class="content">
 			{@render children()}
@@ -73,38 +73,47 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		background: #0f766e;
+		background: var(--color-brand);
 		color: white;
 		padding: 0.5rem 1rem;
+		box-shadow: var(--shadow-lg);
 		z-index: 10;
 	}
 
 	.nav ul {
 		display: flex;
-		gap: 1rem;
+		gap: 0.25rem;
 		list-style: none;
 		margin: 0;
 		padding: 0;
 	}
 
 	.nav a {
+		display: block;
 		color: white;
 		text-decoration: none;
-		padding: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		border-radius: 10px;
+		opacity: 0.85;
 	}
 
 	.nav a[aria-current='page'] {
-		font-weight: bold;
-		text-decoration: underline;
+		background: rgba(255, 255, 255, 0.16);
+		opacity: 1;
+		font-weight: 600;
 	}
 
-	.nav button {
-		background: transparent;
-		border: 1px solid white;
+	.nav .logout {
+		background: rgba(255, 255, 255, 0.12);
+		border: none;
 		color: white;
-		border-radius: 0.25rem;
-		padding: 0.25rem 0.75rem;
+		border-radius: 10px;
+		padding: 0.4rem 0.9rem;
 		cursor: pointer;
+	}
+
+	.nav .logout:hover {
+		background: rgba(255, 255, 255, 0.22);
 	}
 
 	/* Desktop: sidebar instead of bottom bar */

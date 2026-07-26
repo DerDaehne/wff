@@ -21,22 +21,45 @@
 	}
 </script>
 
-<h1>Anmelden</h1>
+<div class="auth-page">
+	<form class="card auth-card" onsubmit={login}>
+		<h1>Anmelden</h1>
+		<label for="username">Benutzername</label>
+		<input
+			id="username"
+			name="username"
+			class="input"
+			bind:value={username}
+			autocomplete="username webauthn"
+			required
+		/>
+		<button class="btn btn-primary" type="submit" disabled={status === 'working'}>
+			{status === 'working' ? 'Warte auf Passkey…' : 'Mit Passkey anmelden'}
+		</button>
 
-<form onsubmit={login}>
-	<label for="username">Benutzername</label>
-	<input
-		id="username"
-		name="username"
-		bind:value={username}
-		autocomplete="username webauthn"
-		required
-	/>
-	<button type="submit" disabled={status === 'working'}>
-		{status === 'working' ? 'Warte auf Passkey…' : 'Mit Passkey anmelden'}
-	</button>
-</form>
+		{#if status === 'error'}
+			<p class="error" role="alert">{errorMessage}</p>
+		{/if}
+	</form>
+</div>
 
-{#if status === 'error'}
-	<p role="alert">{errorMessage}</p>
-{/if}
+<style>
+	.auth-page {
+		display: flex;
+		justify-content: center;
+		padding-top: 15vh;
+	}
+
+	.auth-card {
+		width: 100%;
+		max-width: 22rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.error {
+		color: var(--color-danger);
+		font-size: var(--text-sm);
+	}
+</style>
