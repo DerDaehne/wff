@@ -135,7 +135,10 @@
 	<p role="alert">{errorMessage}</p>
 {:else}
 	{#if windLabel !== null || weather?.avg_temperature_celsius != null}
-		<p class="weather-context">
+		<p
+			class="weather-context"
+			title="Durchschnittstemperatur und mittlerer Wind relativ zur Fahrtrichtung während dieser Fahrt"
+		>
 			{#if weather?.avg_temperature_celsius != null}
 				{Math.round(weather.avg_temperature_celsius)}°C
 			{/if}

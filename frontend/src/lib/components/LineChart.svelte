@@ -18,6 +18,9 @@
 		name: string;
 		color: string;
 		values: (number | null)[];
+		// Shown as a native tooltip on the legend entry — cheapest way to
+		// explain jargon (CTL/ATL/TSB) without a custom tooltip component.
+		description?: string;
 	}
 
 	let {
@@ -127,7 +130,9 @@
 	{#if series.length > 1}
 		<ul class="legend">
 			{#each series as s (s.name)}
-				<li><span class="swatch" style="background: {s.color}"></span>{s.name}</li>
+				<li title={s.description}
+					><span class="swatch" style="background: {s.color}"></span>{s.name}</li
+				>
 			{/each}
 		</ul>
 	{/if}

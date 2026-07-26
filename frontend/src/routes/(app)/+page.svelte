@@ -75,15 +75,35 @@
 	</p>
 	<p><a href={resolve('/(app)/profile')}>FTP/LTHR im Profil hinterlegen</a></p>
 {:else if viewState === 'ready'}
+	<p class="metric-hint">
+		<strong>CTL</strong> (Fitness) und <strong>ATL</strong> (Ermüdung) sind gleitende Mittelwerte
+		deiner täglichen Trainingsbelastung (42 bzw. 7 Tage) — <strong>TSB</strong> (Form) ist die
+		Differenz aus beiden: positiv heißt erholt/frisch, negativ heißt du trainierst gerade hart.
+	</p>
 	<p>
 		Aktuelle Form (TSB): <strong style="color: {tsbColor}">{latestTSB?.toFixed(1)}</strong>
 	</p>
 	<LineChart
 		xValues={dayTimestamps}
 		series={[
-			{ name: 'CTL (Fitness)', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) },
-			{ name: 'ATL (Ermüdung)', color: 'var(--chart-atl)', values: series.map((d) => d.atl) },
-			{ name: 'TSB (Form)', color: tsbColor, values: series.map((d) => d.tsb) }
+			{
+				name: 'CTL (Fitness)',
+				color: 'var(--chart-ctl)',
+				values: series.map((d) => d.ctl),
+				description: 'Langzeit-Trainingsbelastung (42-Tage-Mittel) — deine allgemeine Fitness.'
+			},
+			{
+				name: 'ATL (Ermüdung)',
+				color: 'var(--chart-atl)',
+				values: series.map((d) => d.atl),
+				description: 'Kurzzeit-Trainingsbelastung (7-Tage-Mittel) — wie erschöpft du gerade bist.'
+			},
+			{
+				name: 'TSB (Form)',
+				color: tsbColor,
+				values: series.map((d) => d.tsb),
+				description: 'CTL minus ATL — positiv: erholt, negativ: du trainierst gerade hart.'
+			}
 		]}
 		xFormat={formatDay}
 		yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1))}
@@ -91,6 +111,7 @@
 	/>
 
 	<h2>Insights</h2>
+	<p class="metric-hint">Automatische Einschätzung deines Trainingsverlaufs, regelbasiert aus CTL/ATL/TSB.</p>
 	<div class="insights">
 		{#each insights as insight, i (i)}
 			<div class="insight insight-{insight.severity}">
@@ -102,6 +123,12 @@
 {/if}
 
 <style>
+	.metric-hint {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		max-width: 60ch;
+	}
+
 	.insights {
 		display: flex;
 		flex-direction: column;
