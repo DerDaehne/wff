@@ -96,6 +96,10 @@ type RideFacts struct {
 	// PrimaryMetric is the figure this rider wants to lead with (#616). Empty
 	// keeps the previous order.
 	PrimaryMetric string
+	// Endurance is how well output per heartbeat held up across the ride
+	// (#613). Nil whenever the ride was too short, too hard or too ragged for
+	// the number to describe anything.
+	Endurance *Efficiency
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -173,6 +177,9 @@ func RideStory(f RideFacts) Story {
 	add(loadStatement(f))
 	add(paceStatement(f))
 	add(climbStatement(f))
+	if f.Endurance != nil {
+		add(efficiencyStatement(*f.Endurance), true)
+	}
 	for _, s := range contextStatements(f) {
 		add(s, true)
 	}

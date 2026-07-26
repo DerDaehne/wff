@@ -11,6 +11,7 @@
 		load: 'Was es gebracht hat',
 		pace: 'Wie schnell du warst',
 		climb: 'Wie gut du geklettert bist',
+		endurance: 'Ob es bis zum Schluss trug',
 		context: 'Warum es sich so anfühlte',
 		comparison: 'Im Vergleich zu sonst',
 		form: 'Wie es dir gerade geht',
@@ -118,6 +119,10 @@
 
 	.statement-climb {
 		--chip-color: var(--chart-elevation);
+	}
+
+	.statement-endurance {
+		--chip-color: var(--chart-heart-rate);
 	}
 
 	.statement-context {

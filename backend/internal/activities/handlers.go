@@ -59,20 +59,20 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var (
-		facts           analyze.RideFacts
-		normalizedPower *float64
-		ownerID         int64
+		facts                     analyze.RideFacts
+		normalizedPower, avgPower *float64
+		ownerID                   int64
 	)
 	err = h.pool.QueryRow(r.Context(), `
 		SELECT a.user_id, a.started_at, a.elapsed_seconds, a.moving_seconds, a.distance_meters,
 		       a.elevation_gain_meters, a.intensity_factor, a.training_stress_score, a.normalized_power_watts,
-		       u.weight_kg, coalesce(u.primary_metric, '')
+		       a.avg_power_watts, u.weight_kg, coalesce(u.primary_metric, '')
 		FROM activities a JOIN users u ON u.id = a.user_id
 		WHERE a.id = $1`,
 		activityID,
 	).Scan(&ownerID, &facts.StartedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
 		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower,
-		&facts.WeightKg, &facts.PrimaryMetric)
+		&avgPower, &facts.WeightKg, &facts.PrimaryMetric)
 	if err != nil || ownerID != userID {
 		// Same 404 for "not yours" and "doesn't exist" — see samples().
 		http.Error(w, "activity not found", http.StatusNotFound)
@@ -132,6 +132,16 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	facts.Course = course
+
+	// Endurance quality needs heart rate plus either power or speed, and only
+	// says something on a steady aerobic ride — analyze decides that, this
+	// just supplies the samples and the two steadiness inputs.
+	endurance, err := h.enduranceOf(r.Context(), activityID, facts.IntensityFactor, avgPower, normalizedPower)
+	if err != nil {
+		http.Error(w, "could not evaluate endurance", http.StatusInternalServerError)
+		return
+	}
+	facts.Endurance = endurance
 
 	writeActivitiesJSON(w, analyze.RideStory(facts))
 }
@@ -437,4 +447,76 @@ func (h *Handlers) saveRawFile(userID int64, externalUID string, raw []byte) (st
 		return "", err
 	}
 	return path, nil
+}
+
+// enduranceOf loads what the efficiency calculation needs and hands the
+// steadiness judgement to analyze. Variability (NP/average power) is the
+// standard way to tell a steady ride from an interval session; without power
+// there is no such measure, so a neutral 1.0 is passed and the intensity
+// check plus the duration floor carry the decision.
+func (h *Handlers) enduranceOf(ctx context.Context, activityID int64, intensityFactor, avgPower, normalizedPower *float64) (*analyze.Efficiency, error) {
+	rows, err := h.pool.Query(ctx, `
+		SELECT time, power_watts, speed_mps, heart_rate
+		FROM samples WHERE activity_id = $1 ORDER BY time`,
+		activityID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var (
+		samples []analyze.EffortSample
+		prev    time.Time
+	)
+	for rows.Next() {
+		var (
+			t         time.Time
+			power, hr *int
+			speed     *float64
+		)
+		if err := rows.Scan(&t, &power, &speed, &hr); err != nil {
+			return nil, err
+		}
+		seconds := 0.0
+		if !prev.IsZero() {
+			// A gap over a minute is a stop, not a sampling interval — it must
+			// not weigh into either half of the ride.
+			if gap := t.Sub(prev).Seconds(); gap > 0 && gap <= 60 {
+				seconds = gap
+			}
+		}
+		prev = t
+		if seconds == 0 {
+			continue
+		}
+		samples = append(samples, analyze.EffortSample{
+			Seconds:      seconds,
+			PowerWatts:   intPtrToFloatPtr(power),
+			SpeedMps:     speed,
+			HeartRateBpm: intPtrToFloatPtr(hr),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	variability := 1.0
+	if avgPower != nil && normalizedPower != nil && *avgPower > 0 {
+		variability = *normalizedPower / *avgPower
+	}
+
+	efficiency, ok := analyze.EfficiencyOf(samples, intensityFactor, variability)
+	if !ok {
+		return nil, nil
+	}
+	return &efficiency, nil
+}
+
+func intPtrToFloatPtr(v *int) *float64 {
+	if v == nil {
+		return nil
+	}
+	f := float64(*v)
+	return &f
 }
