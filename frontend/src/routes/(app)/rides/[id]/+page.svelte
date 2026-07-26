@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import { Map, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -238,6 +239,11 @@
 			</p>
 		{/if}
 	</section>
+
+	<p class="glossary-hint">
+		Unsicher, was ein Begriff bedeutet? Im <a href={resolve('/(app)/glossar')}>Glossar</a> steht alles
+		erklärt.
+	</p>
 {/if}
 
 <style>
@@ -257,6 +263,11 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 		margin: 0.25rem 0 1rem;
+	}
+
+	.glossary-hint {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 
 	.empty {

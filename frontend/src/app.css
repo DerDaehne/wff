@@ -265,8 +265,9 @@ button {
 		var(--chip-color, var(--color-brand)) var(--wash-strength),
 		var(--wash-base)
 	);
-	/* 55 %, not 75 %: the lighter series colours (speed blue) only reached
-	   3.2:1 on their own wash at 75 %. Mixing in more of the text colour pulls
-	   every chip to AA in both schemes — measured, not guessed. */
-	color: color-mix(in srgb, var(--chip-color, var(--color-brand)) 55%, var(--color-text));
+	/* 45 %, arrived at by measurement rather than taste: at 75 % the lighter
+	   series colours (speed blue) hit 3.2:1, at 55 % the amber ones still only
+	   reached 4.24:1 on the glossary. Mixing in more text colour is what buys
+	   AA for every chip in both schemes. */
+	color: color-mix(in srgb, var(--chip-color, var(--color-brand)) 45%, var(--color-text));
 }

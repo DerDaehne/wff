@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { uploadActivity, friendlyUploadError } from '$lib/activities';
 
 	let status: 'idle' | 'uploading' | 'success' | 'error' = $state('idle');
@@ -49,8 +50,11 @@
 	}
 </script>
 
-<h1>Aktivität hochladen</h1>
-<p>Eine <code>.fit</code>-Datei von deinem Radcomputer hochladen.</p>
+<h1>Fahrt hochladen</h1>
+<p class="lead">
+	Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
+	Einordnung macht die App danach von allein.
+</p>
 
 <div
 	class="dropzone"
@@ -79,14 +83,35 @@
 </div>
 
 {#if status === 'success'}
-	<p role="status">Erfolgreich hochgeladen (Activity #{activityId}).</p>
-	<button class="btn btn-primary" onclick={reset}>Weitere Datei hochladen</button>
+	<p role="status" class="done">Fahrt ist da.</p>
+	<div class="actions">
+		<a class="btn btn-primary" href={resolve('/(app)/rides/[id]', { id: String(activityId) })}>
+			Fahrt ansehen
+		</a>
+		<button class="btn btn-secondary" onclick={reset}>Noch eine hochladen</button>
+	</div>
 {:else if status === 'error'}
 	<p role="alert">{errorMessage}</p>
 	<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
 {/if}
 
 <style>
+	.lead {
+		color: var(--color-text-muted);
+		max-width: 55ch;
+	}
+
+	.done {
+		color: var(--color-success);
+		font-weight: 700;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+	}
+
 	.dropzone {
 		background: color-mix(in srgb, var(--color-brand) 6%, var(--color-surface));
 		box-shadow: var(--shadow-md);

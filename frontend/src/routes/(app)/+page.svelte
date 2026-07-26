@@ -133,6 +133,11 @@
 			{/each}
 		</div>
 	</section>
+
+	<p class="glossary-hint">
+		Fitness, Müdigkeit, Frische — was dahinter steckt, steht im
+		<a href={resolve('/(app)/glossar')}>Glossar</a>.
+	</p>
 {/if}
 
 <style>
@@ -153,6 +158,11 @@
 		font-size: var(--text-sm);
 		margin: 0.25rem 0 1rem;
 		max-width: 60ch;
+	}
+
+	.glossary-hint {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 
 	.insights {
