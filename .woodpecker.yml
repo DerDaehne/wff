@@ -14,7 +14,11 @@ steps:
       - for i in $(seq 1 30); do pg_isready -h db -p 5432 -U wff && break; sleep 1; done
       - go install -tags 'postgres pgx5' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
       - migrate -path backend/migrations -database "$DATABASE_URL" up
-      - cd backend && go build ./... && go vet ./... && go test ./...
+      # gofmt is a hard gate like Prettier is on the frontend side: without it
+      # formatting was the one check that depended purely on remembering to
+      # run it, and an unformatted file duly slipped through in #610.
+      - cd backend && test -z "$(gofmt -l . | tee /dev/stderr)"
+      - go build ./... && go vet ./... && go test ./...
 
   - name: frontend-check
     image: node:22-alpine
