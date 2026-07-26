@@ -39,4 +39,3 @@ func Migrate(pool *pgxpool.Pool, fsys embed.FS) error {
 	}
 	return nil
 }
-

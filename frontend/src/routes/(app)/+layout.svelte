@@ -74,8 +74,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		background: var(--color-brand);
-		color: white;
+		/* Same deep wash as the ride hero, in both schemes. It used to be
+		   --color-brand with white text, which breaks in the dark scheme where
+		   brand teal is light: white on light teal fails contrast. */
+		background: var(--color-hero-bg);
+		color: var(--color-hero-text);
 		padding: 0.5rem 1rem;
 		box-shadow: var(--shadow-lg);
 		z-index: 10;
@@ -91,7 +94,7 @@
 
 	.nav a {
 		display: block;
-		color: white;
+		color: var(--color-hero-text);
 		text-decoration: none;
 		padding: 0.5rem 0.875rem;
 		border-radius: 10px;
@@ -99,7 +102,7 @@
 	}
 
 	.nav a[aria-current='page'] {
-		background: rgba(255, 255, 255, 0.16);
+		background: rgba(255, 255, 255, 0.18);
 		opacity: 1;
 		font-weight: 600;
 	}
@@ -107,7 +110,7 @@
 	.nav .logout {
 		background: rgba(255, 255, 255, 0.12);
 		border: none;
-		color: white;
+		color: var(--color-hero-text);
 		border-radius: 10px;
 		padding: 0.4rem 0.9rem;
 		cursor: pointer;

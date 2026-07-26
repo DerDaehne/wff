@@ -184,8 +184,8 @@ func TestRideStoryWithoutPowerOrHeartRate(t *testing.T) {
 	if k["hint_profile"] == "" {
 		t.Error("FTP hint disappeared — it should still be offered")
 	}
-	if !strings.Contains(story.Headline, "Hügelige Ausfahrt") {
-		t.Errorf("headline %q ignores the profile", story.Headline)
+	if !strings.Contains(story.Title, "Hügelige Ausfahrt") {
+		t.Errorf("headline %q ignores the profile", story.Title)
 	}
 
 	var context []string

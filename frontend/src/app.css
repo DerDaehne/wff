@@ -1,5 +1,27 @@
-/* Design tokens from design-wff-ui-konzept (#582/#145). Only tokens + minimal
-   resets here — component-level restyling is #584, not this file. */
+/* Design tokens for the Klartext-first sport look (#607, note
+   design-wff-klartext-first). Two colour schemes, both complete, selected by
+   the operating system via prefers-color-scheme.
+
+   Components MUST only reference the semantic tokens below — a hard-coded hex
+   in a component means one of the two schemes is silently broken. */
+
+/* Manrope, self-hosted: no CDN request, works offline, and it is the single
+   biggest reason the app stopped looking like an industrial control panel
+   (a system-ui stack is exactly what those use). Latin subset only, 25 KB —
+   the other Fontsource subsets would be precached by the service worker
+   without a German user ever needing them. SIL OFL, see
+   static/fonts/manrope-LICENSE.txt. */
+@font-face {
+	font-family: 'Manrope';
+	font-style: normal;
+	font-display: swap;
+	font-weight: 200 800;
+	src: url('/fonts/manrope-latin-variable.woff2') format('woff2-variations');
+	unicode-range:
+		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+		U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
 	--text-xs: 12px;
 	--text-sm: 14px;
@@ -7,35 +29,92 @@
 	--text-lg: 20px;
 	--text-xl: 25px;
 	--text-2xl: 31px;
+	/* Headline numbers. The point of the redesign: one number leads the page. */
+	--text-3xl: 44px;
+	--text-4xl: 64px;
+
+	--font-sans: 'Manrope', system-ui, sans-serif;
+
+	--radius-sm: 10px;
+	--radius-md: 16px;
+	--radius-lg: 24px;
+	--radius-pill: 999px;
+
+	/* Series colours stay bound to their metric across the whole app —
+	   recognition matters more than local harmony. Kept from #145, lifted in
+	   saturation so they hold up on a dark background too. */
+	--chart-elevation: #a8a29e;
+	--chart-power: #fbbf24;
+	--chart-heart-rate: #fb7185;
+	--chart-speed: #38bdf8;
+	--chart-cadence: #a78bfa;
+	--chart-ctl: #2dd4bf;
+	--chart-atl: #fbbf24;
+	--chart-tsb: #94a3b8;
+}
+
+/* Light scheme (default) */
+:root {
+	color-scheme: light;
 
 	--color-brand: #0f766e;
 	--color-brand-accent: #14b8a6;
-	--color-bg: #f8fafc;
+	--color-bg: #f4f6f8;
 	--color-surface: #ffffff;
+	--color-surface-raised: #ffffff;
+	/* The hero block: a deep brand wash that carries the big numbers. */
+	--color-hero-bg: #0b3b39;
+	--color-hero-text: #ecfdf9;
+	--color-hero-muted: #8fd3ca;
 	--color-border: #e2e8f0;
 	--color-text: #0f172a;
-	--color-text-muted: #64748b;
-	--color-success: #16a34a;
-	--color-warning: #d97706;
+	--color-text-muted: #5a6a7d;
+	--color-success: #15803d;
+	--color-warning: #b45309;
 	--color-danger: #dc2626;
-	--color-info: #2563eb;
+	--color-info: #1d4ed8;
+	--color-track: #0f766e;
 
-	/* Depth over lines: separate elements via shadow/elevation, not borders
-	   or gridlines — see design-wff-ui-konzept "Tiefe & Transparenz". */
 	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-	--shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
-	--shadow-lg: 0 12px 24px rgba(15, 23, 42, 0.16);
+	--shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
+	--shadow-lg: 0 14px 32px rgba(15, 23, 42, 0.16);
 	--surface-glass: rgba(255, 255, 255, 0.72);
-	--radius-md: 16px;
+	/* Strength of a semantic colour used as a card wash. Dark needs more of it
+	   to be visible at all, so it is a token rather than a literal per card. */
+	--wash-strength: 10%;
+	--wash-base: var(--color-surface);
+}
 
-	--chart-elevation: #78716c;
-	--chart-power: #f59e0b;
-	--chart-heart-rate: #e11d48;
-	--chart-speed: #0284c7;
-	--chart-cadence: #7c3aed;
-	--chart-ctl: #0f766e;
-	--chart-atl: #d97706;
-	--chart-tsb: #64748b;
+@media (prefers-color-scheme: dark) {
+	:root {
+		color-scheme: dark;
+
+		--color-brand: #2dd4bf;
+		--color-brand-accent: #5eead4;
+		--color-bg: #0b1114;
+		--color-surface: #151d21;
+		--color-surface-raised: #1c262b;
+		--color-hero-bg: #10302e;
+		--color-hero-text: #ecfdf9;
+		--color-hero-muted: #7cc9bf;
+		--color-border: #26333a;
+		--color-text: #e8eef2;
+		/* Muted text on dark still has to clear WCAG AA (4.5:1) against
+		   --color-surface — the usual slate-500 does not. */
+		--color-text-muted: #a3b3bf;
+		--color-success: #4ade80;
+		--color-warning: #fbbf24;
+		--color-danger: #fb7185;
+		--color-info: #60a5fa;
+		--color-track: #2dd4bf;
+
+		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+		--shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
+		--shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.55);
+		--surface-glass: rgba(21, 29, 33, 0.78);
+		--wash-strength: 18%;
+		--wash-base: var(--color-surface);
+	}
 }
 
 * {
@@ -46,20 +125,22 @@ body {
 	margin: 0;
 	background: var(--color-bg);
 	color: var(--color-text);
-	font-family:
-		-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	font-family: var(--font-sans);
 	font-size: var(--text-base);
 	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
-	line-height: 1.2;
+	line-height: 1.15;
+	letter-spacing: -0.015em;
+	font-weight: 700;
 }
 
-/* Component base patterns from design-wff-ui-konzept — shared across pages
-   so buttons/inputs/cards look consistent without per-page duplication. */
+/* Component base patterns — shared across pages so buttons/inputs/cards look
+   consistent without per-page duplication. */
 
 button {
 	font: inherit;
@@ -71,10 +152,10 @@ button {
 	justify-content: center;
 	gap: 0.5rem;
 	border: none;
-	border-radius: 8px;
+	border-radius: var(--radius-pill);
 	padding: 0.625rem 1.25rem;
 	font-size: var(--text-base);
-	font-weight: 600;
+	font-weight: 700;
 	cursor: pointer;
 	transition:
 		box-shadow 0.15s ease,
@@ -88,7 +169,9 @@ button {
 
 .btn-primary {
 	background: var(--color-brand);
-	color: white;
+	/* Brand teal is light in the dark scheme, so white-on-brand would fail
+	   contrast there — the label follows the background instead. */
+	color: var(--color-bg);
 	box-shadow: var(--shadow-sm);
 }
 
@@ -98,20 +181,20 @@ button {
 }
 
 .btn-secondary {
-	background: color-mix(in srgb, var(--color-brand) 10%, transparent);
+	background: color-mix(in srgb, var(--color-brand) 14%, transparent);
 	color: var(--color-brand);
 }
 
 .btn-secondary:not(:disabled):hover {
-	background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+	background: color-mix(in srgb, var(--color-brand) 22%, transparent);
 }
 
 .input {
 	display: block;
 	width: 100%;
 	border: none;
-	border-radius: 10px;
-	background: var(--color-bg);
+	border-radius: var(--radius-sm);
+	background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface));
 	padding: 0.625rem 0.875rem;
 	font-size: var(--text-base);
 	color: var(--color-text);
@@ -119,7 +202,7 @@ button {
 
 .input:focus {
 	outline: none;
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 25%, transparent);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 35%, transparent);
 }
 
 .card {
@@ -127,4 +210,60 @@ button {
 	border-radius: var(--radius-md);
 	box-shadow: var(--shadow-md);
 	padding: 1.5rem;
+}
+
+/* Numbers that lead a view: large, tight, and tabular so they don't jitter
+   when they change. */
+.stat-value {
+	font-size: var(--text-4xl);
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: -0.03em;
+	font-variant-numeric: tabular-nums;
+}
+
+.stat-unit {
+	font-size: var(--text-sm);
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+}
+
+/* A filled bar is how a percentage should read, not as four digits of text. */
+.meter {
+	height: 8px;
+	border-radius: var(--radius-pill);
+	background: color-mix(in srgb, var(--color-text) 12%, transparent);
+	overflow: hidden;
+}
+
+.meter > span {
+	display: block;
+	height: 100%;
+	border-radius: inherit;
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--meter-color, var(--color-brand)) 60%, transparent),
+		var(--meter-color, var(--color-brand))
+	);
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.375rem;
+	border-radius: var(--radius-pill);
+	padding: 0.25rem 0.75rem;
+	font-size: var(--text-xs);
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	background: color-mix(
+		in srgb,
+		var(--chip-color, var(--color-brand)) var(--wash-strength),
+		var(--wash-base)
+	);
+	/* 55 %, not 75 %: the lighter series colours (speed blue) only reached
+	   3.2:1 on their own wash at 75 %. Mixing in more of the text colour pulls
+	   every chip to AA in both schemes — measured, not guessed. */
+	color: color-mix(in srgb, var(--chip-color, var(--color-brand)) 55%, var(--color-text));
 }

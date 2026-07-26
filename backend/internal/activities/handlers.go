@@ -61,7 +61,6 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	var (
 		facts           analyze.RideFacts
 		normalizedPower *float64
-		startedAt       time.Time
 		ownerID         int64
 	)
 	err = h.pool.QueryRow(r.Context(), `
@@ -69,7 +68,7 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 		       elevation_gain_meters, intensity_factor, training_stress_score, normalized_power_watts
 		FROM activities WHERE id = $1`,
 		activityID,
-	).Scan(&ownerID, &startedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
+	).Scan(&ownerID, &facts.StartedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
 		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower)
 	if err != nil || ownerID != userID {
 		// Same 404 for "not yours" and "doesn't exist" — see samples().
@@ -99,7 +98,7 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 		FROM activities
 		WHERE user_id = $1 AND started_at < $2
 		ORDER BY started_at DESC LIMIT 30`,
-		userID, startedAt,
+		userID, facts.StartedAt,
 	)
 	if err != nil {
 		http.Error(w, "could not load ride history", http.StatusInternalServerError)

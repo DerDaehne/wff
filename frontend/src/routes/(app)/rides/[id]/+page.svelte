@@ -63,6 +63,21 @@
 		return groups;
 	});
 
+	function trackColor(): string {
+		return (
+			getComputedStyle(document.documentElement).getPropertyValue('--color-track').trim() ||
+			'#0f766e'
+		);
+	}
+
+	// A bright map inside a dark page is the one thing that still looked pasted
+	// on. OpenFreeMap ships a dark style ("fiord") next to the light one, same
+	// tiles, no key — so the map follows the colour scheme like everything else.
+	function mapStyleUrl(): string {
+		const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+		return `https://tiles.openfreemap.org/styles/${dark ? 'fiord' : 'liberty'}`;
+	}
+
 	function hasAnyValue(values: (number | null)[]): boolean {
 		return values.some((v) => v !== null);
 	}
@@ -134,7 +149,7 @@
 		if (map || gpsCoords.length < 2 || !mapContainer) return;
 		map = new Map({
 			container: mapContainer,
-			style: 'https://tiles.openfreemap.org/styles/liberty',
+			style: mapStyleUrl(),
 			bounds: gpsCoords.reduce((b, c) => b.extend(c), new LngLatBounds(gpsCoords[0], gpsCoords[0])),
 			fitBoundsOptions: { padding: 32 }
 		});
@@ -151,7 +166,10 @@
 				id: 'track',
 				type: 'line',
 				source: 'track',
-				paint: { 'line-color': '#0f766e', 'line-width': 3 }
+				// MapLibre takes a colour string, not a CSS variable, so the token
+				// has to be resolved here — otherwise the track keeps the light
+				// scheme's teal on a dark map.
+				paint: { 'line-color': trackColor(), 'line-width': 4 }
 			});
 		});
 	});
@@ -166,10 +184,41 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<header class="ride-head">
-		<h1>{story?.headline ?? 'Deine Fahrt'}</h1>
+	<!-- Hero: one big number leads, the rest are supporting figures. This is
+	     what turns the page from a data sheet into a ride summary. -->
+	<header class="hero">
+		{#if story?.subtitle}
+			<p class="hero-date">{story.subtitle}</p>
+		{/if}
+		<h1>{story?.title ?? 'Deine Fahrt'}</h1>
+
+		{#if story && story.stats.length > 0}
+			<div class="hero-stats">
+				{#each story.stats as stat (stat.label)}
+					<div class="hero-stat">
+						<p class="hero-stat-figure">
+							<span class="stat-value">{stat.value}</span>
+							<span class="stat-unit">{stat.unit}</span>
+						</p>
+						<p class="hero-stat-label">{stat.label}</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		{#if story?.intensity}
+			<div class="hero-meter">
+				<div class="meter" style="--meter-color: var(--chart-power)">
+					<span style="width: {story.intensity.percent}%"></span>
+				</div>
+				<p class="hero-meter-label">
+					{story.intensity.label} · {story.intensity.caption}
+				</p>
+			</div>
+		{/if}
+
 		{#if conditions.length > 0}
-			<p class="conditions">{conditions.join(' · ')}</p>
+			<p class="hero-conditions">{conditions.join(' · ')}</p>
 		{/if}
 	</header>
 
@@ -177,7 +226,7 @@
 		<section class="story" aria-label="Einordnung dieser Fahrt">
 			{#each storyGroups as group, i (i)}
 				<article class="statement statement-{group.kind}">
-					<p class="statement-label">{statementLabel[group.kind]}</p>
+					<p class="chip statement-chip">{statementLabel[group.kind]}</p>
 					{#each group.items as statement, j (j)}
 						<p class="statement-text">{statement.text}</p>
 						{#if statement.metric}
@@ -272,18 +321,90 @@
 {/if}
 
 <style>
-	.ride-head {
+	.hero {
+		background: var(--color-hero-bg);
+		color: var(--color-hero-text);
+		border-radius: var(--radius-lg);
+		padding: 1.75rem;
 		margin-bottom: 1.5rem;
+		box-shadow: var(--shadow-md);
 	}
 
-	.ride-head h1 {
-		margin-bottom: 0.25rem;
+	.hero-date {
+		margin: 0 0 0.25rem;
+		font-size: var(--text-xs);
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--color-hero-muted);
 	}
 
-	.conditions {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+	.hero h1 {
+		margin: 0 0 1.5rem;
+		font-size: var(--text-xl);
+		font-weight: 700;
+	}
+
+	.hero-stats {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 1.5rem 2.5rem;
+	}
+
+	.hero-stat-figure {
+		display: flex;
+		align-items: baseline;
+		gap: 0.375rem;
 		margin: 0;
+	}
+
+	.hero-stat-figure .stat-unit {
+		color: var(--color-hero-muted);
+	}
+
+	.hero-stat-label {
+		margin: 0.25rem 0 0;
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--color-hero-muted);
+	}
+
+	.hero-meter {
+		margin-top: 1.75rem;
+		max-width: 26rem;
+	}
+
+	.hero-meter .meter {
+		background: rgba(255, 255, 255, 0.16);
+	}
+
+	.hero-meter-label {
+		margin: 0.5rem 0 0;
+		font-size: var(--text-sm);
+		color: var(--color-hero-muted);
+	}
+
+	.hero-conditions {
+		margin: 1rem 0 0;
+		font-size: var(--text-sm);
+		color: var(--color-hero-muted);
+	}
+
+	@media (max-width: 600px) {
+		.hero {
+			padding: 1.25rem;
+		}
+
+		/* The big figure has to shrink on a phone or three stats wrap to three
+		   rows and the hero eats the whole screen. */
+		.hero-stats {
+			gap: 1rem 1.5rem;
+		}
+
+		.hero-stat-figure .stat-value {
+			font-size: var(--text-3xl);
+		}
 	}
 
 	/* Statements come first on the page and read as full sentences, with the
@@ -299,18 +420,16 @@
 	}
 
 	.statement {
-		border-radius: 16px;
-		padding: 1rem 1.25rem;
+		border-radius: var(--radius-md);
+		padding: 1.25rem;
 		box-shadow: var(--shadow-sm);
 		background: var(--color-surface);
 	}
 
-	.statement-label {
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
-		color: var(--color-text-muted);
-		margin: 0 0 0.375rem;
+	/* The chip carries the colour, so the card itself stays a calm surface —
+	   a full-card wash behind body text hurt contrast in the dark scheme. */
+	.statement-chip {
+		margin: 0 0 0.75rem;
 	}
 
 	.statement-text {
@@ -336,36 +455,37 @@
 		font-size: var(--text-sm);
 	}
 
-	/* Colour carries the same meaning as the chart series it refers to:
-	   effort = power amber, load = brand teal, context = info blue. */
+	/* Each kind gets the colour of the chart series it refers to, so the same
+	   metric wears the same colour everywhere: effort = power amber,
+	   pace = speed blue, load = brand teal. Only the chip is tinted — see above. */
 	.statement-effort {
-		background: color-mix(in srgb, var(--chart-power) 10%, var(--color-surface));
+		--chip-color: var(--chart-power);
 	}
 
 	.statement-load {
-		background: color-mix(in srgb, var(--color-brand) 10%, var(--color-surface));
+		--chip-color: var(--color-brand);
 	}
 
 	.statement-pace {
-		background: color-mix(in srgb, var(--chart-speed) 10%, var(--color-surface));
+		--chip-color: var(--chart-speed);
 	}
 
 	.statement-context {
-		background: color-mix(in srgb, var(--color-info) 8%, var(--color-surface));
+		--chip-color: var(--color-info);
 	}
 
 	.statement-comparison {
-		background: var(--color-surface);
+		--chip-color: var(--color-text-muted);
 	}
 
 	.statement-hint_profile,
 	.statement-hint_history {
-		background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+		--chip-color: var(--color-warning);
 	}
 
 	.panel {
 		background: var(--color-surface);
-		border-radius: 16px;
+		border-radius: var(--radius-md);
 		padding: 1.25rem;
 		box-shadow: var(--shadow-md);
 		margin-bottom: 1.5rem;

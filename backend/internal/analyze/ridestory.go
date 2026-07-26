@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Story is a single ride told in plain language, for riders without training
@@ -14,8 +15,36 @@ import (
 // thresholds behind it have exactly one home — the same place that already
 // computes IF/TSS (see arch-wff-analyze) and the training-load insights.
 type Story struct {
-	Headline   string      `json:"headline"`
+	// Title is what kind of ride this was ("Zügige Tempofahrt") — the meaning,
+	// not the rubric.
+	Title    string `json:"title"`
+	Subtitle string `json:"subtitle"`
+	// Stats are the two or three figures that lead the page. Pre-formatted
+	// here so the frontend never re-implements German number formatting, and
+	// split into value/unit so it can typeset the number large and the unit
+	// small (#607).
+	Stats []Stat `json:"stats"`
+	// Intensity drives a filled bar instead of four digits of text. Nil when
+	// there is no intensity factor to show one for.
+	Intensity  *Gauge      `json:"intensity,omitempty"`
 	Statements []Statement `json:"statements"`
+}
+
+// Stat is one headline figure: "42,3" + "km" + "Distanz".
+type Stat struct {
+	Value string `json:"value"`
+	Unit  string `json:"unit"`
+	Label string `json:"label"`
+}
+
+// Gauge is a percentage meant to be drawn as a bar. Percent is clamped to
+// 0..100 for the bar; Label carries the real, unclamped reading, because an
+// intensity above the hour-power threshold is exactly what a rider wants to
+// see rather than a bar pinned at full.
+type Gauge struct {
+	Percent int    `json:"percent"`
+	Label   string `json:"label"`
+	Caption string `json:"caption"`
 }
 
 // Statement is one plain-language sentence plus the number it came from.
@@ -58,6 +87,8 @@ type RideFacts struct {
 	// Nil when the ride has no usable GPS. Everything derived from it works
 	// without power or heart rate — see #606.
 	Course *CourseStats
+	// StartedAt drives the subtitle. Zero time simply means no subtitle.
+	StartedAt time.Time
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -113,7 +144,12 @@ func (f RideFacts) metersPerKm() float64 {
 // appended last no matter where they arise: a rider opening a ride wants to read
 // what IS known first, not an apology for what isn't.
 func RideStory(f RideFacts) Story {
-	story := Story{Headline: headline(f)}
+	story := Story{
+		Title:     rideTitle(f),
+		Subtitle:  germanDate(f.StartedAt),
+		Stats:     headlineStats(f),
+		Intensity: intensityGauge(f),
+	}
 	var hints []Statement
 
 	add := func(s Statement, ok bool) {
@@ -159,18 +195,80 @@ func sessionKind(intensityFactor *float64) string {
 	}
 }
 
-func headline(f RideFacts) string {
+func rideTitle(f RideFacts) string {
 	kind := sessionKind(f.IntensityFactor)
 	// Without an intensity factor the generic "Ausfahrt" is all the metrics
 	// allow — but the profile still says something worth putting in the title.
 	if f.IntensityFactor == nil && f.metersPerKm() >= 10 {
 		kind = "hügelige Ausfahrt"
 	}
-	kind = strings.ToUpper(kind[:1]) + kind[1:]
-	if km := f.distanceMeters() / 1000; km > 0 {
-		return fmt.Sprintf("%s über %s km, %s", kind, decimal(km, 1), duration(f.ElapsedSeconds))
+	return strings.ToUpper(kind[:1]) + kind[1:]
+}
+
+var germanWeekdays = [...]string{"Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"}
+
+var germanMonths = [...]string{
+	"Januar", "Februar", "März", "April", "Mai", "Juni",
+	"Juli", "August", "September", "Oktober", "November", "Dezember",
+}
+
+// germanDate spells the ride's date out. Go's time package has no locales, and
+// pulling in a localisation library to render one line would be absurd.
+func germanDate(t time.Time) string {
+	if t.IsZero() {
+		return ""
 	}
-	return fmt.Sprintf("%s, %s", kind, duration(f.ElapsedSeconds))
+	local := t.Local()
+	return fmt.Sprintf("%s, %d. %s · %02d:%02d",
+		germanWeekdays[int(local.Weekday())], local.Day(), germanMonths[int(local.Month())-1],
+		local.Hour(), local.Minute())
+}
+
+// headlineStats are the figures that lead the page: distance first because it
+// is the one every rider quotes, then time, then climbing when there was any
+// worth mentioning.
+func headlineStats(f RideFacts) []Stat {
+	var stats []Stat
+	if km := f.distanceMeters() / 1000; km > 0 {
+		stats = append(stats, Stat{Value: decimal(km, 1), Unit: "km", Label: "Distanz"})
+	}
+	if seconds := f.ElapsedSeconds; seconds > 0 {
+		value, unit := durationParts(seconds)
+		stats = append(stats, Stat{Value: value, Unit: unit, Label: "Dauer"})
+	}
+	gain := 0.0
+	switch {
+	case f.ElevationGainMeters != nil:
+		gain = *f.ElevationGainMeters
+	case f.Course != nil:
+		gain = f.Course.ElevationGainMeters
+	}
+	if gain >= 50 {
+		stats = append(stats, Stat{
+			Value: fmt.Sprintf("%d", int(gain+0.5)), Unit: "hm", Label: "Anstieg",
+		})
+	}
+	return stats
+}
+
+// intensityGauge expresses the intensity factor as a percentage bar. 100 % is
+// the effort a rider can just about hold for an hour, which makes it the
+// natural full mark — harder rides go above it, so the bar clamps while the
+// label keeps the true number.
+func intensityGauge(f RideFacts) *Gauge {
+	if f.IntensityFactor == nil {
+		return nil
+	}
+	percent := int(*f.IntensityFactor*100 + 0.5)
+	caption := "aus deiner Leistung"
+	if !f.FromPower {
+		caption = "aus deinem Puls geschätzt"
+	}
+	return &Gauge{
+		Percent: min(percent, 100),
+		Label:   fmt.Sprintf("%d %% Intensität", percent),
+		Caption: caption,
+	}
 }
 
 func effortStatement(f RideFacts) (Statement, bool) {
@@ -458,9 +556,16 @@ func decimal(v float64, digits int) string {
 }
 
 func duration(seconds int) string {
+	value, unit := durationParts(seconds)
+	return value + " " + unit
+}
+
+// durationParts splits the duration so the number can be typeset large and the
+// unit small, like every other headline figure.
+func durationParts(seconds int) (value, unit string) {
 	h, m := seconds/3600, (seconds%3600)/60
 	if h > 0 {
-		return fmt.Sprintf("%d:%02d h", h, m)
+		return fmt.Sprintf("%d:%02d", h, m), "h"
 	}
-	return fmt.Sprintf("%d min", m)
+	return fmt.Sprintf("%d", m), "min"
 }

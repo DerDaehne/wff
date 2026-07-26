@@ -1,8 +1,10 @@
 package analyze
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func f64(v float64) *float64 { return &v }
@@ -33,12 +35,43 @@ func TestRideStorySessionBands(t *testing.T) {
 			ElapsedSeconds:  5400,
 			FromPower:       true,
 		})
-		if !strings.HasPrefix(story.Headline, tc.headline) {
-			t.Errorf("IF %.2f: headline %q, want prefix %q", tc.ifactor, story.Headline, tc.headline)
+		if story.Title != tc.headline {
+			t.Errorf("IF %.2f: title %q, want %q", tc.ifactor, story.Title, tc.headline)
 		}
-		if !strings.Contains(story.Headline, "42,3 km") || !strings.Contains(story.Headline, "1:30 h") {
-			t.Errorf("IF %.2f: headline %q lost distance/duration", tc.ifactor, story.Headline)
+		// Distance and duration moved out of the title into the headline stats,
+		// so they can be typeset large with a small unit (#607).
+		stats := map[string]string{}
+		for _, s := range story.Stats {
+			stats[s.Label] = s.Value + " " + s.Unit
 		}
+		if stats["Distanz"] != "42,3 km" {
+			t.Errorf("IF %.2f: distance stat %q", tc.ifactor, stats["Distanz"])
+		}
+		if stats["Dauer"] != "1:30 h" {
+			t.Errorf("IF %.2f: duration stat %q", tc.ifactor, stats["Dauer"])
+		}
+		if story.Intensity == nil {
+			t.Fatalf("IF %.2f: no intensity gauge", tc.ifactor)
+		}
+		// The bar clamps at 100 %, the label keeps the true reading.
+		wantPercent := int(tc.ifactor*100 + 0.5)
+		if story.Intensity.Percent != min(wantPercent, 100) {
+			t.Errorf("IF %.2f: gauge %d %%", tc.ifactor, story.Intensity.Percent)
+		}
+		if !strings.Contains(story.Intensity.Label, fmt.Sprint(wantPercent)) {
+			t.Errorf("IF %.2f: gauge label %q lost the real value", tc.ifactor, story.Intensity.Label)
+		}
+	}
+}
+
+func TestGermanDate(t *testing.T) {
+	// 2026-07-26 is a Sunday.
+	got := germanDate(time.Date(2026, 7, 26, 8, 5, 0, 0, time.Local))
+	if got != "Sonntag, 26. Juli · 08:05" {
+		t.Errorf("germanDate = %q", got)
+	}
+	if germanDate(time.Time{}) != "" {
+		t.Error("zero time should produce no subtitle")
 	}
 }
 

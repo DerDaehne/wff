@@ -52,8 +52,26 @@ export interface RideStatement {
 	kind: 'effort' | 'load' | 'pace' | 'context' | 'comparison' | 'hint_profile' | 'hint_history';
 }
 
+/** A headline figure, split so the number can be set large and the unit small. */
+export interface RideStat {
+	value: string;
+	unit: string;
+	label: string;
+}
+
+/** A percentage meant to be drawn as a filled bar. `percent` is clamped to
+ *  0–100 for the bar; `label` carries the real, unclamped reading. */
+export interface RideGauge {
+	percent: number;
+	label: string;
+	caption: string;
+}
+
 export interface RideStory {
-	headline: string;
+	title: string;
+	subtitle: string;
+	stats: RideStat[];
+	intensity?: RideGauge;
 	statements: RideStatement[];
 }
 
