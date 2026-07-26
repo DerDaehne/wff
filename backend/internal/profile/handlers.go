@@ -34,6 +34,15 @@ type settings struct {
 	LTHRBpm  *int `json:"lthr_bpm"`
 }
 
+// settingsResponse carries the stored values plus what the rider's own rides
+// suggest they should be (#609). Suggestions are never applied automatically —
+// a value the rider entered is theirs, and an estimate silently overwriting it
+// would be worse than no estimate at all.
+type settingsResponse struct {
+	settings
+	Estimates analyze.Estimates `json:"estimates"`
+}
+
 func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 	userID, _ := auth.UserID(r.Context())
 
@@ -44,7 +53,14 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "could not load settings", http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, s)
+
+	// Best effort: a rider with no rides yet still gets their settings page.
+	estimates, err := analyze.EstimateThresholds(r.Context(), h.pool, userID)
+	if err != nil {
+		log.Printf("profile: could not estimate thresholds for user %d: %v", userID, err)
+	}
+
+	writeJSON(w, settingsResponse{settings: s, Estimates: estimates})
 }
 
 // update is a partial PATCH: omitted fields keep their current value. There

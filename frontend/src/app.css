@@ -182,7 +182,10 @@ button {
 
 .btn-secondary {
 	background: color-mix(in srgb, var(--color-brand) 14%, transparent);
-	color: var(--color-brand);
+	/* Not plain --color-brand: the button's own translucent wash stacks on top
+	   of whatever it sits on, and on an already-tinted card that came to 3.96:1
+	   in the light scheme. Mixing in text colour holds AA on both. */
+	color: color-mix(in srgb, var(--color-brand) 65%, var(--color-text));
 }
 
 .btn-secondary:not(:disabled):hover {
