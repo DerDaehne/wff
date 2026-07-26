@@ -63,7 +63,9 @@
 	.content {
 		flex: 1;
 		padding: 1rem;
-		padding-bottom: 5rem;
+		/* Clears the fixed bottom bar INCLUDING the gesture-bar inset it now
+		   carries, otherwise the last card hides behind it on a phone. */
+		padding-bottom: calc(6rem + env(safe-area-inset-bottom, 0px));
 	}
 
 	.nav {
@@ -79,7 +81,11 @@
 		   brand teal is light: white on light teal fails contrast. */
 		background: var(--color-hero-bg);
 		color: var(--color-hero-text);
-		padding: 0.5rem 1rem;
+		/* iOS's home indicator and Android's gesture bar both own a strip along
+		   the bottom edge and swallow touches there. Padding the bar by that
+		   inset keeps its targets above the strip; the 0px fallback means
+		   desktops and older phones lose nothing. */
+		padding: 0.5rem 1rem calc(0.5rem + env(safe-area-inset-bottom, 0px));
 		box-shadow: var(--shadow-lg);
 		z-index: 10;
 	}
@@ -92,8 +98,19 @@
 		padding: 0;
 	}
 
+	/* 44px is the smallest reliable touch target (WCAG 2.5.5, and both mobile
+	   platforms' own guidelines). Enforced as a min-height rather than as
+	   padding so the narrow-screen rule below can shave padding without
+	   shrinking the target itself. */
+	.nav a,
+	.nav .logout {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+	}
+
 	.nav a {
-		display: block;
 		color: var(--color-hero-text);
 		text-decoration: none;
 		padding: 0.5rem 0.875rem;
@@ -125,7 +142,7 @@
 	   bottom bar that grows to two rows is worse than a snug one. */
 	@media (max-width: 430px) {
 		.nav {
-			padding: 0.5rem;
+			padding: 0.25rem 0.5rem calc(0.25rem + env(safe-area-inset-bottom, 0px));
 		}
 
 		.nav a,

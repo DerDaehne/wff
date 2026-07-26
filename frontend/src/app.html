@@ -1,8 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
 	<head>
 		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
+		     values. Without it they are always 0 and the bottom nav sits under
+		     the phone's gesture bar no matter what the CSS asks for (#615). -->
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="text-scale" content="scale" />
 		%sveltekit.head%
 	</head>
