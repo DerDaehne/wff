@@ -72,7 +72,11 @@
 		map.on('load', () => {
 			map?.addSource('track', {
 				type: 'geojson',
-				data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: gpsCoords } }
+				data: {
+					type: 'Feature',
+					properties: {},
+					geometry: { type: 'LineString', coordinates: gpsCoords }
+				}
 			});
 			map?.addLayer({
 				id: 'track',

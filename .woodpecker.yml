@@ -1,0 +1,40 @@
+# Woodpecker CI: build+test gate only (#576/#577) — no deploy step yet,
+# runner/deploy-target topology not decided. Backend integration tests need
+# a real Postgres/TimescaleDB (see backend/internal/*/e2e_test.go), hence
+# the "db" service + migrate step below instead of relying on tests'
+# DATABASE_URL-unset skip path.
+
+steps:
+  - name: backend-test
+    image: golang:1.26-alpine
+    environment:
+      DATABASE_URL: postgres://wff:wff@db:5432/wff?sslmode=disable
+    commands:
+      - apk add --no-cache git postgresql-client
+      - for i in $(seq 1 30); do pg_isready -h db -p 5432 -U wff && break; sleep 1; done
+      - go install -tags 'postgres pgx5' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+      - migrate -path backend/migrations -database "$DATABASE_URL" up
+      - cd backend && go build ./... && go vet ./... && go test ./...
+
+  - name: frontend-check
+    image: node:22-alpine
+    directory: frontend
+    commands:
+      - corepack enable
+      - corepack prepare pnpm@11.15.0 --activate
+      - pnpm install --frozen-lockfile
+      - pnpm check
+      - pnpm lint
+      - pnpm build
+
+services:
+  - name: db
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: wff
+      POSTGRES_PASSWORD: wff
+      POSTGRES_DB: wff
+      TIMESCALEDB_TELEMETRY: "off"
+
+when:
+  event: [push, pull_request]

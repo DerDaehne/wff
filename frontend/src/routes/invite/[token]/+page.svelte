@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { registerPasskey, friendlyAuthError } from '$lib/webauthn';
 
 	let status: 'idle' | 'working' | 'error' = $state('idle');
@@ -11,7 +12,7 @@
 		errorMessage = '';
 		try {
 			await registerPasskey(page.params.token as string);
-			await goto('/');
+			await goto(resolve('/(app)'));
 		} catch (err) {
 			status = 'error';
 			errorMessage = friendlyAuthError(err);
@@ -30,4 +31,4 @@
 	<p role="alert">{errorMessage}</p>
 {/if}
 
-<p><a href="/login">Schon registriert? Hier anmelden.</a></p>
+<p><a href={resolve('/login')}>Schon registriert? Hier anmelden.</a></p>

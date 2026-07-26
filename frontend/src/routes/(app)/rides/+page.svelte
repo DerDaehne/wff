@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { listActivities, formatDistance, formatDuration, type ActivitySummary } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 
@@ -12,7 +13,8 @@
 			rides = await listActivities();
 			viewState = rides.length === 0 ? 'empty' : 'ready';
 		} catch (err) {
-			errorMessage = err instanceof ApiError ? err.message : 'Fahrten konnten nicht geladen werden.';
+			errorMessage =
+				err instanceof ApiError ? err.message : 'Fahrten konnten nicht geladen werden.';
 			viewState = 'error';
 		}
 	});
@@ -26,12 +28,12 @@
 	<p role="alert">{errorMessage}</p>
 {:else if viewState === 'empty'}
 	<p>Noch keine Aktivitäten hochgeladen.</p>
-	<p><a href="/upload">Erste Fahrt hochladen</a></p>
+	<p><a href={resolve('/(app)/upload')}>Erste Fahrt hochladen</a></p>
 {:else}
 	<ul class="rides">
 		{#each rides as ride (ride.id)}
 			<li>
-				<a href="/rides/{ride.id}">
+				<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
 					<strong>{new Date(ride.started_at).toLocaleDateString('de-DE')}</strong>
 					— {formatDistance(ride.distance_meters)} · {formatDuration(ride.moving_seconds)}
 					{#if ride.training_stress_score !== null}

@@ -20,7 +20,8 @@ export function friendlyUploadError(err: unknown): string {
 	if (err instanceof ApiError) {
 		if (err.status === 409) return 'Diese Aktivität wurde bereits hochgeladen.';
 		if (err.status === 413) return 'Datei ist zu groß.';
-		if (err.status === 400) return 'Datei ist ungültig oder beschädigt (kein lesbares .fit-Format).';
+		if (err.status === 400)
+			return 'Datei ist ungültig oder beschädigt (kein lesbares .fit-Format).';
 		return err.message || 'Unbekannter Fehler beim Upload.';
 	}
 	if (err instanceof Error) return err.message;

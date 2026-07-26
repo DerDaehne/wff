@@ -17,6 +17,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- build-time markup from vite-plugin-pwa, not user input -->
 	{@html webManifestLink}
 </svelte:head>
 

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import { getTrainingLoad, type DayLoad, type Insight } from '$lib/trainingload';
 	import { ApiError } from '$lib/api';
 
@@ -15,7 +16,8 @@
 			insights = data.insights;
 			viewState = series.length === 0 ? 'empty' : 'ready';
 		} catch (err) {
-			errorMessage = err instanceof ApiError ? err.message : 'Trainingsdaten konnten nicht geladen werden.';
+			errorMessage =
+				err instanceof ApiError ? err.message : 'Trainingsdaten konnten nicht geladen werden.';
 			viewState = 'error';
 		}
 	});
@@ -45,7 +47,13 @@
 
 	let latestTSB = $derived(series.length > 0 ? series[series.length - 1].tsb : null);
 	let tsbColor = $derived(
-		latestTSB === null ? '#64748b' : latestTSB < -10 ? '#dc2626' : latestTSB > 5 ? '#16a34a' : '#64748b'
+		latestTSB === null
+			? '#64748b'
+			: latestTSB < -10
+				? '#dc2626'
+				: latestTSB > 5
+					? '#16a34a'
+					: '#64748b'
 	);
 </script>
 
@@ -57,7 +65,7 @@
 	<p role="alert">{errorMessage}</p>
 {:else if viewState === 'empty'}
 	<p>Noch keine Aktivitäten hochgeladen.</p>
-	<p><a href="/upload">Erste Fahrt hochladen</a></p>
+	<p><a href={resolve('/(app)/upload')}>Erste Fahrt hochladen</a></p>
 {:else if chart}
 	<p>
 		Aktuelle Form (TSB): <strong style="color: {tsbColor}">{latestTSB?.toFixed(1)}</strong>

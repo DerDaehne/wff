@@ -10,7 +10,8 @@ interface PublicKeyWrapper<T> {
 
 export async function registerPasskey(token: string): Promise<void> {
 	const creation = await apiFetch(`/auth/invite/${encodeURIComponent(token)}`).then(
-		(r) => r.json() as Promise<PublicKeyWrapper<Parameters<typeof startRegistration>[0]['optionsJSON']>>
+		(r) =>
+			r.json() as Promise<PublicKeyWrapper<Parameters<typeof startRegistration>[0]['optionsJSON']>>
 	);
 	const attestation = await startRegistration({ optionsJSON: creation.publicKey });
 	await apiFetch(`/auth/invite/${encodeURIComponent(token)}`, {
@@ -26,7 +27,10 @@ export async function loginWithPasskey(username: string): Promise<void> {
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ username })
 	}).then(
-		(r) => r.json() as Promise<PublicKeyWrapper<Parameters<typeof startAuthentication>[0]['optionsJSON']>>
+		(r) =>
+			r.json() as Promise<
+				PublicKeyWrapper<Parameters<typeof startAuthentication>[0]['optionsJSON']>
+			>
 	);
 	const auth = await startAuthentication({ optionsJSON: assertion.publicKey });
 	await apiFetch('/auth/login/finish', {

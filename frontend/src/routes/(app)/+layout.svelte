@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 
@@ -11,7 +12,7 @@
 	onMount(async () => {
 		const me = await whoAmI();
 		if (!me) {
-			await goto('/login');
+			await goto(resolve('/login'));
 			return;
 		}
 		authState = 'authed';
@@ -19,13 +20,13 @@
 
 	async function handleLogout() {
 		await logout();
-		await goto('/login');
+		await goto(resolve('/login'));
 	}
 
 	const navItems = [
-		{ href: '/', label: 'Start' },
-		{ href: '/rides', label: 'Fahrten' },
-		{ href: '/upload', label: 'Upload' }
+		{ href: resolve('/(app)'), label: 'Start' },
+		{ href: resolve('/(app)/rides'), label: 'Fahrten' },
+		{ href: resolve('/(app)/upload'), label: 'Upload' }
 	];
 </script>
 
