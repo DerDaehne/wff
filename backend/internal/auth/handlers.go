@@ -120,9 +120,10 @@ func (h *Handlers) finishRegistration(w http.ResponseWriter, r *http.Request) {
 		transports[i] = string(t)
 	}
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO webauthn_credentials (user_id, credential_id, public_key, attestation_type, aaguid, sign_count, transports)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		`INSERT INTO webauthn_credentials (user_id, credential_id, public_key, attestation_type, aaguid, sign_count, transports, backup_eligible, backup_state)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
 		userID, cred.ID, cred.PublicKey, cred.AttestationType, cred.Authenticator.AAGUID, cred.Authenticator.SignCount, transports,
+		cred.Flags.BackupEligible, cred.Flags.BackupState,
 	); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -219,9 +220,13 @@ func (h *Handlers) finishLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// BackupState (unlike BackupEligible) is allowed to change over a
+	// credential's lifetime — e.g. a user enables sync on their password
+	// manager after registering — so it's written back on every login,
+	// same as sign_count.
 	if _, err := h.pool.Exec(r.Context(),
-		`UPDATE webauthn_credentials SET sign_count = $2, last_used_at = now() WHERE credential_id = $1`,
-		cred.ID, cred.Authenticator.SignCount,
+		`UPDATE webauthn_credentials SET sign_count = $2, backup_state = $3, last_used_at = now() WHERE credential_id = $1`,
+		cred.ID, cred.Authenticator.SignCount, cred.Flags.BackupState,
 	); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -247,7 +252,7 @@ func (h *Handlers) whoAmI(w http.ResponseWriter, r *http.Request) {
 
 func loadCredentials(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]webauthn.Credential, error) {
 	rows, err := pool.Query(ctx,
-		`SELECT credential_id, public_key, attestation_type, aaguid, sign_count, transports
+		`SELECT credential_id, public_key, attestation_type, aaguid, sign_count, transports, backup_eligible, backup_state
 		 FROM webauthn_credentials WHERE user_id = $1`, userID)
 	if err != nil {
 		return nil, err
@@ -257,12 +262,13 @@ func loadCredentials(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]w
 	var creds []webauthn.Credential
 	for rows.Next() {
 		var (
-			credID, pubKey, aaguid []byte
-			attType                string
-			signCount              int64
-			transportStrs          []string
+			credID, pubKey, aaguid      []byte
+			attType                     string
+			signCount                   int64
+			transportStrs               []string
+			backupEligible, backupState bool
 		)
-		if err := rows.Scan(&credID, &pubKey, &attType, &aaguid, &signCount, &transportStrs); err != nil {
+		if err := rows.Scan(&credID, &pubKey, &attType, &aaguid, &signCount, &transportStrs, &backupEligible, &backupState); err != nil {
 			return nil, err
 		}
 		transports := make([]protocol.AuthenticatorTransport, len(transportStrs))
@@ -274,6 +280,10 @@ func loadCredentials(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]w
 			PublicKey:       pubKey,
 			AttestationType: attType,
 			Transport:       transports,
+			Flags: webauthn.CredentialFlags{
+				BackupEligible: backupEligible,
+				BackupState:    backupState,
+			},
 			Authenticator: webauthn.Authenticator{
 				AAGUID:    aaguid,
 				SignCount: uint32(signCount),

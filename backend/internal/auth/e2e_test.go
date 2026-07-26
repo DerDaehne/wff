@@ -134,8 +134,16 @@ func registerUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, baseURL
 	// the virtual authenticator never sends a userHandle at all, so a server
 	// bug that recomputes a different WebAuthnID at login (rather than
 	// reusing the one from registration) would go completely unnoticed here.
+	//
+	// BackupEligible: true matches the vast majority of real passkeys today
+	// (iCloud Keychain, Google Password Manager, most password managers all
+	// create sync/backup-eligible credentials by default). go-webauthn
+	// requires this flag to stay identical between registration and every
+	// login; the library's zero-value default (false) would mask a server
+	// bug that fails to persist and reload it correctly.
 	authenticator := virtualwebauthn.NewAuthenticatorWithOptions(virtualwebauthn.AuthenticatorOptions{
-		UserHandle: []byte(attestationOptions.UserID),
+		UserHandle:     []byte(attestationOptions.UserID),
+		BackupEligible: true,
 	})
 	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
 	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
