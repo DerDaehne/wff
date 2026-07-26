@@ -51,26 +51,90 @@ type RideFacts struct {
 	// statements stay silent below minRidesForComparison instead of calling a
 	// ride "harder than usual" when there is no usual yet.
 	PriorTSS []float64
+	// PriorSpeedsKmh are earlier rides' average speeds — the only baseline
+	// available to a rider with neither a power meter nor a heart-rate strap.
+	PriorSpeedsKmh []float64
+	// Course is what the route itself says (speed, terrain, wind per heading).
+	// Nil when the ride has no usable GPS. Everything derived from it works
+	// without power or heart rate — see #606.
+	Course *CourseStats
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
 // your recent rides" is noise, not information.
 const minRidesForComparison = 3
 
+// distanceMeters is the ride's length: the device's own figure when it recorded
+// one, the GPS track only as a fallback. The device value comes from a wheel
+// sensor where present and survives GPS dropouts, so it is the number the rider
+// also sees on the head unit.
+func (f RideFacts) distanceMeters() float64 {
+	if f.DistanceMeters != nil && *f.DistanceMeters > 0 {
+		return *f.DistanceMeters
+	}
+	if f.Course != nil {
+		return f.Course.DistanceMeters
+	}
+	return 0
+}
+
+// avgSpeedKmh over moving time, not elapsed — coffee stops are not slow riding.
+func (f RideFacts) avgSpeedKmh() float64 {
+	seconds := f.MovingSeconds
+	if seconds <= 0 {
+		seconds = f.ElapsedSeconds
+	}
+	if seconds <= 0 {
+		return 0
+	}
+	return f.distanceMeters() / float64(seconds) * 3.6
+}
+
+// metersPerKm is how much climbing there was per kilometre — the number that
+// separates "flat" from "hilly" independently of ride length.
+func (f RideFacts) metersPerKm() float64 {
+	km := f.distanceMeters() / 1000
+	gain := 0.0
+	switch {
+	case f.ElevationGainMeters != nil:
+		gain = *f.ElevationGainMeters
+	case f.Course != nil:
+		gain = f.Course.ElevationGainMeters
+	}
+	if km <= 0 || gain <= 0 {
+		return 0
+	}
+	return gain / km
+}
+
 // RideStory turns one ride's numbers into plain-language statements.
+//
+// Hints ("set your FTP", "not enough rides to compare yet") are collected and
+// appended last no matter where they arise: a rider opening a ride wants to read
+// what IS known first, not an apology for what isn't.
 func RideStory(f RideFacts) Story {
 	story := Story{Headline: headline(f)}
+	var hints []Statement
 
-	if s, ok := effortStatement(f); ok {
-		story.Statements = append(story.Statements, s)
+	add := func(s Statement, ok bool) {
+		switch {
+		case !ok:
+		case strings.HasPrefix(s.Kind, "hint_"):
+			hints = append(hints, s)
+		default:
+			story.Statements = append(story.Statements, s)
+		}
 	}
-	if s, ok := loadStatement(f); ok {
-		story.Statements = append(story.Statements, s)
+
+	add(effortStatement(f))
+	add(loadStatement(f))
+	add(paceStatement(f))
+	for _, s := range contextStatements(f) {
+		add(s, true)
 	}
-	story.Statements = append(story.Statements, contextStatements(f)...)
-	if s, ok := comparisonStatement(f); ok {
-		story.Statements = append(story.Statements, s)
-	}
+	add(comparisonStatement(f))
+
+	story.Statements = append(story.Statements, hints...)
 	return story
 }
 
@@ -97,9 +161,14 @@ func sessionKind(intensityFactor *float64) string {
 
 func headline(f RideFacts) string {
 	kind := sessionKind(f.IntensityFactor)
+	// Without an intensity factor the generic "Ausfahrt" is all the metrics
+	// allow — but the profile still says something worth putting in the title.
+	if f.IntensityFactor == nil && f.metersPerKm() >= 10 {
+		kind = "hügelige Ausfahrt"
+	}
 	kind = strings.ToUpper(kind[:1]) + kind[1:]
-	if f.DistanceMeters != nil && *f.DistanceMeters > 0 {
-		return fmt.Sprintf("%s über %s km, %s", kind, decimal(*f.DistanceMeters/1000, 1), duration(f.ElapsedSeconds))
+	if km := f.distanceMeters() / 1000; km > 0 {
+		return fmt.Sprintf("%s über %s km, %s", kind, decimal(km, 1), duration(f.ElapsedSeconds))
 	}
 	return fmt.Sprintf("%s, %s", kind, duration(f.ElapsedSeconds))
 }
@@ -167,13 +236,59 @@ func loadStatement(f RideFacts) (Statement, bool) {
 	}, true
 }
 
+// paceStatement is the one effort reading available to a bike with no power
+// meter and no heart-rate strap: how fast, put in relation to how hilly.
+//
+// It must not be dressed up as a fitness verdict. Speed depends on wind,
+// gradient, surface and the bike itself, so when it's the ONLY signal there is
+// (no FTP/LTHR, hence no intensity factor) the sentence says so itself rather
+// than letting the rider over-read it.
+func paceStatement(f RideFacts) (Statement, bool) {
+	speed := f.avgSpeedKmh()
+	if speed <= 0 {
+		return Statement{}, false
+	}
+	metersPerKm := f.metersPerKm()
+
+	text := fmt.Sprintf("Du bist im Schnitt %s km/h gefahren.", decimal(speed, 1))
+	if metersPerKm >= 8 {
+		text = fmt.Sprintf(
+			"Du bist im Schnitt %s km/h gefahren — und das auf einer Strecke mit %d Höhenmetern pro Kilometer, "+
+				"wo dasselbe Tempo mehr Arbeit ist als in der Ebene.",
+			decimal(speed, 1), int(metersPerKm+0.5))
+	}
+
+	if len(f.PriorSpeedsKmh) >= minRidesForComparison {
+		if median := medianOf(f.PriorSpeedsKmh); median > 0 {
+			switch ratio := speed / median; {
+			case ratio >= 1.08:
+				text += " Das ist schneller als auf deinen letzten Fahrten."
+			case ratio <= 0.92:
+				text += " Das ist langsamer als auf deinen letzten Fahrten."
+			}
+		}
+	}
+
+	if f.IntensityFactor == nil {
+		text += " Wie anstrengend das für dich war, sagt das Tempo allerdings nicht: " +
+			"Wind, Steigung, Untergrund und Rad zählen genauso mit."
+	}
+
+	metric := fmt.Sprintf("⌀ %s km/h · %s km", decimal(speed, 1), decimal(f.distanceMeters()/1000, 1))
+	return Statement{Text: text, Metric: metric, Kind: "pace"}, true
+}
+
 // contextStatements explain why a ride felt harder or easier than the bare
 // numbers suggest. Only clearly noticeable conditions get a sentence —
 // mentioning 0.2 m/s of wind would be noise.
 func contextStatements(f RideFacts) []Statement {
 	var out []Statement
 
-	if f.HeadwindMps != nil && absf(*f.HeadwindMps) >= 1.0 {
+	// Per-heading wind beats the stored hourly average whenever GPS allows it:
+	// the average cancels itself out on an out-and-back (see Course).
+	if c := f.Course; c != nil && c.HasWind {
+		out = append(out, windShareStatement(*c))
+	} else if f.HeadwindMps != nil && absf(*f.HeadwindMps) >= 1.0 {
 		wind := *f.HeadwindMps
 		text := "Im Schnitt hattest du Gegenwind — der kostet Tempo bei gleicher Anstrengung, " +
 			"deine Geschwindigkeit sagt an so einem Tag weniger über deine Form aus."
@@ -187,7 +302,9 @@ func contextStatements(f RideFacts) []Statement {
 		})
 	}
 
-	if gain := f.ElevationGainMeters; gain != nil && *gain >= 300 {
+	if c := f.Course; c != nil && c.HasTerrain && (c.ClimbDistanceShare >= 0.15 || f.metersPerKm() >= 8) {
+		out = append(out, terrainStatement(*c, f.metersPerKm()))
+	} else if gain := f.ElevationGainMeters; gain != nil && *gain >= 300 {
 		out = append(out, Statement{
 			Text: "Die Strecke war hügelig. Bergauf steigt die Anstrengung stark an, " +
 				"auch wenn die Durchschnittsgeschwindigkeit dadurch niedriger aussieht.",
@@ -249,6 +366,60 @@ func comparisonStatement(f RideFacts) (Statement, bool) {
 	}, true
 }
 
+// windShareStatement reports how much of the DISTANCE was ridden into the
+// wind. That is the number a rider recognises from the ride; an hourly average
+// headwind of "0.1 m/s" for an out-and-back is technically true and useless.
+func windShareStatement(c CourseStats) Statement {
+	head, tail := int(c.HeadwindShare*100+0.5), int(c.TailwindShare*100+0.5)
+
+	var text string
+	switch {
+	case head >= 40 && c.HeadwindOnClimbShare >= 0.5 && c.ClimbDistanceShare > 0:
+		text = fmt.Sprintf(
+			"Auf %d %% der Strecke ging es gegen den Wind — und der Gegenwind lag überwiegend in den Anstiegen. "+
+				"Diese Kombination ist die härteste, die eine Runde zu bieten hat.", head)
+	case head >= 40:
+		text = fmt.Sprintf(
+			"Auf %d %% der Strecke ging es gegen den Wind, auf %d %% mit ihm. "+
+				"Gegenwind kostet Tempo bei gleicher Anstrengung — deine Geschwindigkeit sagt an so einem Tag "+
+				"weniger über deine Form aus.", head, tail)
+	case tail >= 40:
+		text = fmt.Sprintf(
+			"Der Wind war überwiegend auf deiner Seite: %d %% der Strecke mit Rückenwind, nur %d %% dagegen. "+
+				"Die Zeiten fielen dadurch leichter als die Anstrengung vermuten lässt.", tail, head)
+	default:
+		text = "Der Wind kam meist von der Seite — der bremst kaum, macht aber die Lenkung unruhig."
+	}
+
+	return Statement{
+		Text: text,
+		Metric: fmt.Sprintf("⌀ %s m/s Wind aus %s · %d %% gegen, %d %% mit",
+			decimal(c.MeanWindSpeedMps, 1), compassName(c.WindFromDeg), head, tail),
+		Kind: "context",
+	}
+}
+
+// terrainStatement describes the profile in terms a rider feels: how much of
+// the way went up, and how steep the hardest sustained stretch was.
+func terrainStatement(c CourseStats, metersPerKm float64) Statement {
+	share := int(c.ClimbDistanceShare*100 + 0.5)
+
+	text := fmt.Sprintf(
+		"Auf etwa %d %% der Strecke ging es aufwärts. Bergauf steigt die Anstrengung stark an, "+
+			"auch wenn die Durchschnittsgeschwindigkeit dadurch niedriger aussieht.", share)
+	if c.SteepestGradePct >= 6 {
+		text += fmt.Sprintf(" Die steilste längere Rampe hatte rund %s %% Steigung.",
+			decimal(c.SteepestGradePct, 1))
+	}
+
+	return Statement{
+		Text: text,
+		Metric: fmt.Sprintf("%d Höhenmeter · %d hm pro km",
+			int(c.ElevationGainMeters+0.5), int(metersPerKm+0.5)),
+		Kind: "context",
+	}
+}
+
 func windLabel(headwindMps float64) string {
 	if headwindMps < 0 {
 		return "Rückenwind"
@@ -256,7 +427,13 @@ func windLabel(headwindMps float64) string {
 	return "Gegenwind"
 }
 
+// medianOf returns 0 for an empty input rather than panicking — callers guard
+// on their own minimum sample counts, and a "no data" median of 0 is what
+// every one of them treats as "don't make a claim".
 func medianOf(values []float64) float64 {
+	if len(values) == 0 {
+		return 0
+	}
 	sorted := append([]float64(nil), values...)
 	sort.Float64s(sorted)
 	mid := len(sorted) / 2

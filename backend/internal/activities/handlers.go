@@ -88,11 +88,16 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 
 	// Earlier rides only: including this ride (or later ones) in its own
 	// baseline would flatten exactly the difference the comparison shows.
+	// Average speed comes along as the baseline for riders with neither power
+	// nor heart rate, where TSS is always NULL (#606).
 	// ponytail: last 30 rides is plenty for a median; widen if the baseline
 	// ever needs to be season-aware.
 	rows, err := h.pool.Query(r.Context(), `
-		SELECT training_stress_score FROM activities
-		WHERE user_id = $1 AND started_at < $2 AND training_stress_score IS NOT NULL
+		SELECT training_stress_score,
+		       CASE WHEN moving_seconds > 0 AND distance_meters IS NOT NULL
+		            THEN distance_meters / moving_seconds * 3.6 END
+		FROM activities
+		WHERE user_id = $1 AND started_at < $2
 		ORDER BY started_at DESC LIMIT 30`,
 		userID, startedAt,
 	)
@@ -102,19 +107,90 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var tss float64
-		if err := rows.Scan(&tss); err != nil {
+		var tss, speedKmh *float64
+		if err := rows.Scan(&tss, &speedKmh); err != nil {
 			http.Error(w, "could not load ride history", http.StatusInternalServerError)
 			return
 		}
-		facts.PriorTSS = append(facts.PriorTSS, tss)
+		if tss != nil {
+			facts.PriorTSS = append(facts.PriorTSS, *tss)
+		}
+		if speedKmh != nil {
+			facts.PriorSpeedsKmh = append(facts.PriorSpeedsKmh, *speedKmh)
+		}
 	}
 	if err := rows.Err(); err != nil {
 		http.Error(w, "could not load ride history", http.StatusInternalServerError)
 		return
 	}
 
+	course, err := h.courseStats(r.Context(), activityID)
+	if err != nil {
+		http.Error(w, "could not load ride course", http.StatusInternalServerError)
+		return
+	}
+	facts.Course = course
+
 	writeActivitiesJSON(w, analyze.RideStory(facts))
+}
+
+// courseStats loads the raw track plus the stored hourly wind vectors and
+// derives the route statistics that need neither power nor heart rate. Returns
+// nil when the ride has no usable GPS — then there simply is no course to talk
+// about, which is not an error.
+func (h *Handlers) courseStats(ctx context.Context, activityID int64) (*analyze.CourseStats, error) {
+	rows, err := h.pool.Query(ctx, `
+		SELECT time, lat, lon, altitude_meters, speed_mps
+		FROM samples WHERE activity_id = $1 ORDER BY time`,
+		activityID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var samples []analyze.CourseSample
+	for rows.Next() {
+		var s analyze.CourseSample
+		if err := rows.Scan(&s.Time, &s.Lat, &s.Lon, &s.AltitudeMeters, &s.SpeedMps); err != nil {
+			return nil, err
+		}
+		samples = append(samples, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(samples) < 2 {
+		return nil, nil
+	}
+
+	windRows, err := h.pool.Query(ctx, `
+		SELECT hour_bucket, wind_speed_mps, wind_direction_deg
+		FROM enrichment WHERE activity_id = $1`,
+		activityID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer windRows.Close()
+
+	var winds []analyze.WindBucket
+	for windRows.Next() {
+		var b analyze.WindBucket
+		if err := windRows.Scan(&b.Hour, &b.SpeedMps, &b.DirectionDeg); err != nil {
+			return nil, err
+		}
+		winds = append(winds, b)
+	}
+	if err := windRows.Err(); err != nil {
+		return nil, err
+	}
+
+	stats := analyze.Course(samples, winds)
+	if stats.DistanceMeters <= 0 {
+		return nil, nil
+	}
+	return &stats, nil
 }
 
 type activitySummary struct {

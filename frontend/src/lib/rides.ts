@@ -49,7 +49,7 @@ export async function getActivityWeather(id: number): Promise<WeatherSummary> {
 export interface RideStatement {
 	text: string;
 	metric?: string;
-	kind: 'effort' | 'load' | 'context' | 'comparison' | 'hint_profile' | 'hint_history';
+	kind: 'effort' | 'load' | 'pace' | 'context' | 'comparison' | 'hint_profile' | 'hint_history';
 }
 
 export interface RideStory {

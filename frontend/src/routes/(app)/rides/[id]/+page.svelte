@@ -43,6 +43,7 @@
 	const statementLabel: Record<RideStatement['kind'], string> = {
 		effort: 'Wie hart war es',
 		load: 'Was es gebracht hat',
+		pace: 'Wie schnell du warst',
 		context: 'Warum es sich so anfühlte',
 		comparison: 'Im Vergleich zu sonst',
 		hint_profile: 'Dafür fehlt noch etwas',
@@ -96,20 +97,14 @@
 			.map((s) => [s.lon, s.lat] as [number, number])
 	);
 
-	// Plain conditions row: always shown when known, even when the numbers are
-	// unremarkable — the story only *explains* wind/heat when they were strong
-	// enough to matter (#590 keeps its data, the story adds the meaning).
+	// Temperature only. The average headwind that used to sit here is the
+	// hourly figure that cancels itself out on an out-and-back — it showed
+	// "0.1 m/s Gegenwind" right above a card saying 50 % of the ride was into
+	// a 5.5 m/s wind (#606). Wind is the story's job now, per heading.
 	let conditions = $derived.by(() => {
 		if (!weather || weather.buckets_enriched === 0) return [];
-		const out: string[] = [];
-		if (weather.avg_temperature_celsius != null) {
-			out.push(`${Math.round(weather.avg_temperature_celsius)} °C`);
-		}
-		if (weather.avg_headwind_mps != null) {
-			const kind = weather.avg_headwind_mps >= 0 ? 'Gegenwind' : 'Rückenwind';
-			out.push(`⌀ ${Math.abs(weather.avg_headwind_mps).toFixed(1)} m/s ${kind}`);
-		}
-		return out;
+		if (weather.avg_temperature_celsius == null) return [];
+		return [`${Math.round(weather.avg_temperature_celsius)} °C`];
 	});
 
 	onMount(async () => {
@@ -349,6 +344,10 @@
 
 	.statement-load {
 		background: color-mix(in srgb, var(--color-brand) 10%, var(--color-surface));
+	}
+
+	.statement-pace {
+		background: color-mix(in srgb, var(--chart-speed) 10%, var(--color-surface));
 	}
 
 	.statement-context {

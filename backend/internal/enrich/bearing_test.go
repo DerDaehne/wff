@@ -23,9 +23,9 @@ func TestBearingDegCardinalDirections(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := bearingDeg(c.lat1, c.lon1, c.lat2, c.lon2)
+			got := BearingDeg(c.lat1, c.lon1, c.lat2, c.lon2)
 			if !almostEqual(got, c.wantDeg, 0.5) {
-				t.Errorf("bearingDeg(%v,%v -> %v,%v) = %v, want ~%v", c.lat1, c.lon1, c.lat2, c.lon2, got, c.wantDeg)
+				t.Errorf("BearingDeg(%v,%v -> %v,%v) = %v, want ~%v", c.lat1, c.lon1, c.lat2, c.lon2, got, c.wantDeg)
 			}
 		})
 	}
@@ -36,21 +36,21 @@ func TestHeadwindComponent(t *testing.T) {
 	speed := 5.0
 
 	headwindDir := 90.0 // wind blowing FROM the east -> into the rider's face
-	if got := headwindComponent(&bearing, &headwindDir, &speed); got == nil || !almostEqual(*got, 5.0, 1e-9) {
+	if got := HeadwindComponent(&bearing, &headwindDir, &speed); got == nil || !almostEqual(*got, 5.0, 1e-9) {
 		t.Errorf("headwind case: got %v, want +5.0 (headwind)", got)
 	}
 
 	tailwindDir := 270.0 // wind blowing FROM the west -> pushing the rider east
-	if got := headwindComponent(&bearing, &tailwindDir, &speed); got == nil || !almostEqual(*got, -5.0, 1e-9) {
+	if got := HeadwindComponent(&bearing, &tailwindDir, &speed); got == nil || !almostEqual(*got, -5.0, 1e-9) {
 		t.Errorf("tailwind case: got %v, want -5.0 (tailwind)", got)
 	}
 
 	crosswindDir := 0.0 // wind from due north, rider heading east -> pure crosswind
-	if got := headwindComponent(&bearing, &crosswindDir, &speed); got == nil || !almostEqual(*got, 0.0, 1e-9) {
+	if got := HeadwindComponent(&bearing, &crosswindDir, &speed); got == nil || !almostEqual(*got, 0.0, 1e-9) {
 		t.Errorf("crosswind case: got %v, want ~0.0", got)
 	}
 
-	if got := headwindComponent(nil, &headwindDir, &speed); got != nil {
+	if got := HeadwindComponent(nil, &headwindDir, &speed); got != nil {
 		t.Errorf("nil bearing: got %v, want nil", got)
 	}
 }

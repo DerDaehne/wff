@@ -55,7 +55,7 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, client *openmeteo.Client,
 		if w.TemperatureCelsius == nil && w.WindSpeedMps == nil && w.WindDirectionDeg == nil && w.PrecipitationMm == nil {
 			continue // not yet in the ERA5 archive - candidate for the next poll
 		}
-		headwind := headwindComponent(b.bearing, w.WindDirectionDeg, w.WindSpeedMps)
+		headwind := HeadwindComponent(b.bearing, w.WindDirectionDeg, w.WindSpeedMps)
 		if err := upsertBucket(ctx, pool, activityID, b, w, headwind); err != nil {
 			return result, err
 		}
@@ -107,7 +107,7 @@ func loadBuckets(ctx context.Context, pool *pgxpool.Pool, activityID int64) ([]b
 		b := bucket{hour: hour, lat: pts[0].lat, lon: pts[0].lon}
 		if len(pts) >= 2 {
 			first, last := pts[0], pts[len(pts)-1]
-			brg := bearingDeg(first.lat, first.lon, last.lat, last.lon)
+			brg := BearingDeg(first.lat, first.lon, last.lat, last.lon)
 			b.bearing = &brg
 		}
 		buckets = append(buckets, b)
@@ -138,9 +138,9 @@ func upsertBucket(ctx context.Context, pool *pgxpool.Pool, activityID int64, b b
 	return err
 }
 
-// bearingDeg is the standard great-circle initial bearing from (lat1,lon1)
+// BearingDeg is the standard great-circle initial bearing from (lat1,lon1)
 // to (lat2,lon2), in degrees clockwise from north (0-360).
-func bearingDeg(lat1, lon1, lat2, lon2 float64) float64 {
+func BearingDeg(lat1, lon1, lat2, lon2 float64) float64 {
 	φ1, φ2 := lat1*math.Pi/180, lat2*math.Pi/180
 	Δλ := (lon2 - lon1) * math.Pi / 180
 	y := math.Sin(Δλ) * math.Cos(φ2)
@@ -149,10 +149,14 @@ func bearingDeg(lat1, lon1, lat2, lon2 float64) float64 {
 	return math.Mod(θ+360, 360)
 }
 
-// headwindComponent projects wind velocity onto the rider's direction of
+// HeadwindComponent projects wind velocity onto the rider's direction of
 // travel: positive = headwind, negative = tailwind. Nil if the bearing or
 // weather data isn't available.
-func headwindComponent(bearingDeg, windDirectionDeg, windSpeedMps *float64) *float64 {
+//
+// Exported together with BearingDeg because internal/analyze re-projects the
+// same stored wind vector per sample rather than per hour-bucket (#606) — the
+// trigonometry should exist once.
+func HeadwindComponent(bearingDeg, windDirectionDeg, windSpeedMps *float64) *float64 {
 	if bearingDeg == nil || windDirectionDeg == nil || windSpeedMps == nil {
 		return nil
 	}
