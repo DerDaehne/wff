@@ -5,6 +5,7 @@
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { getActivitySamples, type Sample } from '$lib/rides';
 	import { ApiError } from '$lib/api';
+	import LineChart from '$lib/components/LineChart.svelte';
 
 	let viewState: 'loading' | 'error' | 'ready' = $state('loading');
 	let errorMessage = $state('');
@@ -12,34 +13,36 @@
 	let mapContainer: HTMLDivElement = $state()!;
 	let map: Map | null = null;
 
-	const width = 800;
-	const height = 160;
-	const pad = 24;
-
-	function buildLine(values: (number | null)[]) {
-		const points = values
-			.map((v, i) => (v === null ? null : { i, v }))
-			.filter((p): p is { i: number; v: number } => p !== null);
-		if (points.length < 2) return null;
-		const min = Math.min(...points.map((p) => p.v));
-		const max = Math.max(...points.map((p) => p.v));
-		const xStep = (width - 2 * pad) / Math.max(values.length - 1, 1);
-		const x = (i: number) => pad + i * xStep;
-		const y = (v: number) =>
-			max === min ? height / 2 : height - pad - ((v - min) / (max - min)) * (height - 2 * pad);
-		return {
-			polyline: points.map((p) => `${x(p.i)},${y(p.v)}`).join(' '),
-			min,
-			max
-		};
+	function hasAnyValue(values: (number | null)[]): boolean {
+		return values.some((v) => v !== null);
 	}
 
-	let elevation = $derived(buildLine(samples.map((s) => s.altitude_meters)));
-	let powerLine = $derived(buildLine(samples.map((s) => s.power_watts)));
-	let hrLine = $derived(buildLine(samples.map((s) => s.heart_rate)));
+	// Elapsed minutes since the first sample — a real time axis instead of a
+	// bare array index.
+	let elapsedMinutes = $derived.by(() => {
+		if (samples.length === 0) return [];
+		const start = new Date(samples[0].time).getTime();
+		return samples.map((s) => (new Date(s.time).getTime() - start) / 60000);
+	});
+
+	function formatElapsed(minutes: number): string {
+		if (minutes >= 60) {
+			const h = Math.floor(minutes / 60);
+			const m = Math.round(minutes % 60);
+			return `${h}:${String(m).padStart(2, '0')} h`;
+		}
+		return `${Math.round(minutes)} min`;
+	}
+
+	let hasElevation = $derived(hasAnyValue(samples.map((s) => s.altitude_meters)));
+	let hasPower = $derived(hasAnyValue(samples.map((s) => s.power_watts)));
+	let hasHeartRate = $derived(hasAnyValue(samples.map((s) => s.heart_rate)));
 	// Prefer power (more directly trainable) when both are present.
-	let effortLine = $derived(powerLine ?? hrLine);
-	let effortLabel = $derived(powerLine ? 'Leistung (W)' : hrLine ? 'Herzfrequenz (bpm)' : null);
+	let showPower = $derived(hasPower);
+	let showHeartRate = $derived(!hasPower && hasHeartRate);
+	let effortLabel = $derived(
+		showPower ? 'Leistung (W)' : showHeartRate ? 'Herzfrequenz (bpm)' : null
+	);
 
 	let gpsCoords = $derived(
 		samples
@@ -106,19 +109,52 @@
 	{/if}
 
 	<h2>Höhenprofil</h2>
-	{#if elevation}
-		<svg viewBox="0 0 {width} {height}" role="img" aria-label="Höhenprofil">
-			<polyline points={elevation.polyline} fill="none" stroke="#78716c" stroke-width="2" />
-		</svg>
+	{#if hasElevation}
+		<LineChart
+			xValues={elapsedMinutes}
+			series={[
+				{
+					name: 'Höhe',
+					color: 'var(--chart-elevation)',
+					values: samples.map((s) => s.altitude_meters)
+				}
+			]}
+			xFormat={formatElapsed}
+			yFormat={(y) => `${Math.round(y)} m`}
+			ariaLabel="Höhenprofil"
+			height={160}
+		/>
 	{:else}
 		<p>Keine Höhendaten für diese Fahrt.</p>
 	{/if}
 
 	<h2>{effortLabel ?? 'Leistung/Herzfrequenz'}</h2>
-	{#if effortLine}
-		<svg viewBox="0 0 {width} {height}" role="img" aria-label={effortLabel}>
-			<polyline points={effortLine.polyline} fill="none" stroke="#2563eb" stroke-width="2" />
-		</svg>
+	{#if showPower}
+		<LineChart
+			xValues={elapsedMinutes}
+			series={[
+				{ name: 'Leistung', color: 'var(--chart-power)', values: samples.map((s) => s.power_watts) }
+			]}
+			xFormat={formatElapsed}
+			yFormat={(y) => `${Math.round(y)} W`}
+			ariaLabel={effortLabel ?? 'Leistung/Herzfrequenz'}
+			height={160}
+		/>
+	{:else if showHeartRate}
+		<LineChart
+			xValues={elapsedMinutes}
+			series={[
+				{
+					name: 'Herzfrequenz',
+					color: 'var(--chart-heart-rate)',
+					values: samples.map((s) => s.heart_rate)
+				}
+			]}
+			xFormat={formatElapsed}
+			yFormat={(y) => `${Math.round(y)} bpm`}
+			ariaLabel={effortLabel ?? 'Leistung/Herzfrequenz'}
+			height={160}
+		/>
 	{:else}
 		<p>Keine Leistungs- oder Herzfrequenzdaten für diese Fahrt.</p>
 	{/if}
@@ -130,11 +166,5 @@
 		height: 300px;
 		border-radius: 0.5rem;
 		overflow: hidden;
-	}
-
-	svg {
-		width: 100%;
-		height: auto;
-		max-width: 800px;
 	}
 </style>
