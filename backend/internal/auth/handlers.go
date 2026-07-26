@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -42,6 +43,7 @@ func (h *Handlers) beginRegistration(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	invite, err := lookupInvite(r.Context(), h.pool, token)
 	if err != nil {
+		log.Printf("auth: beginRegistration: invite lookup failed: %v", err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -82,6 +84,7 @@ func (h *Handlers) finishRegistration(w http.ResponseWriter, r *http.Request) {
 	user := &webauthnUser{id: ceremony.webAuthnID, username: ceremony.username, displayName: ceremony.displayName}
 	cred, err := h.wa.FinishRegistration(user, ceremony.session, r)
 	if err != nil {
+		log.Printf("auth: finishRegistration: user=%s FinishRegistration failed: %v", ceremony.username, err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -134,6 +137,7 @@ func (h *Handlers) finishRegistration(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("auth: finishRegistration: user=%s user_id=%d registered", ceremony.username, userID)
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -155,6 +159,7 @@ func (h *Handlers) beginLogin(w http.ResponseWriter, r *http.Request) {
 		`SELECT id, display_name, webauthn_user_handle FROM users WHERE username = $1`, req.Username,
 	).Scan(&userID, &displayName, &webAuthnID)
 	if err != nil {
+		log.Printf("auth: beginLogin: user=%s not found: %v", req.Username, err)
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -165,6 +170,7 @@ func (h *Handlers) beginLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(credentials) == 0 {
+		log.Printf("auth: beginLogin: user=%s user_id=%d has no credentials", req.Username, userID)
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -208,6 +214,7 @@ func (h *Handlers) finishLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	cred, err := h.wa.FinishLogin(user, ceremony.session, r)
 	if err != nil {
+		log.Printf("auth: finishLogin: user=%s user_id=%d FinishLogin failed: %v", ceremony.username, ceremony.userID, err)
 		http.Error(w, err.Error(), http.StatusUnauthorized)
 		return
 	}
@@ -224,6 +231,7 @@ func (h *Handlers) finishLogin(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	log.Printf("auth: finishLogin: user=%s user_id=%d logged in", ceremony.username, ceremony.userID)
 	w.WriteHeader(http.StatusOK)
 }
 

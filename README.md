@@ -66,6 +66,18 @@ docker compose exec app wff invite create <username> <anzeigename>
 Gibt einen `/invite/<token>`-Link aus (gültig `auth.InviteTTL`), über den sich
 der Nutzer per Passkey registriert.
 
+Nutzerverwaltung:
+
+```sh
+docker compose exec app wff user list             # id, username, display_name, created_at, #Credentials
+docker compose exec app wff user delete <username> # löscht Nutzer + Credentials/Sessions/Activities (kaskadiert)
+```
+
+Registrierte Passkeys sind an den Account zum Registrierungszeitpunkt gebunden
+— ein Account, der vor einem Auth-bezogenen Fix (z. B. #579) angelegt wurde,
+lässt sich nicht nachträglich reparieren. In dem Fall: Account löschen, neuen
+Invite ausstellen, neu registrieren.
+
 Struktur:
 
 - `backend/`  — Go-API, `.fit`-Ingestion, Analyse

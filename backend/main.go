@@ -24,6 +24,10 @@ func main() {
 		runInviteCLI(os.Args[2:])
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "user" {
+		runUserCLI(os.Args[2:])
+		return
+	}
 	runServer()
 }
 
@@ -100,6 +104,50 @@ func runInviteCLI(args []string) {
 		return
 	}
 	fmt.Printf("Invite for %s (valid %s): %s/invite/%s\n", username, auth.InviteTTL, base, token)
+}
+
+// runUserCLI implements `wff user list` and `wff user delete <username>`.
+func runUserCLI(args []string) {
+	if len(args) < 1 {
+		fmt.Fprintln(os.Stderr, "usage: wff user list | wff user delete <username>")
+		os.Exit(1)
+	}
+
+	ctx := context.Background()
+	pool, err := db.Open(ctx, requireEnv("DATABASE_URL"))
+	if err != nil {
+		log.Fatalf("db: %v", err)
+	}
+	defer pool.Close()
+
+	switch args[0] {
+	case "list":
+		users, err := auth.ListUsers(ctx, pool)
+		if err != nil {
+			log.Fatalf("list users: %v", err)
+		}
+		if len(users) == 0 {
+			fmt.Println("no users")
+			return
+		}
+		for _, u := range users {
+			fmt.Printf("%d\t%s\t%s\tcreated %s\t%d credential(s)\n",
+				u.ID, u.Username, u.DisplayName, u.CreatedAt.Format(time.DateOnly), u.CredentialCount)
+		}
+	case "delete":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: wff user delete <username>")
+			os.Exit(1)
+		}
+		username := args[1]
+		if err := auth.DeleteUser(ctx, pool, username); err != nil {
+			log.Fatalf("delete user %s: %v", username, err)
+		}
+		fmt.Printf("deleted user %s (and their credentials/sessions/activities)\n", username)
+	default:
+		fmt.Fprintln(os.Stderr, "usage: wff user list | wff user delete <username>")
+		os.Exit(1)
+	}
 }
 
 // enrichmentPollInterval reads ENRICHMENT_POLL_INTERVAL (Go duration
