@@ -20,6 +20,14 @@
 	--color-danger: #dc2626;
 	--color-info: #2563eb;
 
+	/* Depth over lines: separate elements via shadow/elevation, not borders
+	   or gridlines — see design-wff-ui-konzept "Tiefe & Transparenz". */
+	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+	--shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+	--shadow-lg: 0 12px 24px rgba(15, 23, 42, 0.16);
+	--surface-glass: rgba(255, 255, 255, 0.72);
+	--radius-md: 16px;
+
 	--chart-elevation: #78716c;
 	--chart-power: #f59e0b;
 	--chart-heart-rate: #e11d48;

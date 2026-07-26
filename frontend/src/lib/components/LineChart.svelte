@@ -1,7 +1,19 @@
+<script module lang="ts">
+	// Gradient ids must be unique across the whole document (SVG ids aren't
+	// component-scoped) — a shared counter gives each chart instance its own
+	// prefix, avoiding collisions when multiple charts render on one page.
+	let chartInstanceCounter = 0;
+	function nextInstanceId(): number {
+		return chartInstanceCounter++;
+	}
+</script>
+
 <script lang="ts">
-	// Shared chart primitive per design-wff-ui-konzept (#582/#145): every chart
-	// gets labeled axes, gridlines, a legend when there's more than one series,
-	// and a hover tooltip with the exact value — not just a bare polyline.
+	// Shared chart primitive per design-wff-ui-konzept (#582/#145): labeled
+	// axes, a legend when there's more than one series, and a hover tooltip
+	// with the exact value. Separation is via depth (shadow/elevation) and
+	// soft color washes, not gridlines or borders — no <line> gridnet, no
+	// dashed hover guide, no bordered tooltip box.
 	interface Series {
 		name: string;
 		color: string;
@@ -26,7 +38,9 @@
 		height?: number;
 	} = $props();
 
-	const padLeft = 48;
+	const instanceId = nextInstanceId();
+
+	const padLeft = 44;
 	const padRight = 12;
 	const padTop = 12;
 	const padBottom = 28;
@@ -64,14 +78,24 @@
 	let xTicks = $derived(niceTicks(xMin, xMax, Math.min(5, xValues.length || 1)));
 
 	let lines = $derived(
-		series.map((s) => ({
-			...s,
-			points: xValues
+		series.map((s, seriesIndex) => {
+			const pts = xValues
 				.map((x, i) => (s.values[i] === null ? null : { x: scaleX(x), y: scaleY(s.values[i]!) }))
-				.filter((p): p is { x: number; y: number } => p !== null)
-				.map((p) => `${p.x},${p.y}`)
-				.join(' ')
-		}))
+				.filter((p): p is { x: number; y: number } => p !== null);
+			const baseline = height - padBottom;
+			const area =
+				pts.length > 1
+					? `M ${pts[0].x},${baseline} ` +
+						pts.map((p) => `L ${p.x},${p.y}`).join(' ') +
+						` L ${pts[pts.length - 1].x},${baseline} Z`
+					: '';
+			return {
+				...s,
+				gradientId: `chart-area-${instanceId}-${seriesIndex}`,
+				polyline: pts.map((p) => `${p.x},${p.y}`).join(' '),
+				area
+			};
+		})
 	);
 
 	let hoverIndex: number | null = $state(null);
@@ -99,7 +123,7 @@
 	let hoverX = $derived(hoverIndex !== null ? scaleX(xValues[hoverIndex]) : null);
 </script>
 
-<div class="chart-wrap">
+<div class="chart-card">
 	{#if series.length > 1}
 		<ul class="legend">
 			{#each series as s (s.name)}
@@ -114,24 +138,42 @@
 		onmousemove={onMove}
 		onmouseleave={onLeave}
 	>
+		<defs>
+			{#each lines as line (line.name)}
+				<linearGradient id={line.gradientId} x1="0" y1="0" x2="0" y2="1">
+					<stop offset="0%" style="stop-color: {line.color}; stop-opacity: 0.25" />
+					<stop offset="100%" style="stop-color: {line.color}; stop-opacity: 0" />
+				</linearGradient>
+			{/each}
+			<linearGradient id="chart-hover-band-{instanceId}" x1="0" y1="0" x2="1" y2="0">
+				<stop offset="0%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
+				<stop offset="50%" style="stop-color: var(--color-text-muted); stop-opacity: 0.12" />
+				<stop offset="100%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
+			</linearGradient>
+		</defs>
 		{#each yTicks as tick (tick)}
-			<line
-				x1={padLeft}
-				y1={scaleY(tick)}
-				x2={width - padRight}
-				y2={scaleY(tick)}
-				stroke="var(--color-border, #e2e8f0)"
-			/>
-			<text x={padLeft - 6} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
+			<text x={padLeft - 8} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
 				>{yFormat(tick)}</text
 			>
 		{/each}
 		{#each xTicks as tick (tick)}
 			<text x={scaleX(tick)} y={height - 8} text-anchor="middle">{xFormat(tick)}</text>
 		{/each}
+		{#if hoverX !== null}
+			<rect
+				x={hoverX - 14}
+				y={padTop}
+				width="28"
+				height={height - padTop - padBottom}
+				fill="url(#chart-hover-band-{instanceId})"
+			/>
+		{/if}
 		{#each lines as line (line.name)}
+			{#if line.area}
+				<path d={line.area} fill="url(#{line.gradientId})" stroke="none" />
+			{/if}
 			<polyline
-				points={line.points}
+				points={line.polyline}
 				fill="none"
 				stroke={line.color}
 				stroke-width="2"
@@ -140,11 +182,10 @@
 			/>
 		{/each}
 		{#if hoverX !== null && hoverIndex !== null}
-			<line x1={hoverX} y1={padTop} x2={hoverX} y2={height - padBottom} class="hover-guide" />
 			{#each series as s (s.name)}
 				{@const v = s.values[hoverIndex]}
 				{#if v !== null}
-					<circle cx={hoverX} cy={scaleY(v)} r="3.5" fill={s.color} />
+					<circle cx={hoverX} cy={scaleY(v)} r="4" fill={s.color} />
 				{/if}
 			{/each}
 		{/if}
@@ -165,11 +206,16 @@
 </div>
 
 <style>
-	.chart-wrap {
+	.chart-card {
 		position: relative;
+		background: var(--color-surface);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+		padding: 1rem;
 	}
 
 	svg {
+		display: block;
 		width: 100%;
 		height: auto;
 		max-width: 800px;
@@ -178,13 +224,7 @@
 
 	text {
 		font-size: 11px;
-		fill: var(--color-text-muted, #64748b);
-	}
-
-	.hover-guide {
-		stroke: var(--color-text-muted, #64748b);
-		stroke-width: 1;
-		stroke-dasharray: 3 3;
+		fill: var(--color-text-muted);
 	}
 
 	.legend {
@@ -193,19 +233,20 @@
 		list-style: none;
 		padding: 0;
 		margin: 0 0 0.5rem;
-		font-size: var(--text-sm, 0.875rem);
+		font-size: var(--text-sm);
 	}
 
 	.tooltip {
 		position: absolute;
-		top: 0.5rem;
-		right: 0.5rem;
-		background: var(--color-surface, #fff);
-		border: 1px solid var(--color-border, #e2e8f0);
-		border-radius: 8px;
+		top: 0.75rem;
+		right: 0.75rem;
+		background: var(--surface-glass);
+		backdrop-filter: blur(12px);
+		-webkit-backdrop-filter: blur(12px);
+		border-radius: 12px;
 		padding: 0.5rem 0.75rem;
-		font-size: var(--text-sm, 0.875rem);
-		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+		font-size: var(--text-sm);
+		box-shadow: var(--shadow-lg);
 		pointer-events: none;
 	}
 
