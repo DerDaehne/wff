@@ -49,20 +49,29 @@
 	.rides {
 		list-style: none;
 		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.625rem;
 	}
 
 	.rides li {
-		border-bottom: 1px solid #e5e7eb;
+		background: var(--color-surface);
+		border-radius: 12px;
+		box-shadow: var(--shadow-sm);
+		transition:
+			box-shadow 0.15s ease,
+			transform 0.15s ease;
+	}
+
+	.rides li:hover {
+		box-shadow: var(--shadow-md);
+		transform: translateY(-1px);
 	}
 
 	.rides a {
 		display: block;
-		padding: 0.75rem 0;
+		padding: 0.875rem 1rem;
 		color: inherit;
 		text-decoration: none;
-	}
-
-	.rides a:hover {
-		background: #f8fafc;
 	}
 </style>
