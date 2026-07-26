@@ -128,7 +128,15 @@ func registerUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, baseURL
 		t.Fatalf("ParseAttestationOptions: %v", err)
 	}
 
-	authenticator := virtualwebauthn.NewAuthenticator()
+	// Real passkeys are discoverable/resident credentials: the authenticator
+	// echoes back the registration-time user handle as userHandle on every
+	// later assertion, and the RP must verify it still matches. Without this,
+	// the virtual authenticator never sends a userHandle at all, so a server
+	// bug that recomputes a different WebAuthnID at login (rather than
+	// reusing the one from registration) would go completely unnoticed here.
+	authenticator := virtualwebauthn.NewAuthenticatorWithOptions(virtualwebauthn.AuthenticatorOptions{
+		UserHandle: []byte(attestationOptions.UserID),
+	})
 	credential := virtualwebauthn.NewCredential(virtualwebauthn.KeyTypeEC2)
 	attestationResponse := virtualwebauthn.CreateAttestationResponse(rp, authenticator, credential, *attestationOptions)
 

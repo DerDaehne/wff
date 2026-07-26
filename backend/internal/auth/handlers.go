@@ -2,7 +2,6 @@ package auth
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"net/http"
 
@@ -106,8 +105,8 @@ func (h *Handlers) finishRegistration(w http.ResponseWriter, r *http.Request) {
 
 	var userID int64
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO users (username, display_name) VALUES ($1, $2) RETURNING id`,
-		ceremony.username, ceremony.displayName,
+		`INSERT INTO users (username, display_name, webauthn_user_handle) VALUES ($1, $2, $3) RETURNING id`,
+		ceremony.username, ceremony.displayName, ceremony.webAuthnID,
 	).Scan(&userID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -151,9 +150,10 @@ func (h *Handlers) beginLogin(w http.ResponseWriter, r *http.Request) {
 
 	var userID int64
 	var displayName string
+	var webAuthnID []byte
 	err := h.pool.QueryRow(r.Context(),
-		`SELECT id, display_name FROM users WHERE username = $1`, req.Username,
-	).Scan(&userID, &displayName)
+		`SELECT id, display_name, webauthn_user_handle FROM users WHERE username = $1`, req.Username,
+	).Scan(&userID, &displayName, &webAuthnID)
 	if err != nil {
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
@@ -169,7 +169,6 @@ func (h *Handlers) beginLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	webAuthnID := userIDToWebAuthnID(userID)
 	user := &webauthnUser{id: webAuthnID, username: req.Username, displayName: displayName, credentials: credentials}
 
 	assertion, session, err := h.wa.BeginLogin(user)
@@ -274,12 +273,6 @@ func loadCredentials(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]w
 		})
 	}
 	return creds, rows.Err()
-}
-
-func userIDToWebAuthnID(id int64) []byte {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, uint64(id))
-	return b
 }
 
 func writeJSON(w http.ResponseWriter, v any) {
