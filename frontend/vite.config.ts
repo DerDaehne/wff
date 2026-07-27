@@ -37,6 +37,11 @@ export default defineConfig({
 				name: 'WFF — wir fahren Fahrrad',
 				short_name: 'WFF',
 				description: 'Self-hosted Radsport-Trainings-Tracker & -Coach',
+				// The interface is German throughout. #615 fixed this on the HTML
+				// element; the manifest declares it separately and had been left
+				// at the default, so the installed app still announced itself as
+				// English to the system.
+				lang: 'de',
 				start_url: '/',
 				scope: '/',
 				display: 'standalone',
@@ -46,7 +51,33 @@ export default defineConfig({
 					{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
 					{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
 					{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
-				]
+				],
+				// Puts WFF in Android's share sheet, so a .fit can be sent straight
+				// from SIGMA RIDE (#617). iOS does not support this at all — WebKit
+				// bug 194593, open since 2019 — which is why the iPhone route is an
+				// iOS Shortcut against the upload endpoint instead.
+				//
+				// The action is a real server route rather than something the
+				// service worker intercepts: a file share is a multipart POST, and
+				// catching that in the SW would mean switching the whole build to
+				// injectManifest to hand-write one. WFF serves its own frontend from
+				// its own Go binary, so the POST is simply handled there.
+				share_target: {
+					action: '/share-target',
+					method: 'POST',
+					enctype: 'multipart/form-data',
+					params: {
+						files: [
+							{
+								name: 'file',
+								// Android matches on MIME type; .fit has no registered
+								// one, so devices report it as a generic binary blob.
+								// The extension is listed too because some send that.
+								accept: ['application/octet-stream', '.fit']
+							}
+						]
+					}
+				}
 			},
 			workbox: {
 				globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],

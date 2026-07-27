@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -43,6 +44,10 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
 	mux.Handle("GET /api/activities/{id}/story", auth.RequireAuth(h.pool)(http.HandlerFunc(h.story)))
+	// Android's share sheet posts here (#617). Deliberately not under /api:
+	// this is a navigation the browser performs, and it answers with a
+	// redirect into the app rather than with JSON.
+	mux.Handle("POST /share-target", auth.RequireAuth(h.pool)(http.HandlerFunc(h.shareTarget)))
 }
 
 // story returns the ride explained in plain language (#601): what kind of
@@ -377,53 +382,77 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	activityID, err := h.ingestRide(r.Context(), userID, raw)
+	switch {
+	case errors.Is(err, ingest.ErrDuplicateActivity):
+		http.Error(w, "activity already exists", http.StatusConflict)
+		return
+	case errors.Is(err, errInvalidFit):
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	case err != nil:
+		log.Printf("upload: user %d: %v", userID, err)
+		http.Error(w, "could not store activity", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	w.Write([]byte(`{"activity_id":` + strconv.FormatInt(activityID, 10) + `}`))
+}
+
+// errInvalidFit separates "this file isn't a ride" from "we failed to store
+// it". The two need different HTTP answers, and the share target needs to tell
+// them apart to word what the rider ends up seeing.
+var errInvalidFit = errors.New("invalid .fit file")
+
+// ingestRide is the upload pipeline without the HTTP shell: parse, keep the
+// raw file, insert, analyse, kick off enrichment. Shared by the JSON upload
+// endpoint and the Android share target (#617), which differ only in how they
+// answer.
+func (h *Handlers) ingestRide(ctx context.Context, userID int64, raw []byte) (int64, error) {
 	act, err := fitparse.Parse(raw)
 	if err != nil {
-		http.Error(w, "invalid .fit file: "+err.Error(), http.StatusBadRequest)
-		return
+		return 0, fmt.Errorf("%w: %s", errInvalidFit, err)
 	}
 
 	externalUID := ingest.ExternalUID(act.FileID, raw)
 
 	rawPath, err := h.saveRawFile(userID, externalUID, raw)
 	if err != nil {
-		http.Error(w, "could not store upload", http.StatusInternalServerError)
-		return
+		return 0, err
 	}
 
-	activityID, err := ingest.Store(r.Context(), h.pool, userID, act, externalUID)
+	activityID, err := ingest.Store(ctx, h.pool, userID, act, externalUID)
 	if err != nil {
 		if errors.Is(err, ingest.ErrDuplicateActivity) {
 			// rawPath is deterministic from externalUID, so on a duplicate it's
 			// either the pre-existing file untouched or overwritten with
 			// identical bytes — either way it still correctly belongs to the
 			// original activity row. Do not remove it.
-			http.Error(w, "activity already exists", http.StatusConflict)
-			return
+			return 0, err
 		}
 		os.Remove(rawPath) // genuine failure: no activity row references this file
-		http.Error(w, "could not store activity", http.StatusInternalServerError)
-		return
+		return 0, err
 	}
 
-	if _, err := h.pool.Exec(r.Context(),
+	if _, err := h.pool.Exec(ctx,
 		`UPDATE activities SET raw_file_path = $1 WHERE id = $2`, rawPath, activityID,
 	); err != nil {
-		http.Error(w, "could not store activity", http.StatusInternalServerError)
-		return
+		return 0, err
 	}
 
 	// NP/IF/TSS: pure CPU work over samples already on disk, no external
 	// API call like enrichment — safe to compute synchronously. A failure
 	// here just leaves those columns NULL; it doesn't invalidate the upload
 	// itself (the activity + samples are already correctly stored).
-	if err := analyze.Activity(r.Context(), h.pool, activityID); err != nil {
+	if err := analyze.Activity(ctx, h.pool, activityID); err != nil {
 		log.Printf("analyze: activity %d: %v", activityID, err)
 	}
 
 	// Best-effort immediate attempt: usually a no-op wait (ERA5 has ~5 day
 	// lag) or a no-op for GPS-less rides, but occasionally data is already
-	// there. Uses its own background context — the HTTP response below has
+	// there. Uses its own background context — the HTTP response has
 	// already gone out by the time this runs. The retry poller (started in
 	// main) is the durable path; this is purely a latency optimization.
 	go func() {
@@ -432,9 +461,65 @@ func (h *Handlers) upload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(`{"activity_id":` + strconv.FormatInt(activityID, 10) + `}`))
+	return activityID, nil
+}
+
+// shareTarget receives a .fit shared from another app on Android and answers
+// with a redirect into the ride it just created.
+//
+// It redirects rather than returning JSON because the browser is performing a
+// navigation: whatever comes back is what the person ends up looking at. A
+// failure therefore has to land somewhere sensible too, which is why the error
+// cases redirect to the upload page with a reason rather than rendering a bare
+// status code at someone who just shared a file.
+func (h *Handlers) shareTarget(w http.ResponseWriter, r *http.Request) {
+	userID, ok := auth.UserID(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadBytes)
+	if err := r.ParseMultipartForm(maxUploadBytes); err != nil {
+		redirectAfterShare(w, r, "zu-gross")
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		redirectAfterShare(w, r, "keine-datei")
+		return
+	}
+	defer file.Close()
+
+	raw, err := io.ReadAll(file)
+	if err != nil {
+		redirectAfterShare(w, r, "nicht-lesbar")
+		return
+	}
+
+	activityID, err := h.ingestRide(r.Context(), userID, raw)
+	switch {
+	case errors.Is(err, ingest.ErrDuplicateActivity):
+		// Sharing the same ride twice is a normal slip, not a failure worth an
+		// error page.
+		redirectAfterShare(w, r, "schon-vorhanden")
+		return
+	case errors.Is(err, errInvalidFit):
+		redirectAfterShare(w, r, "keine-fit-datei")
+		return
+	case err != nil:
+		log.Printf("share-target: user %d: %v", userID, err)
+		redirectAfterShare(w, r, "fehlgeschlagen")
+		return
+	}
+
+	// 303 so that reloading the destination doesn't repost the file.
+	http.Redirect(w, r, "/rides/"+strconv.FormatInt(activityID, 10), http.StatusSeeOther)
+}
+
+func redirectAfterShare(w http.ResponseWriter, r *http.Request, reason string) {
+	http.Redirect(w, r, "/upload?geteilt="+reason, http.StatusSeeOther)
 }
 
 func (h *Handlers) saveRawFile(userID int64, externalUID string, raw []byte) (string, error) {

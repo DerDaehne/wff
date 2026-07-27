@@ -1,6 +1,22 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { uploadActivity, friendlyUploadError } from '$lib/activities';
+
+	// A share from Android's share sheet that couldn't be accepted lands back
+	// here with a reason (#617). The backend sends a key rather than a
+	// sentence so the wording lives with the rest of the interface.
+	const shareProblems: Record<string, string> = {
+		'zu-gross': 'Die geteilte Datei war zu groß. Über 50 MB nimmt die App nicht an.',
+		'keine-datei': 'Beim Teilen ist keine Datei angekommen. Versuch es noch einmal.',
+		'nicht-lesbar': 'Die geteilte Datei ließ sich nicht lesen.',
+		'keine-fit-datei':
+			'Das war keine .fit-Datei. Radcomputer und Apps wie SIGMA RIDE exportieren sie unter genau dieser Endung.',
+		'schon-vorhanden': 'Diese Fahrt ist schon da — du findest sie unter „Fahrten".',
+		fehlgeschlagen: 'Die geteilte Fahrt konnte nicht gespeichert werden.'
+	};
+
+	let sharedProblem = $derived(shareProblems[page.url.searchParams.get('geteilt') ?? '']);
 
 	let status: 'idle' | 'uploading' | 'success' | 'error' = $state('idle');
 	let errorMessage = $state('');
@@ -56,6 +72,10 @@
 	Einordnung macht die App danach von allein.
 </p>
 
+{#if sharedProblem}
+	<p class="shared-problem" role="alert">{sharedProblem}</p>
+{/if}
+
 <div
 	class="dropzone"
 	class:dragover={dragOver}
@@ -98,6 +118,13 @@
 <style>
 	.lead {
 		color: var(--color-text-muted);
+		max-width: 55ch;
+	}
+
+	.shared-problem {
+		background: color-mix(in srgb, var(--color-warning) var(--wash-strength), var(--wash-base));
+		border-radius: var(--radius-sm);
+		padding: 0.875rem 1rem;
 		max-width: 55ch;
 	}
 
