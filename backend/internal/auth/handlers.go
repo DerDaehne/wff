@@ -37,6 +37,11 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /auth/login/finish", h.finishLogin)
 	mux.HandleFunc("POST /auth/logout", h.handleLogout)
 	mux.Handle("GET /api/me", RequireAuth(h.pool)(http.HandlerFunc(h.whoAmI)))
+	// Session only, on purpose: a device token must not be able to mint or
+	// revoke device tokens (#617).
+	mux.Handle("GET /api/device-tokens", RequireAuth(h.pool)(http.HandlerFunc(h.listDeviceTokens)))
+	mux.Handle("POST /api/device-tokens", RequireAuth(h.pool)(http.HandlerFunc(h.createDeviceToken)))
+	mux.Handle("DELETE /api/device-tokens/{id}", RequireAuth(h.pool)(http.HandlerFunc(h.revokeDeviceToken)))
 }
 
 func (h *Handlers) beginRegistration(w http.ResponseWriter, r *http.Request) {

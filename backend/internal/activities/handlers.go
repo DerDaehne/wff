@@ -39,7 +39,9 @@ func NewHandlers(pool *pgxpool.Pool, uploadDir string, weather *openmeteo.Client
 }
 
 func (h *Handlers) Register(mux *http.ServeMux) {
-	mux.Handle("POST /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.upload)))
+	// The one endpoint that also accepts a device token, so an iOS Shortcut can
+	// post a ride without a browser session (#617).
+	mux.Handle("POST /api/activities", auth.RequireUploadAuth(h.pool)(http.HandlerFunc(h.upload)))
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))

@@ -74,41 +74,52 @@ func Logout(ctx context.Context, pool *pgxpool.Pool, r *http.Request, w http.Res
 	clearSessionCookie(w)
 }
 
+// sessionUserID resolves the session cookie against the sessions table and
+// slides the expiry forward. It reports failure rather than answering, so that
+// RequireUploadAuth can fall through to the device-token path (#617).
+func sessionUserID(r *http.Request, pool *pgxpool.Pool) (int64, bool) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return 0, false
+	}
+	token, err := base64.RawURLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		return 0, false
+	}
+	hash := sha256.Sum256(token)
+
+	var userID int64
+	var expiresAt time.Time
+	err = pool.QueryRow(r.Context(),
+		`SELECT user_id, expires_at FROM sessions WHERE id = $1`, hash[:],
+	).Scan(&userID, &expiresAt)
+	if err != nil || time.Now().After(expiresAt) {
+		return 0, false
+	}
+
+	newExpiry := time.Now().Add(sessionTTL)
+	pool.Exec(r.Context(),
+		`UPDATE sessions SET last_seen_at = now(), expires_at = $2 WHERE id = $1`,
+		hash[:], newExpiry,
+	)
+	return userID, true
+}
+
 // RequireAuth resolves the session cookie against the sessions table and
 // attaches user_id to the request context. Every DB query downstream must
 // filter by this user_id — this is the sole enforcement point for
 // per-user data isolation (no Postgres RLS, see arch-wff-datenmodell).
+//
+// Session only: device tokens are not accepted here, which is what keeps them
+// upload-scoped (see devicetoken.go).
 func RequireAuth(pool *pgxpool.Pool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(sessionCookieName)
-			if err != nil {
+			userID, ok := sessionUserID(r, pool)
+			if !ok {
 				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
-			token, err := base64.RawURLEncoding.DecodeString(cookie.Value)
-			if err != nil {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-			hash := sha256.Sum256(token)
-
-			var userID int64
-			var expiresAt time.Time
-			err = pool.QueryRow(r.Context(),
-				`SELECT user_id, expires_at FROM sessions WHERE id = $1`, hash[:],
-			).Scan(&userID, &expiresAt)
-			if err != nil || time.Now().After(expiresAt) {
-				http.Error(w, "unauthorized", http.StatusUnauthorized)
-				return
-			}
-
-			newExpiry := time.Now().Add(sessionTTL)
-			pool.Exec(r.Context(),
-				`UPDATE sessions SET last_seen_at = now(), expires_at = $2 WHERE id = $1`,
-				hash[:], newExpiry,
-			)
-
 			ctx := context.WithValue(r.Context(), userIDContextKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
