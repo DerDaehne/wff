@@ -60,6 +60,9 @@ export interface RideStatement {
 		// Dashboard kinds (#602): current form, and whether fitness is going up.
 		| 'form'
 		| 'trend'
+		// Whether the aerobic base itself is growing, across comparable rides
+		// only (#619) — a different question from 'trend' over all rides.
+		| 'endurance_trend'
 		| 'hint_profile'
 		| 'hint_history';
 }

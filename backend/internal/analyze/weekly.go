@@ -29,6 +29,10 @@ type Week struct {
 type Progress struct {
 	Weeks      []Week      `json:"weeks"`
 	Statements []Statement `json:"statements"`
+	// Endurance is the same question one level deeper: not "how much did I
+	// ride" but "does my heart do less work for it" (#619). Its own series,
+	// because it deliberately ignores most rides.
+	Endurance EnduranceTrend `json:"endurance"`
 }
 
 const (
@@ -79,6 +83,11 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	}
 
 	progress.Statements = progressStatements(progress.Weeks)
+
+	progress.Endurance, err = WeeklyEnduranceTrend(ctx, pool, userID)
+	if err != nil {
+		return Progress{}, err
+	}
 	return progress, nil
 }
 

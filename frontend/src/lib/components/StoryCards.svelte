@@ -16,6 +16,7 @@
 		comparison: 'Im Vergleich zu sonst',
 		form: 'Wie es dir gerade geht',
 		trend: 'Ob du besser wirst',
+		endurance_trend: 'Ob deine Ausdauer wächst',
 		hint_profile: 'Dafür fehlt noch etwas',
 		hint_history: 'Dafür fehlt noch etwas'
 	};

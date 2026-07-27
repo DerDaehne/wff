@@ -13,15 +13,41 @@ export interface Week {
 	avg_speed_kmh: number;
 }
 
+/** One week's efficiency: how much speed (or power) came out per 100
+ *  heartbeats, averaged over the rides that were comparable with each other
+ *  (#619). Weeks without a comparable ride are simply absent. */
+export interface EnduranceWeek {
+	start: string;
+	rides: number;
+	value: number;
+}
+
+export interface EnduranceTrend {
+	weeks: EnduranceWeek[];
+	from_power: boolean;
+	unit: string;
+	statements: RideStatement[];
+}
+
 export interface Progress {
 	weeks: Week[];
 	statements: RideStatement[];
+	endurance: EnduranceTrend;
 }
 
 export async function getProgress(): Promise<Progress> {
 	const res = await apiFetch('/api/progress');
 	const data = await res.json();
-	return { weeks: data.weeks ?? [], statements: data.statements ?? [] };
+	return {
+		weeks: data.weeks ?? [],
+		statements: data.statements ?? [],
+		endurance: {
+			weeks: data.endurance?.weeks ?? [],
+			from_power: data.endurance?.from_power ?? false,
+			unit: data.endurance?.unit ?? '',
+			statements: data.endurance?.statements ?? []
+		}
+	};
 }
 
 /** The figures the weekly chart can show, and the values the profile stores as

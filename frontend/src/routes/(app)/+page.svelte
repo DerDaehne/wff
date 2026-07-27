@@ -197,6 +197,43 @@
 		<StoryCards statements={progress.statements} label="Fortschritt über die Wochen" />
 	{/if}
 
+	{#if progress && progress.endurance.statements.length > 0}
+		<section class="panel">
+			<h2>Arbeitet dein Herz effizienter?</h2>
+			<p class="panel-sub">
+				{#if progress.endurance.from_power}
+					Wie viel Leistung du je 100 Herzschläge bekommst. Steigt die Linie, leistet dein Herz für
+					dieselben Watt weniger Arbeit — das ist Ausdauer, die sich aufbaut.
+				{:else}
+					Wie viel Tempo du je 100 Herzschläge bekommst. Steigt die Linie, leistet dein Herz für
+					dasselbe Tempo weniger Arbeit — das ist Ausdauer, die sich aufbaut.
+				{/if}
+				Hier zählen nur Fahrten, die untereinander vergleichbar sind: ruhig, mindestens eine halbe Stunde,
+				mit Puls und von ähnlicher Länge. Eine kurze Runde mit Rückenwind würde die Linie sonst nach oben
+				ziehen, ohne dass sich etwas verbessert hat.
+			</p>
+			{#if progress.endurance.weeks.length >= 2}
+				<LineChart
+					xValues={progress.endurance.weeks.map((w) => new Date(w.start).getTime())}
+					series={[
+						{
+							name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
+							color: 'var(--chart-heart-rate)',
+							values: progress.endurance.weeks.map((w) => w.value)
+						}
+					]}
+					xFormat={formatDay}
+					yFormat={(v: number) =>
+						progress?.endurance.from_power ? String(Math.round(v)) : v.toFixed(1)}
+					ariaLabel="Wochenverlauf {progress.endurance.unit}"
+					height={200}
+				/>
+				<p class="chart-unit">{progress.endurance.unit}</p>
+			{/if}
+		</section>
+		<StoryCards statements={progress.endurance.statements} label="Ausdauer über die Wochen" />
+	{/if}
+
 	<p class="glossary-hint">
 		Fitness, Müdigkeit, Frische — was dahinter steckt, steht im
 		<a href={resolve('/(app)/glossar')}>Glossar</a>.
@@ -221,6 +258,13 @@
 		font-size: var(--text-sm);
 		margin: 0.25rem 0 1rem;
 		max-width: 60ch;
+	}
+
+	.chart-unit {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		margin: 0.25rem 0 0;
+		text-align: right;
 	}
 
 	.metric-switch {
