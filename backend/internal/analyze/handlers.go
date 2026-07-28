@@ -23,6 +23,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/progress", auth.RequireAuth(h.pool)(http.HandlerFunc(h.progress)))
 	mux.Handle("GET /api/me/year-review", auth.RequireAuth(h.pool)(http.HandlerFunc(h.yearReview)))
 	mux.Handle("GET /api/compare", auth.RequireAuth(h.pool)(http.HandlerFunc(h.compare)))
+	mux.Handle("GET /api/power-curve", auth.RequireAuth(h.pool)(http.HandlerFunc(h.powerCurve)))
 }
 
 type trainingLoadResponse struct {
@@ -104,4 +105,25 @@ func (h *Handlers) compare(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+// powerCurve answers "is my power at this duration going up" (#593). A
+// missing or nonsensical ?duration falls back to the default lens rather
+// than erroring — a stray query param shouldn't break the page.
+func (h *Handlers) powerCurve(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	duration, err := strconv.Atoi(r.URL.Query().Get("duration"))
+	if err != nil || !ValidPowerCurveDuration(duration) {
+		duration = DefaultPowerCurveDuration
+	}
+
+	history, err := PowerCurveOverTime(r.Context(), h.pool, userID, duration)
+	if err != nil {
+		http.Error(w, "could not load power curve", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(history)
 }

@@ -152,3 +152,78 @@ func TestComputePowerCurveWritesNothingWithoutPowerData(t *testing.T) {
 		t.Errorf("power_curve_points count = %d, want 0 for a ride with no power samples", count)
 	}
 }
+
+func TestPowerCurveOverTimeOrdersByDateAndIsolatesUsers(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — skipping live-Postgres integration test")
+	}
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer pool.Close()
+
+	stamp := time.Now().UnixNano()
+	makeUser := func(name string) int64 {
+		t.Helper()
+		var id int64
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO users (username, display_name) VALUES ($1, $2) RETURNING id`,
+			fmt.Sprintf("powercurve-history-%d-%s", stamp, name), name,
+		).Scan(&id); err != nil {
+			t.Fatalf("insert user: %v", err)
+		}
+		return id
+	}
+	makeRide := func(userID int64, daysAgo int, watts1200 int) int64 {
+		t.Helper()
+		var activityID int64
+		if err := pool.QueryRow(ctx, `
+			INSERT INTO activities (user_id, external_uid, sport, started_at, elapsed_seconds, moving_seconds)
+			VALUES ($1, $2, 'cycling', $3, 1200, 1200) RETURNING id`,
+			userID, fmt.Sprintf("powercurve-history-%d-%d-%d", stamp, userID, daysAgo),
+			time.Now().Add(-time.Duration(daysAgo)*24*time.Hour),
+		).Scan(&activityID); err != nil {
+			t.Fatalf("insert activity: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO power_curve_points (activity_id, duration_seconds, watts) VALUES ($1, 1200, $2)`,
+			activityID, watts1200,
+		); err != nil {
+			t.Fatalf("insert power_curve_point: %v", err)
+		}
+		return activityID
+	}
+
+	rider := makeUser("Rider")
+	older := makeRide(rider, 20, 220)
+	newer := makeRide(rider, 5, 250)
+
+	other := makeUser("Other")
+	makeRide(other, 5, 999) // must never appear in rider's history
+
+	history, err := PowerCurveOverTime(ctx, pool, rider, 1200)
+	if err != nil {
+		t.Fatalf("PowerCurveOverTime: %v", err)
+	}
+	if len(history) != 2 {
+		t.Fatalf("len(history) = %d, want 2 (the other rider's ride must not appear)", len(history))
+	}
+	if history[0].ActivityID != older || history[1].ActivityID != newer {
+		t.Fatalf("history = %+v, want the older ride first (chronological)", history)
+	}
+	if history[0].Watts != 220 || history[1].Watts != 250 {
+		t.Errorf("watts = [%d, %d], want [220, 250]", history[0].Watts, history[1].Watts)
+	}
+}
+
+func TestValidPowerCurveDuration(t *testing.T) {
+	if !ValidPowerCurveDuration(1200) {
+		t.Error("1200 (20 min) should be a valid duration — it's one of the fixed windows written")
+	}
+	if ValidPowerCurveDuration(90) {
+		t.Error("90 is not one of the fixed windows and should be rejected")
+	}
+}

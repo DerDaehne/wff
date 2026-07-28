@@ -12,6 +12,7 @@
 		type ProgressMetricKey
 	} from '$lib/progress';
 	import { getSettings } from '$lib/profile';
+	import { getPowerCurve, type PowerCurveHistoryPoint } from '$lib/powercurve';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
@@ -31,6 +32,30 @@
 	let progress: Progress | null = $state(null);
 	let metricKey: ProgressMetricKey = $state('avg_speed_kmh');
 	let metric = $derived(progressMetrics.find((m) => m.key === metricKey)!);
+
+	// Power-curve trend (#593): "is my power at this duration going up",
+	// answered by the ride-by-ride figures themselves rather than a
+	// monotonic best-ever line. Fetched per duration, not all three at once —
+	// three durations is little enough that refetching on a click is simpler
+	// than caching all of them client-side.
+	const powerCurveDurations = [
+		{ seconds: 300, label: '5 min' },
+		{ seconds: 1200, label: '20 min' },
+		{ seconds: 3600, label: '60 min' }
+	];
+	let powerCurveDuration = $state(1200);
+	let powerCurveHistory: PowerCurveHistoryPoint[] = $state([]);
+
+	$effect(() => {
+		const duration = powerCurveDuration;
+		getPowerCurve(duration)
+			.then((h) => (powerCurveHistory = h))
+			.catch(() => {});
+	});
+
+	let powerCurveTimestamps = $derived(
+		powerCurveHistory.map((p) => new Date(p.started_at).getTime())
+	);
 
 	onMount(async () => {
 		try {
@@ -264,6 +289,48 @@
 		<StoryCards statements={progress.endurance.statements} label="Ausdauer über die Wochen" />
 	{/if}
 
+	{#if progress}
+		<section class="panel">
+			<h2>Wird deine Leistung besser?</h2>
+			<p class="panel-sub">
+				Deine beste Leistung für eine feste Dauer, Fahrt für Fahrt — schwankt naturgemäß mit
+				Tagesform und Bedingungen, aber ein Anstieg über mehrere Wochen ist echter Fortschritt.
+			</p>
+			<div class="duration-switch" role="group" aria-label="Dauer wählen">
+				{#each powerCurveDurations as d (d.seconds)}
+					<button
+						type="button"
+						class="btn {powerCurveDuration === d.seconds ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={powerCurveDuration === d.seconds}
+						onclick={() => (powerCurveDuration = d.seconds)}
+					>
+						{d.label}
+					</button>
+				{/each}
+			</div>
+			{#if powerCurveHistory.length > 0}
+				<LineChart
+					xValues={powerCurveTimestamps}
+					series={[
+						{
+							name: 'Leistung',
+							color: 'var(--chart-power)',
+							values: powerCurveHistory.map((p) => p.watts)
+						}
+					]}
+					xFormat={formatDay}
+					yFormat={(y) => `${Math.round(y)} W`}
+					ariaLabel="Verlauf der besten Leistung"
+					height={200}
+				/>
+			{:else}
+				<p class="empty">
+					Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
+				</p>
+			{/if}
+		</section>
+	{/if}
+
 	<p class="glossary-hint">
 		Fitness, Müdigkeit, Frische — was dahinter steckt, steht im
 		<a href={resolve('/(app)/glossar')}>Glossar</a>.
@@ -302,11 +369,17 @@
 		text-align: right;
 	}
 
-	.metric-switch {
+	.metric-switch,
+	.duration-switch {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
 		margin-bottom: 1rem;
+	}
+
+	.empty {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 
 	.glossary-hint {
