@@ -48,6 +48,27 @@ var zoneDefs = []struct {
 	{"vo2", "Ganz hart", "Über deiner Schwelle. Nur in kurzen Intervallen haltbar, und danach brauchst du echte Erholung.", 100},
 }
 
+// zoneForRatio picks the band a pulse-derived intensity falls into. It is the
+// same table the zone chart buckets on, which is the point: a ride the chart
+// calls "Grundlage" cannot be titled "harte Einheit" above it (#630).
+func zoneForRatio(ratio float64) int {
+	band := 0
+	for i, z := range zoneDefs {
+		if ratio >= z.minPctLTHR/100 {
+			band = i
+		}
+	}
+	return band
+}
+
+// aerobicMaxRatioHR is where a heart-rate intensity stops describing the
+// aerobic base: the top of the endurance band, which is the range decoupling
+// and EF are meant to be read in. Its power-side counterpart is
+// efficiencyMaxIF, and the two numbers differ because the scales do — resting
+// pulse already sits near 40 % of threshold, so IF_hr never reaches the low
+// values a power IF shows on an easy ride.
+var aerobicMaxRatioHR = zoneDefs[2].minPctLTHR / 100
+
 const (
 	// greyZoneMaxShare — above this much time in the tempo band the week has
 	// drifted into the pattern that costs the most and returns the least. The

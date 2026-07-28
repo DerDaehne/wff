@@ -46,6 +46,18 @@ const (
 	decouplingThresholdPct = 5.0
 )
 
+// aerobicMaxIF is the ceiling above which a ride stops describing the aerobic
+// base. Power and pulse need different numbers because they are different
+// scales, not different opinions: an easy hour is IF 0.65 on power and 0.88 on
+// pulse, so one ceiling for both silently drops every heart-rate ride out of
+// the endurance analysis (#630).
+func aerobicMaxIF(fromPower bool) float64 {
+	if fromPower {
+		return efficiencyMaxIF
+	}
+	return aerobicMaxRatioHR
+}
+
 // EffortSample is one reading for the efficiency calculation. Speed stands in
 // for power when there is no power meter.
 type EffortSample struct {
@@ -69,14 +81,22 @@ func EfficiencyOf(samples []EffortSample, intensityFactor *float64, variability 
 	if total < efficiencyMinSeconds {
 		return Efficiency{}, false
 	}
-	// Not aerobic: EF describes the aerobic base, and a threshold effort is
-	// not one.
-	if intensityFactor != nil && *intensityFactor > efficiencyMaxIF {
-		return Efficiency{}, false
-	}
 	// Not steady: comparing the halves of an interval session compares two
 	// different workouts.
 	if variability > efficiencyMaxVariability {
+		return Efficiency{}, false
+	}
+
+	usesPower := false
+	for _, s := range samples {
+		if s.PowerWatts != nil {
+			usesPower = true
+			break
+		}
+	}
+	// Not aerobic: EF describes the aerobic base, and a threshold effort is
+	// not one. Which ceiling applies depends on where the intensity came from.
+	if intensityFactor != nil && *intensityFactor > aerobicMaxIF(usesPower) {
 		return Efficiency{}, false
 	}
 
@@ -88,14 +108,6 @@ func EfficiencyOf(samples []EffortSample, intensityFactor *float64, variability 
 	wholeEF, ok := factorOf(samples)
 	if !ok || !ok1 || !ok2 || firstEF == 0 {
 		return Efficiency{}, false
-	}
-
-	usesPower := false
-	for _, s := range samples {
-		if s.PowerWatts != nil {
-			usesPower = true
-			break
-		}
 	}
 
 	return Efficiency{

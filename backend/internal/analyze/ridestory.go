@@ -184,7 +184,12 @@ func RideStory(f RideFacts) Story {
 	add(loadStatement(f))
 	add(paceStatement(f))
 	add(climbStatement(f))
-	if f.Endurance != nil {
+	// Decoupling compares the two halves of a steady ride. On the power side an
+	// interval session is caught by NP/avg, but a pulse-only ride has no such
+	// figure — so the zone split is what disqualifies it here, or the drift
+	// between two halves that were different workouts gets reported as a
+	// verdict on endurance (#630).
+	if f.Endurance != nil && !f.isMixed() {
 		add(efficiencyStatement(*f.Endurance), true)
 	}
 	if f.Zones != nil {
@@ -205,26 +210,62 @@ func RideStory(f RideFacts) Story {
 // sessionKind names the type of session from intensity alone. Bands follow
 // the established IF zones (Coggan): below ~0.6 recovery, 0.6–0.75 endurance,
 // 0.75–0.85 tempo, 0.85–0.95 threshold, above that race/VO2max territory.
-func sessionKind(intensityFactor *float64) string {
-	if intensityFactor == nil {
+// effortBands are the five ways a ride gets described, easiest first: what to
+// call it, and the sentence that explains it. One list, because a ride's title
+// and its effort card must never disagree.
+var effortBands = []struct{ session, text string }{
+	{"Erholungsfahrt", "Das war locker — ein Tempo, das du sehr lange durchhalten könntest."},
+	{"Grundlagenfahrt", "Ein gleichmäßiges, gut haltbares Tempo — die Intensität, in der Ausdauer aufgebaut wird."},
+	{"zügige Tempofahrt", "Zügig unterwegs: anstrengend, aber noch weit vom Anschlag entfernt."},
+	{"harte Einheit", "Hart: nahe an dem Tempo, das du gerade noch eine Stunde durchhalten kannst."},
+	{"sehr harte Einheit", "Sehr hart — Wettkampf- oder Intervalltempo, das sich nicht lange durchhalten lässt."},
+}
+
+// powerEffortEdges are the band edges for an intensity read off power.
+var powerEffortEdges = []float64{0.60, 0.75, 0.85, 0.95}
+
+// effortBandFor picks the band, and the scale decides how (#630). An easy hour
+// is IF 0.65 on power but 0.88 on pulse — a resting heart already beats at
+// roughly 40 % of threshold, so the pulse scale is compressed into its top
+// half. Reading pulse off the power edges called every base ride hard. The
+// pulse side uses the zone table so the ride's headline and its zone chart
+// cannot contradict each other.
+func effortBandFor(intensityFactor float64, fromPower bool) int {
+	if !fromPower {
+		return zoneForRatio(intensityFactor)
+	}
+	band := 0
+	for _, edge := range powerEffortEdges {
+		if intensityFactor >= edge {
+			band++
+		}
+	}
+	return band
+}
+
+// isMixed reports a ride that spent a real part of itself above threshold. Its
+// average falls in a band that describes neither the hard part nor the easy
+// one, so naming that band would be precise about the wrong thing.
+func (f RideFacts) isMixed() bool {
+	if f.Zones == nil {
+		return false
+	}
+	_, _, hard := f.Zones.shares()
+	return hard >= zoneMixedHardShare
+}
+
+func sessionKind(f RideFacts) string {
+	if f.IntensityFactor == nil {
 		return "Ausfahrt"
 	}
-	switch f := *intensityFactor; {
-	case f < 0.60:
-		return "Erholungsfahrt"
-	case f < 0.75:
-		return "Grundlagenfahrt"
-	case f < 0.85:
-		return "zügige Tempofahrt"
-	case f < 0.95:
-		return "harte Einheit"
-	default:
-		return "sehr harte Einheit"
+	if f.isMixed() {
+		return "Intervallfahrt"
 	}
+	return effortBands[effortBandFor(*f.IntensityFactor, f.FromPower)].session
 }
 
 func rideTitle(f RideFacts) string {
-	kind := sessionKind(f.IntensityFactor)
+	kind := sessionKind(f)
 	// Without an intensity factor the generic "Ausfahrt" is all the metrics
 	// allow — but the profile still says something worth putting in the title.
 	if f.IntensityFactor == nil && f.metersPerKm() >= 10 {
@@ -337,12 +378,18 @@ func intensityGauge(f RideFacts) *Gauge {
 	}
 	percent := int(*f.IntensityFactor*100 + 0.5)
 	caption := "aus deiner Leistung"
+	label := fmt.Sprintf("%d %% Intensität", percent)
 	if !f.FromPower {
 		caption = "aus deinem Puls geschätzt"
+		// Naming it plain "Intensität" invited the power reading, where 88 %
+		// means nearly flat out. On the pulse scale it means 88 % of threshold
+		// pulse, and a resting heart is already at roughly 40 % — so the label
+		// says which scale the number is on (#630).
+		label = fmt.Sprintf("%d %% deines Schwellenpulses", percent)
 	}
 	return &Gauge{
 		Percent: min(percent, 100),
-		Label:   fmt.Sprintf("%d %% Intensität", percent),
+		Label:   label,
 		Caption: caption,
 	}
 }
@@ -356,18 +403,12 @@ func effortStatement(f RideFacts) (Statement, bool) {
 		}, true
 	}
 
-	var text string
-	switch f := *f.IntensityFactor; {
-	case f < 0.60:
-		text = "Das war locker — ein Tempo, das du sehr lange durchhalten könntest."
-	case f < 0.75:
-		text = "Ein gleichmäßiges, gut haltbares Tempo — die Intensität, in der Ausdauer aufgebaut wird."
-	case f < 0.85:
-		text = "Zügig unterwegs: anstrengend, aber noch weit vom Anschlag entfernt."
-	case f < 0.95:
-		text = "Hart: nahe an dem Tempo, das du gerade noch eine Stunde durchhalten kannst."
-	default:
-		text = "Sehr hart — Wettkampf- oder Intervalltempo, das sich nicht lange durchhalten lässt."
+	text := effortBands[effortBandFor(*f.IntensityFactor, f.FromPower)].text
+	if f.isMixed() {
+		// "Ein gleichmäßiges Tempo" is the one thing an interval session was
+		// not. The zone card right below carries the actual split.
+		text = "Wechselhaft: ein Teil der Fahrt lag klar über deiner Schwelle, der Rest deutlich " +
+			"darunter. Der Schnitt liegt dazwischen und beschreibt keins von beidem."
 	}
 
 	source := "aus deiner Leistung"

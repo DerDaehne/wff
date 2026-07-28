@@ -57,6 +57,53 @@ func TestRideZonesDoesNotCallAnIntervalRideEasy(t *testing.T) {
 	}
 }
 
+// Power IF and pulse IF are different scales, and one ceiling for both made
+// every normal base ride look non-aerobic — which silently emptied the
+// endurance analysis for anyone riding on a heart-rate strap alone (#630).
+func TestAerobicCeilingDiffersByScale(t *testing.T) {
+	// A calm base hour: around 0.65 of threshold power, around 0.88 of
+	// threshold pulse. Both readings describe the same ride, and both have to
+	// pass as aerobic.
+	if 0.65 > aerobicMaxIF(true) {
+		t.Errorf("power ceiling %.2f rejects a calm base ride at IF 0.65", aerobicMaxIF(true))
+	}
+	if 0.88 > aerobicMaxIF(false) {
+		t.Errorf("pulse ceiling %.2f rejects a calm base ride at IF_hr 0.88", aerobicMaxIF(false))
+	}
+	// A tempo ride must still be rejected on both.
+	if 0.92 <= aerobicMaxIF(false) {
+		t.Errorf("pulse ceiling %.2f accepts a tempo ride at IF_hr 0.92", aerobicMaxIF(false))
+	}
+	if 0.92 <= aerobicMaxIF(true) {
+		t.Errorf("power ceiling %.2f accepts a threshold effort at IF 0.92", aerobicMaxIF(true))
+	}
+}
+
+// The band a ride's title and effort card come from has to be the band its zone
+// chart would put that same intensity in.
+func TestEffortBandMatchesTheZoneChart(t *testing.T) {
+	for ratio, want := range map[float64]string{
+		0.70: "recovery",
+		0.88: "endurance",
+		0.92: "tempo",
+		0.97: "threshold",
+		1.05: "vo2",
+	} {
+		if got := zoneDefs[zoneForRatio(ratio)].key; got != want {
+			t.Errorf("ratio %.2f fell into %q, want %q", ratio, got, want)
+		}
+	}
+
+	// The same intensity of 0.88 has to mean two different things depending on
+	// where it came from — otherwise one of the two paths is being mislabelled.
+	if got := effortBands[effortBandFor(0.88, false)].session; got != "Grundlagenfahrt" {
+		t.Errorf("IF_hr 0.88 titled %q, want Grundlagenfahrt", got)
+	}
+	if got := effortBands[effortBandFor(0.88, true)].session; got != "harte Einheit" {
+		t.Errorf("power IF 0.88 titled %q, want harte Einheit", got)
+	}
+}
+
 func TestRideZonesRefuseWhenBarelyAnyPulseWasRecorded(t *testing.T) {
 	// Five minutes: the strap was picked up late, or fell off early. A
 	// distribution over that describes the strap, not the ride.

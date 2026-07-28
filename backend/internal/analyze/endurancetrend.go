@@ -159,7 +159,7 @@ func filterSteadyAerobic(rides []ComparableRide) []ComparableRide {
 		if r.AvgHeartRate <= 0 || r.MovingSeconds < efficiencyMinSeconds {
 			continue
 		}
-		if r.IntensityFactor != nil && *r.IntensityFactor > efficiencyMaxIF {
+		if r.IntensityFactor != nil && *r.IntensityFactor > aerobicMaxIF(hasPower(r)) {
 			continue
 		}
 		if r.NormalizedPower != nil && r.AvgPower != nil && *r.AvgPower > 0 &&
