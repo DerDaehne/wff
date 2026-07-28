@@ -48,6 +48,11 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/activities/{id}/story", auth.RequireAuth(h.pool)(http.HandlerFunc(h.story)))
 	mux.Handle("GET /api/activities/{id}/export", auth.RequireAuth(h.pool)(http.HandlerFunc(h.export)))
 	mux.Handle("GET /api/me/export", auth.RequireAuth(h.pool)(http.HandlerFunc(h.meExport)))
+	mux.Handle("GET /api/activities/{id}/share", auth.RequireAuth(h.pool)(http.HandlerFunc(h.getShare)))
+	mux.Handle("POST /api/activities/{id}/share", auth.RequireAuth(h.pool)(http.HandlerFunc(h.createShare)))
+	mux.Handle("DELETE /api/activities/{id}/share", auth.RequireAuth(h.pool)(http.HandlerFunc(h.revokeShare)))
+	// Public: the one endpoint in the app answered without a session (#641).
+	mux.Handle("GET /api/share/{token}", http.HandlerFunc(h.publicShare))
 	// Android's share sheet posts here (#617). Deliberately not under /api:
 	// this is a navigation the browser performs, and it answers with a
 	// redirect into the app rather than with JSON.

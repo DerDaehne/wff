@@ -13,6 +13,7 @@
 		type WeatherSummary,
 		type RideStory
 	} from '$lib/rides';
+	import { getShareStatus, createShare, revokeShare, type ShareStatus } from '$lib/share';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
@@ -39,6 +40,40 @@
 	let story: RideStory | null = $state(null);
 	let mapContainer: HTMLDivElement = $state()!;
 	let map: Map | null = null;
+
+	// Share status (#641): loaded best-effort alongside the story, since a
+	// ride still renders fine without knowing whether it's shared yet.
+	let shareStatus: ShareStatus | null = $state(null);
+	let shareBusy = $state(false);
+	let copied = $state(false);
+	let shareUrl = $derived.by(() => {
+		const token = shareStatus?.token;
+		return token ? `${page.url.origin}/share/${token}` : '';
+	});
+
+	async function share() {
+		shareBusy = true;
+		try {
+			shareStatus = await createShare(Number(page.params.id));
+		} finally {
+			shareBusy = false;
+		}
+	}
+
+	async function unshare() {
+		shareBusy = true;
+		try {
+			shareStatus = await revokeShare(Number(page.params.id));
+		} finally {
+			shareBusy = false;
+		}
+	}
+
+	async function copyShareLink() {
+		await navigator.clipboard.writeText(shareUrl);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 
 	function trackColor(): string {
 		return (
@@ -112,6 +147,9 @@
 			getActivityWeather(activityId)
 				.then((w) => (weather = w))
 				.catch(() => {});
+			getShareStatus(activityId)
+				.then((s) => (shareStatus = s))
+				.catch(() => {});
 		} catch (err) {
 			errorMessage = err instanceof ApiError ? err.message : 'Fahrt konnte nicht geladen werden.';
 			viewState = 'error';
@@ -165,9 +203,35 @@
 
 	<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
 
-	<p class="export-hint">
-		<a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
-	</p>
+	{#if shareStatus?.active}
+		<div class="share-banner">
+			<p>
+				<strong>Diese Fahrt ist per Link geteilt</strong> — Kennzahlen sind ohne Login sichtbar.
+			</p>
+			<div class="share-row">
+				<input
+					class="input"
+					type="text"
+					readonly
+					value={shareUrl}
+					onclick={(e) => e.currentTarget.select()}
+				/>
+				<button class="btn btn-secondary" type="button" onclick={copyShareLink}>
+					{copied ? 'Kopiert!' : 'Kopieren'}
+				</button>
+				<button class="btn btn-secondary" type="button" onclick={unshare} disabled={shareBusy}>
+					Teilen beenden
+				</button>
+			</div>
+		</div>
+	{:else}
+		<p class="export-hint">
+			<button class="link-button" type="button" onclick={share} disabled={shareBusy}>
+				Fahrt per Link teilen
+			</button>
+			· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
+		</p>
+	{/if}
 
 	{#if story?.zones && story.zones.total_seconds > 0}
 		<section class="panel">
@@ -285,6 +349,40 @@
 	.export-hint {
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
+	}
+
+	.link-button {
+		background: none;
+		border: none;
+		padding: 0;
+		font: inherit;
+		color: var(--color-brand);
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	/* Prominent on purpose (#641) — a rider who shared a ride and forgot
+	   should not have to go looking for that fact. */
+	.share-banner {
+		background: color-mix(in srgb, var(--color-brand) 10%, var(--color-surface));
+		border-radius: var(--radius-md);
+		padding: 1rem 1.25rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.share-banner p {
+		margin: 0 0 0.75rem;
+	}
+
+	.share-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.share-row .input {
+		flex: 1;
+		min-width: 12rem;
 	}
 
 	.empty {
