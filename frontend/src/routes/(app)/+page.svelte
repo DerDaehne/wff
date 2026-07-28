@@ -45,6 +45,9 @@
 	];
 	let powerCurveDuration = $state(1200);
 	let powerCurveHistory: PowerCurveHistoryPoint[] = $state([]);
+	// The rider's own configured FTP (#562), for the reference line below —
+	// null just means "not set", not "zero".
+	let configuredFtpWatts: number | null = $state(null);
 
 	$effect(() => {
 		const duration = powerCurveDuration;
@@ -56,6 +59,40 @@
 	let powerCurveTimestamps = $derived(
 		powerCurveHistory.map((p) => new Date(p.started_at).getTime())
 	);
+
+	// FTP estimate (#594): the usual 95%-of-best-20-minutes rule, applied to
+	// the same per-ride figures the trend chart already shows — only
+	// meaningful at the 20-minute window, never at 5 or 60.
+	let estimatedFtpSeries = $derived(powerCurveHistory.map((p) => p.watts * 0.95));
+	let configuredFtpSeries = $derived(
+		configuredFtpWatts !== null ? powerCurveHistory.map(() => configuredFtpWatts as number) : null
+	);
+
+	let powerCurveSeries = $derived.by(() => {
+		const series: { name: string; color: string; values: number[]; description?: string }[] = [
+			{
+				name: 'Leistung',
+				color: 'var(--chart-power)',
+				values: powerCurveHistory.map((p) => p.watts)
+			}
+		];
+		if (powerCurveDuration !== 1200) return series;
+		series.push({
+			name: 'Geschätzte FTP (95 %)',
+			color: 'var(--color-brand)',
+			values: estimatedFtpSeries,
+			description:
+				'Übliche Faustregel: 95 % der besten 20-Minuten-Leistung einer Fahrt gilt als Schätzung für die Schwellenleistung (FTP).'
+		});
+		if (configuredFtpSeries) {
+			series.push({
+				name: 'Deine hinterlegte FTP',
+				color: 'var(--color-text-muted)',
+				values: configuredFtpSeries
+			});
+		}
+		return series;
+	});
 
 	onMount(async () => {
 		try {
@@ -71,7 +108,10 @@
 			// The chart opens on the figure the rider chose in their profile
 			// (#616); failing to read it just means the default stands.
 			getSettings()
-				.then((settings) => (metricKey = metricKeyFor(settings.primary_metric)))
+				.then((settings) => {
+					metricKey = metricKeyFor(settings.primary_metric);
+					configuredFtpWatts = settings.ftp_watts;
+				})
 				.catch(() => {});
 			if (series.length > 0) {
 				viewState = 'ready';
@@ -311,13 +351,7 @@
 			{#if powerCurveHistory.length > 0}
 				<LineChart
 					xValues={powerCurveTimestamps}
-					series={[
-						{
-							name: 'Leistung',
-							color: 'var(--chart-power)',
-							values: powerCurveHistory.map((p) => p.watts)
-						}
-					]}
+					series={powerCurveSeries}
 					xFormat={formatDay}
 					yFormat={(y) => `${Math.round(y)} W`}
 					ariaLabel="Verlauf der besten Leistung"
