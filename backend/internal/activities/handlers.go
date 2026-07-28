@@ -46,6 +46,8 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
 	mux.Handle("GET /api/activities/{id}/story", auth.RequireAuth(h.pool)(http.HandlerFunc(h.story)))
+	mux.Handle("GET /api/activities/{id}/export", auth.RequireAuth(h.pool)(http.HandlerFunc(h.export)))
+	mux.Handle("GET /api/me/export", auth.RequireAuth(h.pool)(http.HandlerFunc(h.meExport)))
 	// Android's share sheet posts here (#617). Deliberately not under /api:
 	// this is a navigation the browser performs, and it answers with a
 	// redirect into the app rather than with JSON.

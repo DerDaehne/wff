@@ -243,10 +243,20 @@
 			{/each}
 		</section>
 	{/if}
+
+	<section class="export">
+		<h2>Deine Daten</h2>
+		<p class="hint">
+			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten
+			gibt es einen Download-Link direkt auf der jeweiligen Fahrt-Seite.
+		</p>
+		<a class="btn btn-secondary" href="/api/me/export">Alle Daten herunterladen</a>
+	</section>
 {/if}
 
 <style>
-	.gaps {
+	.gaps,
+	.export {
 		max-width: 34rem;
 		margin-top: 2.5rem;
 		display: flex;
@@ -254,7 +264,8 @@
 		gap: 0.75rem;
 	}
 
-	.gaps h2 {
+	.gaps h2,
+	.export h2 {
 		margin: 0;
 	}
 

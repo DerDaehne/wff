@@ -165,6 +165,10 @@
 
 	<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
 
+	<p class="export-hint">
+		<a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
+	</p>
+
 	{#if story?.zones && story.zones.total_seconds > 0}
 		<section class="panel">
 			<h2>Wo dein Puls lag</h2>
@@ -277,7 +281,8 @@
 		margin: 0.25rem 0 1rem;
 	}
 
-	.glossary-hint {
+	.glossary-hint,
+	.export-hint {
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 	}
