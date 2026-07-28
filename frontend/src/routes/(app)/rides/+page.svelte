@@ -61,6 +61,26 @@
 			year: 'numeric'
 		});
 	}
+
+	// Grouped by month so a growing history has an anchor to scroll against
+	// (#635) — rides arrive newest-first from the backend, so a linear scan
+	// keeping the running group open is enough, no separate sort needed.
+	let monthGroups = $derived.by(() => {
+		const out: { key: string; label: string; rides: ActivitySummary[] }[] = [];
+		for (const ride of rides) {
+			const d = new Date(ride.started_at);
+			const key = `${d.getFullYear()}-${d.getMonth()}`;
+			const open = out.at(-1);
+			if (open?.key === key) open.rides.push(ride);
+			else out.push({ key, label: monthLabel(d), rides: [ride] });
+		}
+		return out;
+	});
+
+	function monthLabel(d: Date): string {
+		const label = d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+		return label.charAt(0).toUpperCase() + label.slice(1);
+	}
 </script>
 
 <h1>Deine Fahrten</h1>
@@ -76,57 +96,74 @@
 		actionLabel="Erste Fahrt hochladen"
 	/>
 {:else}
-	<ul class="rides">
-		{#each rides as ride (ride.id)}
-			<li>
-				<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
-					<span class="ride-date">{rideDate(ride.started_at)}</span>
-					<!-- Same order as the ride's own hero: the list and the detail view
-					     must not disagree about what matters. "TSS 101" became a
-					     labelled figure — the abbreviation said nothing to anyone who
-					     hadn't already looked it up. -->
-					<span class="ride-figures">
-						{#each figuresFor(ride) as figure (figure.metric)}
-							<span class="figure">
-								<strong>{figure.value}</strong>
-								<span class="figure-label">{figure.label}</span>
-							</span>
-						{/each}
-					</span>
-				</a>
-				<!-- Fahrt-Charakter auf einen Blick (#633): ruhige Grundlagenfahrt vs.
-				     harte Intervalleinheit sind so unterscheidbar, ohne reinzuklicken. -->
-				{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
-					<div
-						class="zone-bar"
-						role="img"
-						aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
-							? ' (geschätzt aus beobachtetem Maximalpuls)'
-							: ''}"
-					>
-						{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
-							<span
-								class="zone-segment"
-								style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
-							></span>
-						{/each}
-					</div>
-				{/if}
-			</li>
-		{/each}
-	</ul>
+	{#each monthGroups as group (group.key)}
+		<h2 class="month-header">{group.label}</h2>
+		<ul class="rides">
+			{#each group.rides as ride (ride.id)}
+				<li>
+					<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
+						<span class="ride-date">{rideDate(ride.started_at)}</span>
+						<!-- Same order as the ride's own hero: the list and the detail view
+						     must not disagree about what matters. "TSS 101" became a
+						     labelled figure — the abbreviation said nothing to anyone who
+						     hadn't already looked it up. -->
+						<span class="ride-figures">
+							{#each figuresFor(ride) as figure (figure.metric)}
+								<span class="figure">
+									<strong>{figure.value}</strong>
+									<span class="figure-label">{figure.label}</span>
+								</span>
+							{/each}
+						</span>
+					</a>
+					<!-- Fahrt-Charakter auf einen Blick (#633): ruhige Grundlagenfahrt vs.
+					     harte Intervalleinheit sind so unterscheidbar, ohne reinzuklicken. -->
+					{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
+						<div
+							class="zone-bar"
+							role="img"
+							aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
+								? ' (geschätzt aus beobachtetem Maximalpuls)'
+								: ''}"
+						>
+							{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
+								<span
+									class="zone-segment"
+									style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
+								></span>
+							{/each}
+						</div>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+	{/each}
 	<p class="glossary-hint">
 		Was „Belastung" genau bedeutet, steht im <a href={resolve('/(app)/glossar')}>Glossar</a>.
 	</p>
 {/if}
 
 <style>
+	.month-header {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--color-bg);
+		margin: 0;
+		padding: 0.75rem 0 0.5rem;
+		font-size: var(--text-sm);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+	}
+
 	.rides {
 		list-style: none;
 		padding: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.625rem;
+		margin-bottom: 1.5rem;
 	}
 
 	.rides li {
