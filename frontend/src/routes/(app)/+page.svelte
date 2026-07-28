@@ -16,6 +16,7 @@
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -90,16 +91,19 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else if viewState === 'no-activities'}
-	<h1>Willkommen</h1>
-	<p>Noch keine Aktivitäten hochgeladen.</p>
-	<p><a href={resolve('/(app)/upload')}>Erste Fahrt hochladen</a></p>
+	<EmptyState
+		heading="Willkommen"
+		message="Noch keine Aktivitäten hochgeladen."
+		actionHref={resolve('/(app)/upload')}
+		actionLabel="Erste Fahrt hochladen"
+	/>
 {:else if viewState === 'no-training-load'}
-	<h1>Fast fertig</h1>
-	<p>
-		Fahrten sind hochgeladen, aber es fehlt eine FTP- oder Puls-Schwellenwert-Konfiguration, um
-		daraus eine Trainingsbelastung zu berechnen.
-	</p>
-	<p><a href={resolve('/(app)/profile')}>FTP/LTHR im Profil hinterlegen</a></p>
+	<EmptyState
+		heading="Fast fertig"
+		message="Fahrten sind hochgeladen, aber es fehlt eine FTP- oder Puls-Schwellenwert-Konfiguration, um daraus eine Trainingsbelastung zu berechnen."
+		actionHref={resolve('/(app)/profile')}
+		actionLabel="FTP/LTHR im Profil hinterlegen"
+	/>
 {:else if viewState === 'ready'}
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->

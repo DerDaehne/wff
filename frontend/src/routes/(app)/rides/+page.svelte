@@ -4,6 +4,7 @@
 	import { listActivities, formatDistance, formatDuration, type ActivitySummary } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import { getSettings } from '$lib/profile';
+	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let viewState: 'loading' | 'empty' | 'error' | 'ready' = $state('loading');
 	let rides: ActivitySummary[] = $state([]);
@@ -69,8 +70,11 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else if viewState === 'empty'}
-	<p>Noch keine Fahrten hochgeladen.</p>
-	<p><a href={resolve('/(app)/upload')}>Erste Fahrt hochladen</a></p>
+	<EmptyState
+		message="Noch keine Fahrten hochgeladen."
+		actionHref={resolve('/(app)/upload')}
+		actionLabel="Erste Fahrt hochladen"
+	/>
 {:else}
 	<ul class="rides">
 		{#each rides as ride (ride.id)}
