@@ -282,6 +282,92 @@ func zoneSeconds(ctx context.Context, pool *pgxpool.Pool, activityIDs []int64, l
 	return seconds, rows.Err()
 }
 
+// zoneSecondsPerActivity is zoneSeconds grouped per ride instead of summed
+// across all of them — a list view needs each ride's own split, not one
+// number for the whole set.
+func zoneSecondsPerActivity(ctx context.Context, pool *pgxpool.Pool, activityIDs []int64, lthrBpm int) (map[int64][]int, error) {
+	out := map[int64][]int{}
+	if len(activityIDs) == 0 || lthrBpm <= 0 {
+		return out, nil
+	}
+
+	rows, err := pool.Query(ctx, `
+		SELECT activity_id, bucket, sum(gap)::bigint FROM (
+			SELECT activity_id, width_bucket(heart_rate::float, $2::float[]) AS bucket,
+			       extract(epoch FROM time - lag(time) OVER (PARTITION BY activity_id ORDER BY time)) AS gap
+			FROM samples
+			WHERE activity_id = ANY($1) AND heart_rate IS NOT NULL
+		) t
+		WHERE gap > 0 AND gap <= $3
+		GROUP BY activity_id, bucket`,
+		activityIDs, ZoneBounds(lthrBpm), MaxSampleGapSeconds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var activityID int64
+		var bucket, total int
+		if err := rows.Scan(&activityID, &bucket, &total); err != nil {
+			return nil, err
+		}
+		seconds := out[activityID]
+		if seconds == nil {
+			seconds = make([]int, len(zoneDefs))
+		}
+		if bucket >= 0 && bucket < len(seconds) {
+			seconds[bucket] = total
+		}
+		out[activityID] = seconds
+	}
+	return out, rows.Err()
+}
+
+// ZoneShare is one band's colour key and share — enough for a list row to
+// paint a bar, nothing a card needs (name/meaning/statements).
+type ZoneShare struct {
+	Key   string  `json:"key"`
+	Share float64 `json:"share"`
+}
+
+// ZoneShares is the lightweight per-ride view for list endpoints (#633).
+type ZoneShares struct {
+	Zones []ZoneShare `json:"zones"`
+	// Assumed marks shares built from an observed maximum instead of a real
+	// threshold — same meaning as ZoneDistribution.Assumed (#624).
+	Assumed bool `json:"assumed,omitempty"`
+}
+
+// ActivityZoneShares is ActivityZones for many rides at once, trimmed to
+// what a list row can show. Rides with too little recorded pulse are simply
+// absent from the result — the same "no bar rather than a wrong one" rule
+// RideZones itself applies.
+func ActivityZoneShares(ctx context.Context, pool *pgxpool.Pool, activityIDs []int64, lthrBpm *int, assumed bool) (map[int64]ZoneShares, error) {
+	if lthrBpm == nil || len(activityIDs) == 0 {
+		return nil, nil
+	}
+	secondsByActivity, err := zoneSecondsPerActivity(ctx, pool, activityIDs, *lthrBpm)
+	if err != nil {
+		return nil, err
+	}
+
+	out := map[int64]ZoneShares{}
+	for id, seconds := range secondsByActivity {
+		d := distribution(seconds)
+		if d.TotalSeconds < zoneRideMinSeconds {
+			continue
+		}
+		zones := make([]ZoneShare, len(d.Zones))
+		for i, z := range d.Zones {
+			zones[i] = ZoneShare{Key: z.Key, Share: z.Share}
+		}
+		out[id] = ZoneShares{Zones: zones, Assumed: assumed}
+	}
+	return out, nil
+}
+
 // ActivityZones is the per-ride distribution, or nothing if the rider has no
 // threshold heart rate — real or assumed (#624) — configured. assumed marks
 // the distribution as built off an observed maximum rather than a real

@@ -90,6 +90,24 @@
 						{/each}
 					</span>
 				</a>
+				<!-- Fahrt-Charakter auf einen Blick (#633): ruhige Grundlagenfahrt vs.
+				     harte Intervalleinheit sind so unterscheidbar, ohne reinzuklicken. -->
+				{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
+					<div
+						class="zone-bar"
+						role="img"
+						aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
+							? ' (geschätzt aus beobachtetem Maximalpuls)'
+							: ''}"
+					>
+						{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
+							<span
+								class="zone-segment"
+								style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
+							></span>
+						{/each}
+					</div>
+				{/if}
 			</li>
 		{/each}
 	</ul>
@@ -130,6 +148,19 @@
 		padding: 1rem 1.25rem;
 		color: inherit;
 		text-decoration: none;
+	}
+
+	.zone-bar {
+		display: flex;
+		height: 0.3rem;
+		margin: 0 1.25rem 0.875rem;
+		border-radius: var(--radius-pill);
+		overflow: hidden;
+		background: var(--color-border);
+	}
+
+	.zone-segment {
+		height: 100%;
 	}
 
 	.ride-date {

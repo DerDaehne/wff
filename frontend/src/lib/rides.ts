@@ -1,5 +1,5 @@
 import { apiFetch } from './api';
-import type { ZoneDistribution } from './zones';
+import type { ZoneDistribution, ZoneShares } from './zones';
 
 export interface ActivitySummary {
 	id: number;
@@ -9,6 +9,9 @@ export interface ActivitySummary {
 	moving_seconds: number;
 	distance_meters: number | null;
 	training_stress_score: number | null;
+	/** The ride's character at a glance in the list (#633) — absent without
+	 *  enough recorded pulse, same rule as the ride-detail zones. */
+	zones?: ZoneShares | null;
 }
 
 export interface Sample {

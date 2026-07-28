@@ -22,3 +22,16 @@ export interface ZoneDistribution {
 }
 
 export const emptyZones: ZoneDistribution = { zones: [], total_seconds: 0, statements: [] };
+
+/** One band's colour key and share — the trimmed view a list row needs
+ *  (#633), without the names/meanings a detail card carries. */
+export interface ZoneShare {
+	key: string;
+	share: number;
+}
+
+export interface ZoneShares {
+	zones: ZoneShare[];
+	/** Same meaning as ZoneDistribution.assumed (#624). */
+	assumed?: boolean;
+}

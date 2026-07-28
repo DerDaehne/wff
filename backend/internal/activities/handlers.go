@@ -240,6 +240,9 @@ type activitySummary struct {
 	MovingSeconds       int       `json:"moving_seconds"`
 	DistanceMeters      *float64  `json:"distance_meters"`
 	TrainingStressScore *float64  `json:"training_stress_score"`
+	// Zones is the ride's character at a glance in the list (#633) — nil
+	// without enough recorded pulse, same rule as the ride-detail zones.
+	Zones *analyze.ZoneShares `json:"zones,omitempty"`
 }
 
 // list returns the requesting person's activities, most recent first — the
@@ -259,6 +262,7 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	activities := []activitySummary{} // never null in the JSON response
+	var ids []int64
 	for rows.Next() {
 		var a activitySummary
 		if err := rows.Scan(&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore); err != nil {
@@ -266,10 +270,37 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		activities = append(activities, a)
+		ids = append(ids, a.ID)
 	}
 	if err := rows.Err(); err != nil {
 		http.Error(w, "could not load activities", http.StatusInternalServerError)
 		return
+	}
+
+	// Fahrt-Charakter auf einen Blick (#633): derselbe Schwellenpuls-Pfad wie
+	// Ride-Detail und Dashboard (#624), sonst widersprechen sich die Ansichten.
+	var lthrBpm, birthYear *int
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT lthr_bpm, birth_year FROM users WHERE id = $1`, userID,
+	).Scan(&lthrBpm, &birthYear); err != nil {
+		http.Error(w, "could not load activities", http.StatusInternalServerError)
+		return
+	}
+	observedMax, err := analyze.ObservedMax(r.Context(), h.pool, userID)
+	if err != nil {
+		http.Error(w, "could not load activities", http.StatusInternalServerError)
+		return
+	}
+	effectiveLthr, assumedLthr := analyze.EffectiveLTHR(lthrBpm, observedMax, birthYear)
+	zonesByActivity, err := analyze.ActivityZoneShares(r.Context(), h.pool, ids, effectiveLthr, assumedLthr)
+	if err != nil {
+		http.Error(w, "could not load activities", http.StatusInternalServerError)
+		return
+	}
+	for i := range activities {
+		if z, ok := zonesByActivity[activities[i].ID]; ok {
+			activities[i].Zones = &z
+		}
 	}
 
 	writeActivitiesJSON(w, activities)
