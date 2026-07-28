@@ -5,7 +5,8 @@
 		updateSettings,
 		type Estimate,
 		type Estimates,
-		type Gap
+		type Gap,
+		type ObservedMaxHR
 	} from '$lib/profile';
 	import { ApiError } from '$lib/api';
 	import { progressMetrics } from '$lib/progress';
@@ -20,6 +21,7 @@
 	let primaryMetric = $state('distance');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
 	let gaps: Gap[] = $state([]);
+	let observedMaxHR: ObservedMaxHR | null = $state(null);
 	let saveState: 'idle' | 'saving' | 'saved' | 'error' = $state('idle');
 
 	onMount(async () => {
@@ -33,6 +35,7 @@
 			primaryMetric = settings.primary_metric ?? 'distance';
 			estimates = settings.estimates;
 			gaps = settings.gaps;
+			observedMaxHR = settings.observed_max_hr;
 			viewState = 'ready';
 		} catch (err) {
 			errorMessage =
@@ -136,6 +139,14 @@
 							Schätzung übernehmen
 						</button>
 					</div>
+				{/if}
+				{#if observedMaxHR}
+					<p class="observed-max">
+						Bisher härtester aufgezeichneter Puls: <strong>{observedMaxHR.bpm} bpm</strong>, am
+						{rideDate(observedMaxHR.ridden_at)}. Das ist eine Beobachtung, keine Messung — solange
+						du keinen Schwellenpuls einträgst, nutzt die App diesen Wert ersatzweise für
+						Pulsbereiche, sofern er nach einer echten Ausbelastung aussieht.
+					</p>
 				{/if}
 			</div>
 
@@ -315,6 +326,12 @@
 	}
 
 	.suggestion-source {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+
+	.observed-max {
+		margin: 0.5rem 0 0;
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 	}

@@ -33,6 +33,10 @@ type ZoneDistribution struct {
 	Zones        []Zone      `json:"zones"`
 	TotalSeconds int         `json:"total_seconds"`
 	Statements   []Statement `json:"statements"`
+	// Assumed marks zones built from an observed maximum heart rate instead
+	// of a real threshold — a looser stand-in the rider hasn't confirmed by
+	// riding an actual threshold effort (#624).
+	Assumed bool `json:"assumed,omitempty"`
 }
 
 // zoneDefs are the bands in ascending order. minPctLTHR is the lower edge; the
@@ -279,9 +283,10 @@ func zoneSeconds(ctx context.Context, pool *pgxpool.Pool, activityIDs []int64, l
 }
 
 // ActivityZones is the per-ride distribution, or nothing if the rider has no
-// threshold heart rate configured — without it there are no zones, only
-// invented ones.
-func ActivityZones(ctx context.Context, pool *pgxpool.Pool, activityID int64, lthrBpm *int) (*ZoneDistribution, error) {
+// threshold heart rate — real or assumed (#624) — configured. assumed marks
+// the distribution as built off an observed maximum rather than a real
+// threshold, for callers that resolved lthrBpm via EffectiveLTHR.
+func ActivityZones(ctx context.Context, pool *pgxpool.Pool, activityID int64, lthrBpm *int, assumed bool) (*ZoneDistribution, error) {
 	if lthrBpm == nil {
 		return nil, nil
 	}
@@ -293,12 +298,15 @@ func ActivityZones(ctx context.Context, pool *pgxpool.Pool, activityID int64, lt
 	if !ok {
 		return nil, nil
 	}
+	d.Assumed = assumed
 	return &d, nil
 }
 
 // RecentZones is the same over the rider's recent weeks — the level at which
-// the distribution is a training pattern rather than one afternoon.
-func RecentZones(ctx context.Context, pool *pgxpool.Pool, userID int64, lthrBpm *int) (ZoneDistribution, error) {
+// the distribution is a training pattern rather than one afternoon. assumed
+// marks the distribution as built off an observed maximum rather than a real
+// threshold, for callers that resolved lthrBpm via EffectiveLTHR.
+func RecentZones(ctx context.Context, pool *pgxpool.Pool, userID int64, lthrBpm *int, assumed bool) (ZoneDistribution, error) {
 	if lthrBpm == nil {
 		// Without a threshold there is nothing to say about zones, but plenty to
 		// say about that: the profile already estimates one from the rider's own
@@ -337,7 +345,9 @@ func RecentZones(ctx context.Context, pool *pgxpool.Pool, userID int64, lthrBpm 
 	if err != nil {
 		return ZoneDistribution{}, err
 	}
-	return WeeklyZones(seconds), nil
+	d := WeeklyZones(seconds)
+	d.Assumed = assumed
+	return d, nil
 }
 
 // zoneWeeks is the window the distribution is judged over: long enough to be a

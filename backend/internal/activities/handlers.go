@@ -154,8 +154,16 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	facts.Endurance = endurance
 
 	// Where the pulse actually sat during the ride (#621) — the average alone
-	// hides whether this was steady or four hard efforts with rests.
-	zones, err := analyze.ActivityZones(r.Context(), h.pool, activityID, lthrBpm)
+	// hides whether this was steady or four hard efforts with rests. Without
+	// a real threshold, the rider's own observed maximum stands in when it
+	// looks like a real effort (#624).
+	observedMax, err := analyze.ObservedMax(r.Context(), h.pool, ownerID)
+	if err != nil {
+		http.Error(w, "could not load observed maximum heart rate", http.StatusInternalServerError)
+		return
+	}
+	effectiveLthr, assumedLthr := analyze.EffectiveLTHR(lthrBpm, observedMax, facts.BirthYear)
+	zones, err := analyze.ActivityZones(r.Context(), h.pool, activityID, effectiveLthr, assumedLthr)
 	if err != nil {
 		http.Error(w, "could not compute heart-rate zones", http.StatusInternalServerError)
 		return

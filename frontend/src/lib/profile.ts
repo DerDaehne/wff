@@ -37,9 +37,18 @@ export interface Gap {
 	instruction: string;
 }
 
+/** The hardest pulse any ride has recorded, with the ride it came from — an
+ *  observation, not a measured maximum (#624). */
+export interface ObservedMaxHR {
+	bpm: number;
+	activity_id: number;
+	ridden_at: string;
+}
+
 export interface SettingsResponse extends Settings {
 	estimates: Estimates;
 	gaps: Gap[];
+	observed_max_hr: ObservedMaxHR | null;
 }
 
 export async function getSettings(): Promise<SettingsResponse> {

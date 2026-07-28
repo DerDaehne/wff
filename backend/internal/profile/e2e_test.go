@@ -86,6 +86,9 @@ func TestSettingsGetAndUpdate(t *testing.T) {
 	if initial["ftp_watts"] != nil || initial["lthr_bpm"] != nil {
 		t.Fatalf("initial settings = %v, want both fields null", initial)
 	}
+	if initial["observed_max_hr"] != nil {
+		t.Fatalf("observed_max_hr = %v, want null for a rider with no rides yet", initial["observed_max_hr"])
+	}
 
 	// Unauthenticated access must be rejected.
 	anon := &http.Client{}

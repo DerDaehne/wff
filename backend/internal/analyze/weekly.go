@@ -93,10 +93,17 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	}
 
 	var lthrBpm *int
-	if err := pool.QueryRow(ctx, `SELECT lthr_bpm FROM users WHERE id = $1`, userID).Scan(&lthrBpm); err != nil {
+	var birthYear *int
+	if err := pool.QueryRow(ctx, `SELECT lthr_bpm, birth_year FROM users WHERE id = $1`, userID).
+		Scan(&lthrBpm, &birthYear); err != nil {
 		return Progress{}, err
 	}
-	progress.Zones, err = RecentZones(ctx, pool, userID, lthrBpm)
+	observedMax, err := ObservedMax(ctx, pool, userID)
+	if err != nil {
+		return Progress{}, err
+	}
+	effectiveLthr, assumed := EffectiveLTHR(lthrBpm, observedMax, birthYear)
+	progress.Zones, err = RecentZones(ctx, pool, userID, effectiveLthr, assumed)
 	if err != nil {
 		return Progress{}, err
 	}

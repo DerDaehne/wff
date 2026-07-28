@@ -117,10 +117,16 @@ type RideFacts struct {
 // ageAtRide is the rider's age in the season the ride happened, not today. A
 // stored age would go stale; a stored birth year does not.
 func (f RideFacts) ageAtRide() (int, bool) {
-	if f.BirthYear == nil || *f.BirthYear <= 0 || f.StartedAt.IsZero() {
+	return ageAt(f.StartedAt, f.BirthYear)
+}
+
+// ageAt is the rider's age at a given moment, from their birth year rather
+// than a stored age so it never goes stale.
+func ageAt(t time.Time, birthYear *int) (int, bool) {
+	if birthYear == nil || *birthYear <= 0 || t.IsZero() {
 		return 0, false
 	}
-	age := f.StartedAt.Year() - *f.BirthYear
+	age := t.Year() - *birthYear
 	// A plausibility window, not a judgement: it catches a typo like 1900 or a
 	// year in the future, both of which would produce a confident wrong number.
 	if age < 10 || age > 100 {

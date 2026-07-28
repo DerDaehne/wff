@@ -20,6 +20,12 @@
 
 <figure class="zones">
 	<figcaption class="sr-only">{label}</figcaption>
+	{#if distribution.assumed}
+		<p class="assumed-note">
+			Geschätzt aus deinem bisher höchsten aufgezeichneten Puls, nicht aus einem echten
+			Schwellentest — nimm die Grenzen als groben Anhalt.
+		</p>
+	{/if}
 	<div
 		class="bar"
 		role="img"
@@ -53,6 +59,12 @@
 		/* Same measure as the panel's intro text. Full panel width pushed the
 		   time and percentage a screen away from the band they belong to. */
 		max-width: 60ch;
+	}
+
+	.assumed-note {
+		margin: 0 0 0.75rem;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
 	}
 
 	.bar {

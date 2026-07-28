@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,6 +29,7 @@ const (
 	GapPerson    = "person"
 	GapClimb     = "climb"
 	GapSensors   = "sensors"
+	GapMaxEffort = "max_effort"
 )
 
 // DataGaps reports what is missing, cheapest to close first: entering a number
@@ -64,6 +66,11 @@ func DataGaps(ctx context.Context, pool *pgxpool.Pool, userID int64, estimates E
 		WHERE user_id = $1 AND started_at > now() - make_interval(days => $2)`,
 		userID, estimateHistoryDays,
 	).Scan(&hasPower, &hasHR, &longestGain); err != nil {
+		return nil, err
+	}
+
+	observedMax, err := ObservedMax(ctx, pool, userID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -104,6 +111,24 @@ func DataGaps(ctx context.Context, pool *pgxpool.Pool, userID int64, estimates E
 				"gleichmäßig bleibt. Fahr so schnell, wie du es gerade noch 20 Minuten durchhältst: " +
 				"am Ende soll es richtig wehtun, aber du sollst nicht schon vorher einbrechen. Danach " +
 				"lädst du die Fahrt hoch wie immer.",
+		})
+	}
+
+	// Pulsbereiche ganz ohne Schwellentest (#624): der bisher härteste
+	// aufgezeichnete Puls kann einspringen — aber nur, wenn er ehrlich nach
+	// einer Ausbelastung aussieht. Sonst lieber sagen, warum nicht, statt aus
+	// einem ruhigen Tag stille Zonen zu bauen.
+	if lthr == nil && estimates.LTHRBpm == nil && observedMax != nil && !observedMax.plausible(birthYear) {
+		gaps = append(gaps, Gap{
+			Key:     GapMaxEffort,
+			Unlocks: "Pulsbereiche, auch ganz ohne eigenen Schwellentest.",
+			Instruction: fmt.Sprintf(
+				"Dein bisher höchster aufgezeichneter Puls (%d) sieht nicht nach einer echten "+
+					"Ausbelastung aus — dafür warst du noch nie hart genug unterwegs. Bau einmal ein "+
+					"paar ganz kurze, maximale Antritte ein: aus dem Sattel 15 bis 20 Sekunden lang "+
+					"sprinten, zwei- bis dreimal mit ein paar Minuten Pause dazwischen. Danach lädst du "+
+					"die Fahrt hoch wie immer.",
+				observedMax.Bpm),
 		})
 	}
 

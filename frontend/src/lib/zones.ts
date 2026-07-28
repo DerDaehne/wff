@@ -15,6 +15,10 @@ export interface ZoneDistribution {
 	zones: Zone[];
 	total_seconds: number;
 	statements: RideStatement[];
+	/** True when these zones come from an observed maximum heart rate instead
+	 *  of a real threshold test (#624) — a looser stand-in the UI must say so
+	 *  about. */
+	assumed?: boolean;
 }
 
 export const emptyZones: ZoneDistribution = { zones: [], total_seconds: 0, statements: [] };
