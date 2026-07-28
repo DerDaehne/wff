@@ -498,8 +498,14 @@ func (h *Handlers) ingestRide(ctx context.Context, userID int64, raw []byte) (in
 		return 0, err
 	}
 
-	if _, err := h.pool.Exec(ctx,
-		`UPDATE activities SET raw_file_path = $1 WHERE id = $2`, rawPath, activityID,
+	// bike_id comes from the rider's currently active bike (#637) — never
+	// asked at upload time, so a rider who rides one bike never sees the
+	// question at all.
+	if _, err := h.pool.Exec(ctx, `
+		UPDATE activities SET raw_file_path = $1,
+			bike_id = (SELECT active_bike_id FROM users WHERE id = $3)
+		WHERE id = $2`,
+		rawPath, activityID, userID,
 	); err != nil {
 		return 0, err
 	}

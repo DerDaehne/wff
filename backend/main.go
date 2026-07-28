@@ -12,6 +12,7 @@ import (
 	"github.com/DerDaehne/wff/internal/activities"
 	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
+	"github.com/DerDaehne/wff/internal/bikes"
 	"github.com/DerDaehne/wff/internal/db"
 	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/openmeteo"
@@ -60,6 +61,7 @@ func runServer() {
 	activities.NewHandlers(pool, cmp.Or(os.Getenv("UPLOAD_DIR"), "./data/uploads"), weather).Register(mux)
 	profile.NewHandlers(pool).Register(mux)
 	analyze.NewHandlers(pool).Register(mux)
+	bikes.NewHandlers(pool).Register(mux)
 
 	// Catch-all: the embedded frontend build. Registered last for
 	// readability only — Go 1.22+'s ServeMux prioritizes the more specific

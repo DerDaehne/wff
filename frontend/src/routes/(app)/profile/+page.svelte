@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
 	import {
 		getSettings,
 		updateSettings,
@@ -243,6 +244,15 @@
 			{/each}
 		</section>
 	{/if}
+
+	<section class="export">
+		<h2>Deine Räder</h2>
+		<p class="hint">
+			Kilometerstand pro Rad und Erinnerung an den Kettenwechsel — neue Fahrten werden automatisch
+			dem aktiven Rad zugeordnet.
+		</p>
+		<a class="btn btn-secondary" href={resolve('/(app)/raeder')}>Räder verwalten</a>
+	</section>
 
 	<section class="export">
 		<h2>Deine Daten</h2>
