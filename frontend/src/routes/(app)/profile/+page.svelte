@@ -15,6 +15,8 @@
 	let ftpWatts: number | '' = $state('');
 	let lthrBpm: number | '' = $state('');
 	let weightKg: number | '' = $state('');
+	let birthYear: number | '' = $state('');
+	let sex = $state('');
 	let primaryMetric = $state('distance');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
 	let gaps: Gap[] = $state([]);
@@ -26,6 +28,8 @@
 			ftpWatts = settings.ftp_watts ?? '';
 			lthrBpm = settings.lthr_bpm ?? '';
 			weightKg = settings.weight_kg ?? '';
+			birthYear = settings.birth_year ?? '';
+			sex = settings.sex ?? '';
 			primaryMetric = settings.primary_metric ?? 'distance';
 			estimates = settings.estimates;
 			gaps = settings.gaps;
@@ -59,6 +63,8 @@
 				ftp_watts: ftpWatts === '' ? null : ftpWatts,
 				lthr_bpm: lthrBpm === '' ? null : lthrBpm,
 				weight_kg: weightKg === '' ? null : weightKg,
+				birth_year: birthYear === '' ? null : birthYear,
+				sex: sex === '' ? null : sex,
 				primary_metric: primaryMetric
 			});
 			saveState = 'saved';
@@ -163,6 +169,38 @@
 					step="0.5"
 					bind:value={weightKg}
 				/>
+			</div>
+
+			<div class="field">
+				<label for="birth-year">Geburtsjahr</label>
+				<p class="field-hint">
+					Optional. Zusammen mit dem Gewicht reicht das, um aus deinem Puls den Kalorienverbrauch
+					einer Fahrt zu schätzen. Das Jahr statt des Alters, damit auch alte Fahrten mit dem Alter
+					von damals gerechnet werden.
+				</p>
+				<input
+					id="birth-year"
+					class="input"
+					type="number"
+					min="1900"
+					max={new Date().getFullYear() - 10}
+					bind:value={birthYear}
+				/>
+			</div>
+
+			<div class="field">
+				<label for="sex">Variante der Kalorienformel</label>
+				<p class="field-hint">
+					Optional, und nur hierfür. Die zugrunde liegende Studie (Keytel u. a., 2005) hat genau
+					zwei Sätze von Koeffizienten veröffentlicht — deshalb gibt es nur diese zwei
+					Möglichkeiten. Ohne Angabe zeigt die App keinen Kalorienwert an, statt einen der beiden zu
+					raten.
+				</p>
+				<select id="sex" class="input" bind:value={sex}>
+					<option value="">Keine Angabe</option>
+					<option value="male">Männlich</option>
+					<option value="female">Weiblich</option>
+				</select>
 			</div>
 
 			<button class="btn btn-primary" type="submit" disabled={saveState === 'saving'}>

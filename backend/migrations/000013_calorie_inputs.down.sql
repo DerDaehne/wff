@@ -1,0 +1,2 @@
+ALTER TABLE users DROP COLUMN birth_year;
+ALTER TABLE users DROP COLUMN sex;

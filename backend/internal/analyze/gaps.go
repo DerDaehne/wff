@@ -25,6 +25,7 @@ type Gap struct {
 const (
 	GapThreshold = "threshold"
 	GapWeight    = "weight"
+	GapPerson    = "person"
 	GapClimb     = "climb"
 	GapSensors   = "sensors"
 )
@@ -36,16 +37,17 @@ const (
 // things you have done is a list people stop reading.
 func DataGaps(ctx context.Context, pool *pgxpool.Pool, userID int64, estimates Estimates) ([]Gap, error) {
 	var (
-		ftp, lthr   *int
-		weight      *float64
-		hasPower    bool
-		hasHR       bool
-		longestGain *float64
+		ftp, lthr, birthYear *int
+		weight               *float64
+		sex                  *string
+		hasPower             bool
+		hasHR                bool
+		longestGain          *float64
 	)
 
 	if err := pool.QueryRow(ctx,
-		`SELECT ftp_watts, lthr_bpm, weight_kg FROM users WHERE id = $1`, userID,
-	).Scan(&ftp, &lthr, &weight); err != nil {
+		`SELECT ftp_watts, lthr_bpm, weight_kg, birth_year, sex FROM users WHERE id = $1`, userID,
+	).Scan(&ftp, &lthr, &weight, &birthYear, &sex); err != nil {
 		return nil, err
 	}
 
@@ -74,6 +76,19 @@ func DataGaps(ctx context.Context, pool *pgxpool.Pool, userID int64, estimates E
 			Unlocks: "Wie viel Kraft du am Berg trittst — in Watt, ohne Leistungsmesser.",
 			Instruction: "Trag dein Körpergewicht oben ein. Mehr braucht es nicht: aus deinem Tempo " +
 				"am Anstieg und deinem Gewicht lässt sich überschlagen, wie viel du getreten hast.",
+		})
+	}
+
+	// Also a form field, and only worth mentioning to someone who records a
+	// pulse — without one the estimate could not be computed anyway.
+	if hasHR && (birthYear == nil || sex == nil) {
+		gaps = append(gaps, Gap{
+			Key:     GapPerson,
+			Unlocks: "Wie viele Kalorien eine Fahrt gekostet hat.",
+			Instruction: "Trag oben dein Geburtsjahr ein und wähle, mit welcher der beiden Varianten " +
+				"der Formel gerechnet werden soll. Der Energieverbrauch aus dem Puls hängt außer am " +
+				"Puls selbst am Körpergewicht, am Alter und am Geschlecht — ohne diese Angaben bleibt " +
+				"nur Raten, und dann sagt die App lieber nichts.",
 		})
 	}
 

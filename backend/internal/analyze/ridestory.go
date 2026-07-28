@@ -107,6 +107,26 @@ type RideFacts struct {
 	// Zones is the time spent in each heart-rate band (#621). Nil without a
 	// threshold heart rate, or when too little pulse was recorded.
 	Zones *ZoneDistribution
+	// AvgHeartRate, BirthYear and Sex are what an energy estimate costs on top
+	// of the weight (#625). Any of them missing means no calorie figure.
+	AvgHeartRate *float64
+	BirthYear    *int
+	Sex          *string
+}
+
+// ageAtRide is the rider's age in the season the ride happened, not today. A
+// stored age would go stale; a stored birth year does not.
+func (f RideFacts) ageAtRide() (int, bool) {
+	if f.BirthYear == nil || *f.BirthYear <= 0 || f.StartedAt.IsZero() {
+		return 0, false
+	}
+	age := f.StartedAt.Year() - *f.BirthYear
+	// A plausibility window, not a judgement: it catches a typo like 1900 or a
+	// year in the future, both of which would produce a confident wrong number.
+	if age < 10 || age > 100 {
+		return 0, false
+	}
+	return age, true
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -191,6 +211,9 @@ func RideStory(f RideFacts) Story {
 	// verdict on endurance (#630).
 	if f.Endurance != nil && !f.isMixed() {
 		add(efficiencyStatement(*f.Endurance), true)
+	}
+	if kcal, age, ok := f.calories(); ok {
+		add(caloriesStatement(kcal, age), true)
 	}
 	if f.Zones != nil {
 		story.Zones = f.Zones

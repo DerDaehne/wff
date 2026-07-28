@@ -18,6 +18,7 @@
 		trend: 'Ob du besser wirst',
 		endurance_trend: 'Ob deine Ausdauer wächst',
 		zones: 'Wie du die Zeit verteilt hast',
+		calories: 'Was es an Energie gekostet hat',
 		hint_profile: 'Dafür fehlt noch etwas',
 		hint_history: 'Dafür fehlt noch etwas'
 	};
@@ -137,6 +138,10 @@
 
 	.statement-comparison {
 		--chip-color: var(--color-text-muted);
+	}
+
+	.statement-calories {
+		--chip-color: var(--zone-tempo);
 	}
 
 	.statement-hint_profile,

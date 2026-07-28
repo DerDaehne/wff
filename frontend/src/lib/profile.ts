@@ -7,6 +7,11 @@ export interface Settings {
 	weight_kg: number | null;
 	/** Which figure the rider wants to see first (#616); null = default order. */
 	primary_metric: string | null;
+	/** Optional, only used for the energy estimate (#625). Birth year rather than
+	 *  age so it doesn't go stale; sex is 'male' | 'female' because the Keytel
+	 *  formula publishes exactly those two coefficient sets. */
+	birth_year: number | null;
+	sex: string | null;
 }
 
 /** A threshold derived from the rider's own rides, carrying the ride it came

@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
@@ -37,6 +38,17 @@ type settings struct {
 	WeightKg *float64 `json:"weight_kg"`
 	// PrimaryMetric is the figure the rider wants to see first (#616).
 	PrimaryMetric *string `json:"primary_metric"`
+	// BirthYear and Sex are what the energy estimate needs beyond the weight
+	// (#625). Year rather than age, so it does not go stale.
+	BirthYear *int    `json:"birth_year"`
+	Sex       *string `json:"sex"`
+}
+
+// allowedSexes mirrors the two coefficient sets the Keytel formula publishes.
+// Anything else is rejected rather than stored and silently ignored.
+var allowedSexes = map[string]bool{
+	analyze.SexMale:   true,
+	analyze.SexFemale: true,
 }
 
 // allowedMetrics guards the one settings field that is a free-form string.
@@ -67,8 +79,9 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 
 	var s settings
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric FROM users WHERE id = $1`, userID,
-	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric); err != nil {
+		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric, birth_year, sex
+		 FROM users WHERE id = $1`, userID,
+	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric, &s.BirthYear, &s.Sex); err != nil {
 		http.Error(w, "could not load settings", http.StatusInternalServerError)
 		return
 	}
@@ -116,15 +129,29 @@ func (h *Handlers) update(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown primary_metric", http.StatusBadRequest)
 		return
 	}
+	// A window wide enough for anybody who rides a bike, narrow enough to catch
+	// a mistyped year — which would otherwise feed a confident wrong number
+	// into the calorie estimate.
+	if body.BirthYear != nil && (*body.BirthYear < 1900 || *body.BirthYear > time.Now().Year()-10) {
+		http.Error(w, "birth_year is out of range", http.StatusBadRequest)
+		return
+	}
+	if body.Sex != nil && !allowedSexes[*body.Sex] {
+		http.Error(w, "unknown sex", http.StatusBadRequest)
+		return
+	}
 
 	if _, err := h.pool.Exec(r.Context(), `
 		UPDATE users SET
 			ftp_watts = COALESCE($2, ftp_watts),
 			lthr_bpm = COALESCE($3, lthr_bpm),
 			weight_kg = COALESCE($4, weight_kg),
-			primary_metric = COALESCE($5, primary_metric)
+			primary_metric = COALESCE($5, primary_metric),
+			birth_year = COALESCE($6, birth_year),
+			sex = COALESCE($7, sex)
 		WHERE id = $1`,
 		userID, body.FTPWatts, body.LTHRBpm, body.WeightKg, body.PrimaryMetric,
+		body.BirthYear, body.Sex,
 	); err != nil {
 		http.Error(w, "could not update settings", http.StatusInternalServerError)
 		return

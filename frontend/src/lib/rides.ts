@@ -66,6 +66,8 @@ export interface RideStatement {
 		| 'endurance_trend'
 		// How the effort was spread across the heart-rate bands (#621).
 		| 'zones'
+		// What the ride cost in energy, estimated from the pulse (#625).
+		| 'calories'
 		| 'hint_profile'
 		| 'hint_history';
 }
