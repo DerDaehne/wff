@@ -12,6 +12,10 @@ export interface Settings {
 	 *  formula publishes exactly those two coefficient sets. */
 	birth_year: number | null;
 	sex: string | null;
+	/** Shares this rider's relative training-success trend with every other
+	 *  rider who has also opted in (#642) — symmetric, null defaults to
+	 *  false server-side. */
+	compare_opt_in: boolean | null;
 }
 
 /** A threshold derived from the rider's own rides, carrying the ride it came

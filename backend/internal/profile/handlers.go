@@ -42,6 +42,10 @@ type settings struct {
 	// (#625). Year rather than age, so it does not go stale.
 	BirthYear *int    `json:"birth_year"`
 	Sex       *string `json:"sex"`
+	// CompareOptIn shares this rider's relative training-success trend with
+	// every other rider who has also opted in (#642) — symmetric: seeing
+	// requires being seen, no per-person visibility in v1.
+	CompareOptIn *bool `json:"compare_opt_in"`
 }
 
 // allowedSexes mirrors the two coefficient sets the Keytel formula publishes.
@@ -82,9 +86,9 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 
 	var s settings
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric, birth_year, sex
+		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric, birth_year, sex, compare_opt_in
 		 FROM users WHERE id = $1`, userID,
-	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric, &s.BirthYear, &s.Sex); err != nil {
+	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric, &s.BirthYear, &s.Sex, &s.CompareOptIn); err != nil {
 		http.Error(w, "could not load settings", http.StatusInternalServerError)
 		return
 	}
@@ -158,10 +162,11 @@ func (h *Handlers) update(w http.ResponseWriter, r *http.Request) {
 			weight_kg = COALESCE($4, weight_kg),
 			primary_metric = COALESCE($5, primary_metric),
 			birth_year = COALESCE($6, birth_year),
-			sex = COALESCE($7, sex)
+			sex = COALESCE($7, sex),
+			compare_opt_in = COALESCE($8, compare_opt_in)
 		WHERE id = $1`,
 		userID, body.FTPWatts, body.LTHRBpm, body.WeightKg, body.PrimaryMetric,
-		body.BirthYear, body.Sex,
+		body.BirthYear, body.Sex, body.CompareOptIn,
 	); err != nil {
 		http.Error(w, "could not update settings", http.StatusInternalServerError)
 		return

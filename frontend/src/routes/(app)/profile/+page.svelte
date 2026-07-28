@@ -19,6 +19,7 @@
 	let weightKg: number | '' = $state('');
 	let birthYear: number | '' = $state('');
 	let sex = $state('');
+	let compareOptIn = $state(false);
 	let primaryMetric = $state('distance');
 	let estimates: Estimates = $state({ ftp_watts: null, lthr_bpm: null });
 	let gaps: Gap[] = $state([]);
@@ -33,6 +34,7 @@
 			weightKg = settings.weight_kg ?? '';
 			birthYear = settings.birth_year ?? '';
 			sex = settings.sex ?? '';
+			compareOptIn = settings.compare_opt_in ?? false;
 			primaryMetric = settings.primary_metric ?? 'distance';
 			estimates = settings.estimates;
 			gaps = settings.gaps;
@@ -69,6 +71,7 @@
 				weight_kg: weightKg === '' ? null : weightKg,
 				birth_year: birthYear === '' ? null : birthYear,
 				sex: sex === '' ? null : sex,
+				compare_opt_in: compareOptIn,
 				primary_metric: primaryMetric
 			});
 			saveState = 'saved';
@@ -215,6 +218,18 @@
 				</select>
 			</div>
 
+			<div class="field">
+				<label class="checkbox-label">
+					<input type="checkbox" bind:checked={compareOptIn} />
+					Am Trainingserfolg-Vergleich teilnehmen
+				</label>
+				<p class="field-hint">
+					Zeigt dich und jeden anderen zugestimmten Nutzer mit einer relativen Kennzahl (wie sehr
+					sich dein Trainingszustand in den letzten Wochen verändert hat) — nie absolute Kilometer
+					oder Höhenmeter. Ohne Zustimmung siehst du niemanden, und niemand sieht dich.
+				</p>
+			</div>
+
 			<button class="btn btn-primary" type="submit" disabled={saveState === 'saving'}>
 				{saveState === 'saving' ? 'Speichert…' : 'Speichern'}
 			</button>
@@ -242,6 +257,16 @@
 					<p class="gap-instruction">{gap.instruction}</p>
 				</article>
 			{/each}
+		</section>
+	{/if}
+
+	{#if compareOptIn}
+		<section class="export">
+			<h2>Trainingserfolg-Vergleich</h2>
+			<p class="hint">
+				Wie sich dein Trainingszustand im Vergleich zu anderen zugestimmten Nutzern entwickelt hat.
+			</p>
+			<a class="btn btn-secondary" href={resolve('/(app)/vergleich')}>Vergleich ansehen</a>
 		</section>
 	{/if}
 
@@ -327,6 +352,13 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 		margin: 0 0 0.25rem;
+	}
+
+	.checkbox-label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-weight: 600;
 	}
 
 	/* An estimate is an offer, never an automatic overwrite: it sits next to

@@ -22,6 +22,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/training-load", auth.RequireAuth(h.pool)(http.HandlerFunc(h.trainingLoad)))
 	mux.Handle("GET /api/progress", auth.RequireAuth(h.pool)(http.HandlerFunc(h.progress)))
 	mux.Handle("GET /api/me/year-review", auth.RequireAuth(h.pool)(http.HandlerFunc(h.yearReview)))
+	mux.Handle("GET /api/compare", auth.RequireAuth(h.pool)(http.HandlerFunc(h.compare)))
 }
 
 type trainingLoadResponse struct {
@@ -87,4 +88,20 @@ func (h *Handlers) yearReview(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(review)
+}
+
+// compare answers "how is everyone's training going" for opted-in riders
+// (#642) — symmetric: a rider who hasn't opted in themselves gets
+// OptedIn:false and no list, never a peek at who else takes part.
+func (h *Handlers) compare(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	result, err := CompareTrainingSuccess(r.Context(), h.pool, userID)
+	if err != nil {
+		http.Error(w, "could not compute comparison", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

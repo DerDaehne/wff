@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN compare_opt_in BOOLEAN NOT NULL DEFAULT false;
