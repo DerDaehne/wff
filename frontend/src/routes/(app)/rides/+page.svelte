@@ -180,12 +180,14 @@
 		transform: translateY(-1px);
 	}
 
+	/* Date above figures, always — never side-by-side wrapping onto a second
+	   line only for some rows depending on how many figures they have or how
+	   wide the values are. One fixed structure for every row is what makes
+	   the list read as a list instead of an inconsistent zig-zag. */
 	.rides a {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: 0.5rem 1.5rem;
+		flex-direction: column;
+		gap: 0.5rem;
 		padding: 1rem 1.25rem;
 		color: inherit;
 		text-decoration: none;
@@ -210,7 +212,8 @@
 
 	.ride-figures {
 		display: flex;
-		gap: 1.5rem;
+		flex-wrap: wrap;
+		gap: 0.75rem 1.5rem;
 	}
 
 	.figure {

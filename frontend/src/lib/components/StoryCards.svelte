@@ -36,27 +36,68 @@
 		}
 		return out;
 	});
+
+	// A ride with power/pulse and a full set of context signals produced ten
+	// or more full-sentence cards — helpful, but a wall of text on every
+	// single ride. Lead with the two universally-relevant kinds plus
+	// whatever is rare and actionable (a new record, a data-gap nudge); the
+	// rest — pace, climb, endurance, calories, zones prose, conditions,
+	// how-it-compares — is real information, just not urgent enough to force
+	// on every reading. Hidden behind one click instead of deleted.
+	const alwaysVisible = new Set<RideStatement['kind']>([
+		'effort',
+		'load',
+		'milestone',
+		'hint_profile',
+		'hint_history'
+	]);
+
+	// Pages whose statements don't include any always-visible kind at all
+	// (the dashboard's form/trend cards, say) fall back to showing
+	// everything — collapsing to an empty lead-in with a "show more" button
+	// hiding the ONLY content would be worse than the wall of text this
+	// exists to fix.
+	let hasPriority = $derived(groups.some((g) => alwaysVisible.has(g.kind)));
+	let primaryGroups = $derived(
+		hasPriority ? groups.filter((g) => alwaysVisible.has(g.kind)) : groups
+	);
+	let secondaryGroups = $derived(
+		hasPriority ? groups.filter((g) => !alwaysVisible.has(g.kind)) : []
+	);
+	let expanded = $state(false);
 </script>
+
+{#snippet card(group: (typeof groups)[number])}
+	<article class="statement statement-{group.kind}">
+		<p class="chip statement-chip">{statementLabel[group.kind]}</p>
+		{#each group.items as statement, j (j)}
+			<p class="statement-text">{statement.text}</p>
+			{#if statement.metric}
+				<p class="statement-metric">{statement.metric}</p>
+			{/if}
+		{/each}
+		{#if group.kind === 'hint_profile'}
+			<a class="statement-action" href={resolve('/(app)/profile')}> Werte im Profil eintragen </a>
+		{/if}
+	</article>
+{/snippet}
 
 {#if groups.length > 0}
 	<section class="story" aria-label={label}>
-		{#each groups as group, i (i)}
-			<article class="statement statement-{group.kind}">
-				<p class="chip statement-chip">{statementLabel[group.kind]}</p>
-				{#each group.items as statement, j (j)}
-					<p class="statement-text">{statement.text}</p>
-					{#if statement.metric}
-						<p class="statement-metric">{statement.metric}</p>
-					{/if}
-				{/each}
-				{#if group.kind === 'hint_profile'}
-					<a class="statement-action" href={resolve('/(app)/profile')}>
-						Werte im Profil eintragen
-					</a>
-				{/if}
-			</article>
+		{#each primaryGroups as group, i (i)}
+			{@render card(group)}
 		{/each}
+		{#if expanded}
+			{#each secondaryGroups as group, i (i)}
+				{@render card(group)}
+			{/each}
+		{/if}
 	</section>
+	{#if secondaryGroups.length > 0}
+		<button class="details-toggle" type="button" onclick={() => (expanded = !expanded)}>
+			{expanded ? 'Weniger anzeigen' : `${secondaryGroups.length} weitere Details anzeigen`}
+		</button>
+	{/if}
 {/if}
 
 <style>
@@ -104,6 +145,22 @@
 		display: inline-block;
 		margin-top: 0.5rem;
 		font-size: var(--text-sm);
+	}
+
+	.details-toggle {
+		display: block;
+		margin: -1rem 0 2rem;
+		padding: 0.5rem 0;
+		background: none;
+		border: none;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		text-decoration: underline;
+		cursor: pointer;
+	}
+
+	.details-toggle:hover {
+		color: inherit;
 	}
 
 	/* Each kind gets the colour of the chart series it refers to, so the same
