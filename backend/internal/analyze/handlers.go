@@ -3,6 +3,8 @@ package analyze
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/DerDaehne/wff/internal/auth"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,6 +21,7 @@ func NewHandlers(pool *pgxpool.Pool) *Handlers {
 func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/training-load", auth.RequireAuth(h.pool)(http.HandlerFunc(h.trainingLoad)))
 	mux.Handle("GET /api/progress", auth.RequireAuth(h.pool)(http.HandlerFunc(h.progress)))
+	mux.Handle("GET /api/me/year-review", auth.RequireAuth(h.pool)(http.HandlerFunc(h.yearReview)))
 }
 
 type trainingLoadResponse struct {
@@ -62,4 +65,26 @@ func (h *Handlers) progress(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(progress)
+}
+
+// yearReview answers "how was my year" (#638) — a plain sum of a calendar
+// year's rides plus its two standout rides, not a new metric. ?year=YYYY
+// selects the year; missing or unparsable falls back to the current one
+// rather than erroring, since a stray query param shouldn't break the page.
+func (h *Handlers) yearReview(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	year, err := strconv.Atoi(r.URL.Query().Get("year"))
+	if err != nil {
+		year = time.Now().Year()
+	}
+
+	review, err := YearReviewFor(r.Context(), h.pool, userID, year)
+	if err != nil {
+		http.Error(w, "could not compute year review", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(review)
 }

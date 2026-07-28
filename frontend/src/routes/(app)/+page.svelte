@@ -110,6 +110,10 @@
 	<StoryHero story={status} fallbackTitle="Dein Trainingsstand" meterColor="var(--chart-ctl)" />
 	<StoryCards statements={status?.statements ?? []} label="Dein aktueller Trainingsstand" />
 
+	<p class="year-review-link">
+		<a href={resolve('/(app)/rueckblick')}>Dein Jahresrückblick ansehen →</a>
+	</p>
+
 	<section class="panel">
 		<h2>Wie sich das entwickelt hat</h2>
 		<p class="panel-sub">
@@ -267,6 +271,11 @@
 {/if}
 
 <style>
+	.year-review-link {
+		margin: 0 0 1.5rem;
+		font-size: var(--text-sm);
+	}
+
 	.panel {
 		background: var(--color-surface);
 		border-radius: var(--radius-md);
