@@ -132,7 +132,24 @@
 
 body {
 	margin: 0;
-	background: var(--color-bg);
+	/* Two soft, static brand-teal glows behind the flat page colour — there
+	   only so the glass nav bar (see .nav in the app layout) has some colour
+	   and contrast to refract as content scrolls under it. Deliberately calm:
+	   this app's dark look has twice read as an industrial control panel, and
+	   a loud gradient would be a third way to get there. */
+	background:
+		radial-gradient(
+			60% 40% at 12% 0%,
+			color-mix(in srgb, var(--color-brand) 14%, transparent),
+			transparent 70%
+		),
+		radial-gradient(
+			55% 35% at 100% 100%,
+			color-mix(in srgb, var(--color-brand-accent) 12%, transparent),
+			transparent 70%
+		),
+		var(--color-bg);
+	background-attachment: fixed;
 	color: var(--color-text);
 	font-family: var(--font-sans);
 	font-size: var(--text-base);

@@ -76,11 +76,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		/* Same deep wash as the ride hero, in both schemes. It used to be
-		   --color-brand with white text, which breaks in the dark scheme where
-		   brand teal is light: white on light teal fails contrast. */
-		background: var(--color-hero-bg);
-		color: var(--color-hero-text);
+		/* Liquid-glass pilot (#644): the same translucent-blur surface the chart
+		   tooltip already uses, not a new pattern. Content scrolling underneath
+		   shows through, and the two body-level gradient glows (app.css) give it
+		   something to visibly refract on pages that are otherwise flat. */
+		background: var(--surface-glass);
+		backdrop-filter: blur(20px);
+		-webkit-backdrop-filter: blur(20px);
+		border-top: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+		color: var(--color-text);
 		/* iOS's home indicator and Android's gesture bar both own a strip along
 		   the bottom edge and swallow touches there. Padding the bar by that
 		   inset keeps its targets above the strip; the 0px fallback means
@@ -111,30 +115,31 @@
 	}
 
 	.nav a {
-		color: var(--color-hero-text);
+		color: var(--color-text);
 		text-decoration: none;
 		padding: 0.5rem 0.875rem;
 		border-radius: 10px;
-		opacity: 0.85;
+		opacity: 0.75;
 	}
 
 	.nav a[aria-current='page'] {
-		background: rgba(255, 255, 255, 0.18);
+		background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+		color: color-mix(in srgb, var(--color-brand) 70%, var(--color-text));
 		opacity: 1;
 		font-weight: 600;
 	}
 
 	.nav .logout {
-		background: rgba(255, 255, 255, 0.12);
+		background: color-mix(in srgb, var(--color-text) 8%, transparent);
 		border: none;
-		color: var(--color-hero-text);
+		color: var(--color-text);
 		border-radius: 10px;
 		padding: 0.4rem 0.9rem;
 		cursor: pointer;
 	}
 
 	.nav .logout:hover {
-		background: rgba(255, 255, 255, 0.22);
+		background: color-mix(in srgb, var(--color-text) 14%, transparent);
 	}
 
 	/* Four nav items plus the logout button don't fit a ~390px phone at full
@@ -169,6 +174,11 @@
 			width: 14rem;
 			height: 100vh;
 			padding: 1rem;
+			/* A hairline meant for the top edge of a bottom bar would sit oddly
+			   on a full-height sidebar's left edge — move it to the trailing
+			   edge instead. */
+			border-top: none;
+			border-right: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
 		}
 
 		.nav ul {
