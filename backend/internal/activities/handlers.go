@@ -577,9 +577,8 @@ func (h *Handlers) enduranceOf(ctx context.Context, activityID int64, intensityF
 		}
 		seconds := 0.0
 		if !prev.IsZero() {
-			// A gap over a minute is a stop, not a sampling interval — it must
-			// not weigh into either half of the ride.
-			if gap := t.Sub(prev).Seconds(); gap > 0 && gap <= 60 {
+			// A stop must not weigh into either half of the ride.
+			if gap := t.Sub(prev).Seconds(); gap > 0 && gap <= analyze.MaxSampleGapSeconds {
 				seconds = gap
 			}
 		}

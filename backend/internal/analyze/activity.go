@@ -2,6 +2,7 @@ package analyze
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -58,20 +59,15 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 	if lthrBpm == nil {
 		return nil
 	}
-	heartRates, err := loadSampleFloats(ctx, pool, activityID, "heart_rate")
+	trace, err := loadHeartRateTrace(ctx, pool, activityID)
 	if err != nil {
 		return err
 	}
-	if len(heartRates) == 0 {
+	if len(trace) == 0 {
 		return nil
 	}
-	var sum float64
-	for _, hr := range heartRates {
-		sum += hr
-	}
-	avgHeartRate := sum / float64(len(heartRates))
 
-	hrMetrics := ComputeHRMetrics(avgHeartRate, elapsedSeconds, *lthrBpm)
+	hrMetrics := ComputeHRMetrics(trace, *lthrBpm)
 	if hrMetrics == nil {
 		return nil
 	}
@@ -83,6 +79,76 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 		activityID, hrMetrics.IntensityFactor, hrMetrics.TSS,
 	)
 	return err
+}
+
+// loadHeartRateTrace reads the pulse readings with the stretch of time each one
+// stands for — the gap to the previous sample, with stops dropped. The first
+// reading of a ride covers nothing, because n samples describe n-1 intervals.
+func loadHeartRateTrace(ctx context.Context, pool *pgxpool.Pool, activityID int64) ([]HRPoint, error) {
+	rows, err := pool.Query(ctx, `
+		SELECT heart_rate, extract(epoch FROM time - lag(time) OVER (ORDER BY time))
+		FROM samples
+		WHERE activity_id = $1 AND heart_rate IS NOT NULL
+		ORDER BY time`,
+		activityID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var trace []HRPoint
+	for rows.Next() {
+		var bpm int
+		var gap *float64
+		if err := rows.Scan(&bpm, &gap); err != nil {
+			return nil, err
+		}
+		if gap == nil || *gap <= 0 || *gap > MaxSampleGapSeconds {
+			continue
+		}
+		trace = append(trace, HRPoint{Bpm: float64(bpm), Seconds: *gap})
+	}
+	return trace, rows.Err()
+}
+
+// RecomputeHeartRateLoad rewrites the training load of every ride that was
+// scored from heart rate. It exists because the formula behind those numbers
+// changed (#622): leaving old rides on the old one would put an invisible step
+// in the fitness curve at the day of the upgrade, which reads as a training
+// event that never happened. Power-based rides are left alone — their formula
+// is unchanged, and recomputing them would be work for an identical result.
+//
+// ponytail: runs on every start and rescans the samples of every HR ride. One
+// aggregate query per ride, a few hundred rides for a rider with years of
+// history. Add a marker column if boot time ever becomes noticeable.
+func RecomputeHeartRateLoad(ctx context.Context, pool *pgxpool.Pool) error {
+	rows, err := pool.Query(ctx, `
+		SELECT id FROM activities
+		WHERE normalized_power_watts IS NULL AND avg_heart_rate IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	for _, id := range ids {
+		if err := Activity(ctx, pool, id); err != nil {
+			return fmt.Errorf("activity %d: %w", id, err)
+		}
+	}
+	return nil
 }
 
 // loadSampleFloats reads a single non-null numeric column from samples,

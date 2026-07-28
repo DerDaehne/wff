@@ -68,6 +68,17 @@ func runServer() {
 
 	go enrich.RunPoller(ctx, pool, weather, enrichmentPollInterval())
 
+	// Heart-rate-based training load is computed from the pulse trace rather
+	// than the ride's average (#622). Rides scored under the old formula are
+	// brought onto the new one here — a history half on each would put a step
+	// in the fitness curve that no ride caused. Off the request path, and a
+	// failure only costs accuracy on old rides, so it logs rather than exits.
+	go func() {
+		if err := analyze.RecomputeHeartRateLoad(ctx, pool); err != nil {
+			log.Printf("recompute heart-rate load: %v", err)
+		}
+	}()
+
 	addr := ":" + cmp.Or(os.Getenv("PORT"), "8080")
 	log.Printf("wff backend listening on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {

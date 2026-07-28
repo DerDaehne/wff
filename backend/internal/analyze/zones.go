@@ -65,6 +65,9 @@ const (
 	// zoneRideMinSeconds — the same idea for a single ride: under ten minutes
 	// of pulse there is no distribution worth showing.
 	zoneRideMinSeconds = 600
+	// zoneMixedHardShare — above this much time above threshold, a ride is an
+	// interval session whatever its biggest band says.
+	zoneMixedHardShare = 0.15
 )
 
 // ZoneBounds converts the percentage model into the absolute pulse values that
@@ -126,6 +129,27 @@ func RideZones(seconds []int) (ZoneDistribution, bool) {
 		if z.Seconds > top.Seconds {
 			top = z
 		}
+	}
+
+	// An interval session spends most of its minutes recovering, so its biggest
+	// band is "ganz locker" — which would print as the ride's character
+	// directly under the card calling that same ride hard, and the pair reads
+	// as a bug. Once a real part of the ride was above threshold, the split is
+	// the honest summary, not the largest slice of it.
+	if easy, grey, hard := d.shares(); hard >= zoneMixedHardShare {
+		return ZoneDistribution{
+			Zones:        d.Zones,
+			TotalSeconds: d.TotalSeconds,
+			Statements: []Statement{{
+				Text: fmt.Sprintf(
+					"Diese Fahrt hatte kein einheitliches Tempo: %d %% locker, %d %% zügig, %d %% hart. "+
+						"So sieht es aus, wenn du zwischendurch richtig Gas gegeben hast — der "+
+						"Durchschnittspuls verrät davon nichts, die Aufteilung schon.",
+					int(easy*100+0.5), int(grey*100+0.5), int(hard*100+0.5)),
+				Metric: fmt.Sprintf("%s Puls aufgezeichnet", duration(d.TotalSeconds)),
+				Kind:   "zones",
+			}},
+		}, true
 	}
 
 	d.Statements = []Statement{{
@@ -211,11 +235,10 @@ func zoneSeconds(ctx context.Context, pool *pgxpool.Pool, activityIDs []int64, l
 			FROM samples
 			WHERE activity_id = ANY($1) AND heart_rate IS NOT NULL
 		) t
-		-- A gap over a minute is a stop, not a sampling interval: it belongs to
-		-- no zone. Same rule as the efficiency calculation uses.
-		WHERE gap > 0 AND gap <= 60
+		-- A stop belongs to no zone.
+		WHERE gap > 0 AND gap <= $3
 		GROUP BY bucket`,
-		activityIDs, ZoneBounds(lthrBpm),
+		activityIDs, ZoneBounds(lthrBpm), MaxSampleGapSeconds,
 	)
 	if err != nil {
 		return nil, err

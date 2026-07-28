@@ -50,10 +50,13 @@ func DataGaps(ctx context.Context, pool *pgxpool.Pool, userID int64, estimates E
 	}
 
 	// One pass over the recent rides answers all three data questions.
+	// bool_or over no rows is NULL, not false — without the coalesce a rider
+	// who has not uploaded anything yet gets an error instead of their list of
+	// gaps, which is exactly the moment the list matters most.
 	if err := pool.QueryRow(ctx, `
 		SELECT
-			bool_or(normalized_power_watts IS NOT NULL),
-			bool_or(avg_heart_rate IS NOT NULL),
+			coalesce(bool_or(normalized_power_watts IS NOT NULL), false),
+			coalesce(bool_or(avg_heart_rate IS NOT NULL), false),
 			max(elevation_gain_meters)
 		FROM activities
 		WHERE user_id = $1 AND started_at > now() - make_interval(days => $2)`,

@@ -40,6 +40,23 @@ func TestRideZonesNamesTheBandTheRideLivedIn(t *testing.T) {
 	}
 }
 
+// An interval session spends most of its time recovering. Calling it "mostly
+// ganz locker" would sit right under the card calling the same ride hard.
+func TestRideZonesDoesNotCallAnIntervalRideEasy(t *testing.T) {
+	// 40 min in the recovery band between efforts, 20 min above threshold.
+	d, ok := RideZones([]int{2400, 0, 0, 0, 1200})
+	if !ok {
+		t.Fatal("refused a ride with an hour of pulse")
+	}
+	text := d.Statements[0].Text
+	if strings.Contains(text, "Ganz locker") {
+		t.Errorf("text = %q, want it not to sum up an interval ride as the easy band", text)
+	}
+	if !strings.Contains(text, "33 % hart") {
+		t.Errorf("text = %q, want the split spelled out", text)
+	}
+}
+
 func TestRideZonesRefuseWhenBarelyAnyPulseWasRecorded(t *testing.T) {
 	// Five minutes: the strap was picked up late, or fell off early. A
 	// distribution over that describes the strap, not the ride.
