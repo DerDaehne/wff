@@ -17,6 +17,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
+	import ZoneBars from '$lib/components/ZoneBars.svelte';
 
 	// maplibre-gl's own worker-URL construction is a runtime string template
 	// (`new URL('./maplibre-gl-worker.mjs', import.meta.url)`), which Vite's
@@ -163,6 +164,17 @@
 	<StoryHero {story} fallbackTitle="Deine Fahrt" note={conditions[0]} />
 
 	<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
+
+	{#if story?.zones && story.zones.total_seconds > 0}
+		<section class="panel">
+			<h2>Wo dein Puls lag</h2>
+			<p class="panel-sub">
+				Der Durchschnittspuls verrät nicht, ob du gleichmäßig unterwegs warst oder zwischendurch
+				hart. Diese Aufteilung schon.
+			</p>
+			<ZoneBars distribution={story.zones} label="Zeit in den Pulsbereichen dieser Fahrt" />
+		</section>
+	{/if}
 
 	<section class="panel">
 		<h2>Wo du gefahren bist</h2>

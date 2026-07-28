@@ -1,5 +1,6 @@
 import { apiFetch } from './api';
 import type { RideStatement } from './rides';
+import type { ZoneDistribution } from './zones';
 
 /** One calendar week of riding, aggregated. Weeks rather than rides because a
  *  single ride says nothing about progress — one tailwind evening beats a good
@@ -33,6 +34,9 @@ export interface Progress {
 	weeks: Week[];
 	statements: RideStatement[];
 	endurance: EnduranceTrend;
+	/** Time per heart-rate band over the recent weeks (#621) — the distribution
+	 *  says more about training than any weekly average. */
+	zones: ZoneDistribution;
 }
 
 export async function getProgress(): Promise<Progress> {
@@ -41,6 +45,11 @@ export async function getProgress(): Promise<Progress> {
 	return {
 		weeks: data.weeks ?? [],
 		statements: data.statements ?? [],
+		zones: {
+			zones: data.zones?.zones ?? [],
+			total_seconds: data.zones?.total_seconds ?? 0,
+			statements: data.zones?.statements ?? []
+		},
 		endurance: {
 			weeks: data.endurance?.weeks ?? [],
 			from_power: data.endurance?.from_power ?? false,

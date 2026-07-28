@@ -33,6 +33,9 @@ type Progress struct {
 	// ride" but "does my heart do less work for it" (#619). Its own series,
 	// because it deliberately ignores most rides.
 	Endurance EnduranceTrend `json:"endurance"`
+	// Zones is how the recent weeks were spread across the effort bands
+	// (#621) — the one place where a distribution says more than any average.
+	Zones ZoneDistribution `json:"zones"`
 }
 
 const (
@@ -85,6 +88,15 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	progress.Statements = progressStatements(progress.Weeks)
 
 	progress.Endurance, err = WeeklyEnduranceTrend(ctx, pool, userID)
+	if err != nil {
+		return Progress{}, err
+	}
+
+	var lthrBpm *int
+	if err := pool.QueryRow(ctx, `SELECT lthr_bpm FROM users WHERE id = $1`, userID).Scan(&lthrBpm); err != nil {
+		return Progress{}, err
+	}
+	progress.Zones, err = RecentZones(ctx, pool, userID, lthrBpm)
 	if err != nil {
 		return Progress{}, err
 	}

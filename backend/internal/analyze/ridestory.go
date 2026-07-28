@@ -29,6 +29,10 @@ type Story struct {
 	// for.
 	Gauge      *Gauge      `json:"gauge,omitempty"`
 	Statements []Statement `json:"statements"`
+	// Zones is the ride's time per heart-rate band, for the bar that shows how
+	// the effort was actually spread (#621). Absent on the dashboard story and
+	// on rides without a threshold heart rate.
+	Zones *ZoneDistribution `json:"zones,omitempty"`
 }
 
 // Stat is one headline figure: "42,3" + "km" + "Distanz".
@@ -100,6 +104,9 @@ type RideFacts struct {
 	// (#613). Nil whenever the ride was too short, too hard or too ragged for
 	// the number to describe anything.
 	Endurance *Efficiency
+	// Zones is the time spent in each heart-rate band (#621). Nil without a
+	// threshold heart rate, or when too little pulse was recorded.
+	Zones *ZoneDistribution
 }
 
 // minRidesForComparison — with fewer earlier rides than this, "compared to
@@ -179,6 +186,12 @@ func RideStory(f RideFacts) Story {
 	add(climbStatement(f))
 	if f.Endurance != nil {
 		add(efficiencyStatement(*f.Endurance), true)
+	}
+	if f.Zones != nil {
+		story.Zones = f.Zones
+		for _, s := range f.Zones.Statements {
+			add(s, true)
+		}
 	}
 	for _, s := range contextStatements(f) {
 		add(s, true)

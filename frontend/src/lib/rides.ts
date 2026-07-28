@@ -1,4 +1,5 @@
 import { apiFetch } from './api';
+import type { ZoneDistribution } from './zones';
 
 export interface ActivitySummary {
 	id: number;
@@ -63,6 +64,8 @@ export interface RideStatement {
 		// Whether the aerobic base itself is growing, across comparable rides
 		// only (#619) — a different question from 'trend' over all rides.
 		| 'endurance_trend'
+		// How the effort was spread across the heart-rate bands (#621).
+		| 'zones'
 		| 'hint_profile'
 		| 'hint_history';
 }
@@ -89,6 +92,9 @@ export interface RideStory {
 	/** The one bar a view shows: ride intensity, or training level (#611). */
 	gauge?: RideGauge;
 	statements: RideStatement[];
+	/** Time per heart-rate band (#621). Absent without a threshold heart rate
+	 *  or with too little pulse recorded. */
+	zones?: ZoneDistribution;
 }
 
 export async function getActivityStory(id: number): Promise<RideStory> {

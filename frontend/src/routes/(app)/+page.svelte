@@ -15,6 +15,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
+	import ZoneBars from '$lib/components/ZoneBars.svelte';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -195,6 +196,27 @@
 			/>
 		</section>
 		<StoryCards statements={progress.statements} label="Fortschritt über die Wochen" />
+	{/if}
+
+	<!-- Panel only when there are bars to draw: without a threshold pulse the
+	     heading would introduce an empty box, and the hint card below says the
+	     same thing without pretending there is a chart. -->
+	{#if progress && progress.zones.total_seconds > 0}
+		<section class="panel">
+			<h2>Wie hart fährst du eigentlich?</h2>
+			<p class="panel-sub">
+				Die letzten vier Wochen, aufgeteilt nach Puls. Die Verteilung entscheidet mehr über den
+				Fortschritt als jede einzelne Fahrt — und der häufigste Fehler ist, ständig im mittleren
+				Bereich zu fahren.
+			</p>
+			<ZoneBars
+				distribution={progress.zones}
+				label="Zeit in den Pulsbereichen der letzten Wochen"
+			/>
+		</section>
+	{/if}
+	{#if progress}
+		<StoryCards statements={progress.zones.statements} label="Deine Verteilung" />
 	{/if}
 
 	{#if progress && progress.endurance.statements.length > 0}

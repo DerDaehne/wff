@@ -51,6 +51,15 @@
 	--chart-ctl: #2dd4bf;
 	--chart-atl: #fbbf24;
 	--chart-tsb: #94a3b8;
+
+	/* Heart-rate zones (#621), cool to warm in the order of effort. Shared by
+	   the ride view and the dashboard so the same band is the same colour
+	   everywhere — that recognition is the whole point of the bar. */
+	--zone-recovery: #94a3b8;
+	--zone-endurance: #2dd4bf;
+	--zone-tempo: #fbbf24;
+	--zone-threshold: #fb923c;
+	--zone-vo2: #fb7185;
 }
 
 /* Light scheme (default) */

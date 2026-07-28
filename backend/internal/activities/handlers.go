@@ -68,18 +68,19 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	var (
 		facts                     analyze.RideFacts
 		normalizedPower, avgPower *float64
+		lthrBpm                   *int
 		ownerID                   int64
 	)
 	err = h.pool.QueryRow(r.Context(), `
 		SELECT a.user_id, a.started_at, a.elapsed_seconds, a.moving_seconds, a.distance_meters,
 		       a.elevation_gain_meters, a.intensity_factor, a.training_stress_score, a.normalized_power_watts,
-		       a.avg_power_watts, u.weight_kg, coalesce(u.primary_metric, '')
+		       a.avg_power_watts, u.weight_kg, coalesce(u.primary_metric, ''), u.lthr_bpm
 		FROM activities a JOIN users u ON u.id = a.user_id
 		WHERE a.id = $1`,
 		activityID,
 	).Scan(&ownerID, &facts.StartedAt, &facts.ElapsedSeconds, &facts.MovingSeconds, &facts.DistanceMeters,
 		&facts.ElevationGainMeters, &facts.IntensityFactor, &facts.TSS, &normalizedPower,
-		&avgPower, &facts.WeightKg, &facts.PrimaryMetric)
+		&avgPower, &facts.WeightKg, &facts.PrimaryMetric, &lthrBpm)
 	if err != nil || ownerID != userID {
 		// Same 404 for "not yours" and "doesn't exist" — see samples().
 		http.Error(w, "activity not found", http.StatusNotFound)
@@ -149,6 +150,15 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	facts.Endurance = endurance
+
+	// Where the pulse actually sat during the ride (#621) — the average alone
+	// hides whether this was steady or four hard efforts with rests.
+	zones, err := analyze.ActivityZones(r.Context(), h.pool, activityID, lthrBpm)
+	if err != nil {
+		http.Error(w, "could not compute heart-rate zones", http.StatusInternalServerError)
+		return
+	}
+	facts.Zones = zones
 
 	writeActivitiesJSON(w, analyze.RideStory(facts))
 }

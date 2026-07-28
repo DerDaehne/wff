@@ -17,6 +17,7 @@
 		form: 'Wie es dir gerade geht',
 		trend: 'Ob du besser wirst',
 		endurance_trend: 'Ob deine Ausdauer wächst',
+		zones: 'Wie du die Zeit verteilt hast',
 		hint_profile: 'Dafür fehlt noch etwas',
 		hint_history: 'Dafür fehlt noch etwas'
 	};
