@@ -38,6 +38,13 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 	}
 
 	if len(powerWatts) > 0 {
+		// Independent of FTP: a power curve is raw sustained output, and
+		// #594 means to estimate FTP FROM it — it can't itself wait on one
+		// already being configured (#592).
+		if err := ComputePowerCurve(ctx, pool, activityID); err != nil {
+			return err
+		}
+
 		if ftpWatts == nil {
 			return nil
 		}
