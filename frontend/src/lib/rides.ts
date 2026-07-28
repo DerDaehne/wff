@@ -71,6 +71,9 @@ export interface RideStatement {
 		| 'zones'
 		// What the ride cost in energy, estimated from the pulse (#625).
 		| 'calories'
+		// A personal record this ride just set — own history only, never a
+		// comparison with other riders (#636).
+		| 'milestone'
 		| 'hint_profile'
 		| 'hint_history';
 }

@@ -112,6 +112,9 @@ type RideFacts struct {
 	AvgHeartRate *float64
 	BirthYear    *int
 	Sex          *string
+	// Milestones are the rider's best-ever distance/climbing figures from
+	// before this ride (#636) — nil fields mean nothing to compare against.
+	Milestones MilestoneFacts
 }
 
 // ageAtRide is the rider's age in the season the ride happened, not today. A
@@ -231,6 +234,9 @@ func RideStory(f RideFacts) Story {
 		add(s, true)
 	}
 	add(comparisonStatement(f))
+	for _, s := range milestoneStatements(f) {
+		add(s, true)
+	}
 
 	story.Statements = append(story.Statements, hints...)
 	return story

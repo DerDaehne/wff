@@ -19,6 +19,7 @@
 		endurance_trend: 'Ob deine Ausdauer wächst',
 		zones: 'Wie du die Zeit verteilt hast',
 		calories: 'Was es an Energie gekostet hat',
+		milestone: 'Persönlicher Rekord',
 		hint_profile: 'Dafür fehlt noch etwas',
 		hint_history: 'Dafür fehlt noch etwas'
 	};
@@ -142,6 +143,10 @@
 
 	.statement-calories {
 		--chip-color: var(--zone-tempo);
+	}
+
+	.statement-milestone {
+		--chip-color: var(--color-success);
 	}
 
 	.statement-hint_profile,

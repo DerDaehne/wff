@@ -143,6 +143,13 @@ func (h *Handlers) story(w http.ResponseWriter, r *http.Request) {
 	}
 	facts.Course = course
 
+	// Personal records, own history only (#636).
+	facts.Milestones, err = analyze.PriorBests(r.Context(), h.pool, userID, facts.StartedAt)
+	if err != nil {
+		http.Error(w, "could not load ride history", http.StatusInternalServerError)
+		return
+	}
+
 	// Endurance quality needs heart rate plus either power or speed, and only
 	// says something on a steady aerobic ride — analyze decides that, this
 	// just supplies the samples and the two steadiness inputs.
