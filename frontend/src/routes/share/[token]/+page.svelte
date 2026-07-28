@@ -72,8 +72,9 @@
 <style>
 	.share-page {
 		display: flex;
+		align-items: center;
 		justify-content: center;
-		padding-top: 15vh;
+		min-height: 100dvh;
 	}
 
 	.share-card {

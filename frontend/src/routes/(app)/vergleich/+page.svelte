@@ -27,38 +27,40 @@
 	}
 </script>
 
-<h1>Trainingserfolg im Vergleich</h1>
+<div class="page-center">
+	<h1>Trainingserfolg im Vergleich</h1>
 
-{#if viewState === 'loading'}
-	<p>Lädt…</p>
-{:else if viewState === 'error'}
-	<p role="alert">{errorMessage}</p>
-{:else if result && !result.opted_in}
-	<EmptyState
-		message="Um andere zu sehen, musst du selbst zustimmen — dein Trainingsstand wird dann genauso für die anderen sichtbar."
-		actionHref={resolve('/(app)/profile')}
-		actionLabel="Im Profil zustimmen"
-	/>
-{:else if result}
-	<p class="hint">
-		Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
-		bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
-	</p>
-	<ul class="entries">
-		{#each result.entries as entry (entry.display_name)}
-			<li class="entry" class:you={entry.is_you}>
-				<span class="name">{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>
-				<span
-					class="delta"
-					class:positive={entry.delta_ctl !== null && entry.delta_ctl > 0}
-					class:muted={entry.delta_ctl === null}
-				>
-					{formatDelta(entry.delta_ctl)}
-				</span>
-			</li>
-		{/each}
-	</ul>
-{/if}
+	{#if viewState === 'loading'}
+		<p>Lädt…</p>
+	{:else if viewState === 'error'}
+		<p role="alert">{errorMessage}</p>
+	{:else if result && !result.opted_in}
+		<EmptyState
+			message="Um andere zu sehen, musst du selbst zustimmen — dein Trainingsstand wird dann genauso für die anderen sichtbar."
+			actionHref={resolve('/(app)/profile')}
+			actionLabel="Im Profil zustimmen"
+		/>
+	{:else if result}
+		<p class="hint">
+			Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
+			bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
+		</p>
+		<ul class="entries">
+			{#each result.entries as entry (entry.display_name)}
+				<li class="entry" class:you={entry.is_you}>
+					<span class="name">{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>
+					<span
+						class="delta"
+						class:positive={entry.delta_ctl !== null && entry.delta_ctl > 0}
+						class:muted={entry.delta_ctl === null}
+					>
+						{formatDelta(entry.delta_ctl)}
+					</span>
+				</li>
+			{/each}
+		</ul>
+	{/if}
+</div>
 
 <style>
 	.hint {

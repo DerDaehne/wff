@@ -38,57 +38,59 @@
 	}
 </script>
 
-<h1>Dein Jahr {year}</h1>
-<p class="year-nav">
-	<a href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
-	<a href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
-</p>
+<div class="page-center">
+	<h1>Dein Jahr {year}</h1>
+	<p class="year-nav">
+		<a href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
+		<a href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
+	</p>
 
-{#if viewState === 'loading'}
-	<p>Lädt…</p>
-{:else if viewState === 'error'}
-	<p role="alert">{errorMessage}</p>
-{:else if review && review.ride_count === 0}
-	<EmptyState message="Keine Fahrten im Jahr {year}." />
-{:else if review}
-	<div class="sums">
-		<div class="sum">
-			<strong>{review.ride_count}</strong>
-			<span>{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</span>
+	{#if viewState === 'loading'}
+		<p>Lädt…</p>
+	{:else if viewState === 'error'}
+		<p role="alert">{errorMessage}</p>
+	{:else if review && review.ride_count === 0}
+		<EmptyState message="Keine Fahrten im Jahr {year}." />
+	{:else if review}
+		<div class="sums">
+			<div class="sum">
+				<strong>{review.ride_count}</strong>
+				<span>{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</span>
+			</div>
+			<div class="sum">
+				<strong>{formatDistance(review.distance_meters)}</strong>
+				<span>Distanz</span>
+			</div>
+			<div class="sum">
+				<strong>{Math.round(review.elevation_gain_meters)} hm</strong>
+				<span>Höhenmeter</span>
+			</div>
+			<div class="sum">
+				<strong>{formatDuration(review.moving_seconds)}</strong>
+				<span>Auf dem Rad</span>
+			</div>
 		</div>
-		<div class="sum">
-			<strong>{formatDistance(review.distance_meters)}</strong>
-			<span>Distanz</span>
-		</div>
-		<div class="sum">
-			<strong>{Math.round(review.elevation_gain_meters)} hm</strong>
-			<span>Höhenmeter</span>
-		</div>
-		<div class="sum">
-			<strong>{formatDuration(review.moving_seconds)}</strong>
-			<span>Auf dem Rad</span>
-		</div>
-	</div>
 
-	{#if review.longest_ride}
-		<p class="highlight">
-			Deine weiteste Fahrt:
-			<a href={resolve('/(app)/rides/[id]', { id: String(review.longest_ride.activity_id) })}>
-				{formatDistance(review.longest_ride.value)} am {rideDate(review.longest_ride.started_at)}
-			</a>
-		</p>
+		{#if review.longest_ride}
+			<p class="highlight">
+				Deine weiteste Fahrt:
+				<a href={resolve('/(app)/rides/[id]', { id: String(review.longest_ride.activity_id) })}>
+					{formatDistance(review.longest_ride.value)} am {rideDate(review.longest_ride.started_at)}
+				</a>
+			</p>
+		{/if}
+		{#if review.hardest_ride}
+			<p class="highlight">
+				Deine härteste Fahrt:
+				<a href={resolve('/(app)/rides/[id]', { id: String(review.hardest_ride.activity_id) })}>
+					Belastung {Math.round(review.hardest_ride.value)} am {rideDate(
+						review.hardest_ride.started_at
+					)}
+				</a>
+			</p>
+		{/if}
 	{/if}
-	{#if review.hardest_ride}
-		<p class="highlight">
-			Deine härteste Fahrt:
-			<a href={resolve('/(app)/rides/[id]', { id: String(review.hardest_ride.activity_id) })}>
-				Belastung {Math.round(review.hardest_ride.value)} am {rideDate(
-					review.hardest_ride.started_at
-				)}
-			</a>
-		</p>
-	{/if}
-{/if}
+</div>
 
 <style>
 	.year-nav {

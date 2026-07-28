@@ -136,154 +136,157 @@
 	}
 </script>
 
-<h1>Fahrt hochladen</h1>
-<p class="lead">
-	Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
-	Einordnung macht die App danach von allein.
-</p>
-
-{#if sharedProblem}
-	<p class="shared-problem" role="alert">{sharedProblem}</p>
-{/if}
-
-<div
-	class="dropzone"
-	class:dragover={dragOver}
-	ondrop={onDrop}
-	ondragover={onDragOver}
-	ondragleave={onDragLeave}
-	role="button"
-	tabindex="0"
-	onclick={() => fileInput.click()}
-	onkeydown={(e) => e.key === 'Enter' && fileInput.click()}
->
-	{#if status === 'uploading'}
-		<p>Wird hochgeladen…</p>
-	{:else}
-		<p>Datei hierher ziehen oder klicken zum Auswählen</p>
-	{/if}
-	<input
-		bind:this={fileInput}
-		type="file"
-		accept=".fit"
-		hidden
-		onchange={onInputChange}
-		disabled={status === 'uploading'}
-	/>
-</div>
-
-{#if status === 'success'}
-	<p role="status" class="done">Fahrt ist da.</p>
-	<div class="actions">
-		<a class="btn btn-primary" href={resolve('/(app)/rides/[id]', { id: String(activityId) })}>
-			Fahrt ansehen
-		</a>
-		<button class="btn btn-secondary" onclick={reset}>Noch eine hochladen</button>
-	</div>
-{:else if status === 'error'}
-	<p role="alert">{errorMessage}</p>
-	<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
-{/if}
-
-<details class="phone" ontoggle={loadTokens}>
-	<summary>Direkt vom Handy hochladen — ohne Umweg über den Rechner</summary>
-
-	<h2>Android</h2>
-	<p>
-		Nichts einzurichten. Öffne die Fahrt in SIGMA RIDE, geh auf <strong>Teilen</strong> und wähle
-		<strong>WFF</strong> aus der Liste. Die Fahrt landet direkt hier — vorausgesetzt, du hast WFF
-		über <em>„Zum Startbildschirm hinzufügen"</em> installiert.
+<div class="page-center">
+	<h1>Fahrt hochladen</h1>
+	<p class="lead">
+		Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
+		Einordnung macht die App danach von allein.
 	</p>
 
-	<h2>iPhone</h2>
-	<p>
-		Apple lässt Web-Apps nicht in die Teilen-Liste. Der Umweg ist ein <strong>Kurzbefehl</strong> — einmal
-		angelegt, taucht er beim Teilen genauso auf. Dafür braucht er einen eigenen Schlüssel, weil er sich
-		nicht per Face ID anmelden kann.
-	</p>
-
-	<h3>1. Schlüssel anlegen</h3>
-	{#if tokenError}
-		<p role="alert">{tokenError}</p>
+	{#if sharedProblem}
+		<p class="shared-problem" role="alert">{sharedProblem}</p>
 	{/if}
-	<div class="token-new">
-		<input class="input" bind:value={newTokenName} aria-label="Name des Geräts" maxlength="60" />
-		<button class="btn btn-secondary" type="button" onclick={addToken}>Schlüssel erzeugen</button>
+
+	<div
+		class="dropzone"
+		class:dragover={dragOver}
+		ondrop={onDrop}
+		ondragover={onDragOver}
+		ondragleave={onDragLeave}
+		role="button"
+		tabindex="0"
+		onclick={() => fileInput.click()}
+		onkeydown={(e) => e.key === 'Enter' && fileInput.click()}
+	>
+		{#if status === 'uploading'}
+			<p>Wird hochgeladen…</p>
+		{:else}
+			<p>Datei hierher ziehen oder klicken zum Auswählen</p>
+		{/if}
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept=".fit"
+			hidden
+			onchange={onInputChange}
+			disabled={status === 'uploading'}
+		/>
 	</div>
 
-	{#if freshToken}
-		<div class="token-fresh">
-			<p>
-				<strong>Jetzt kopieren.</strong> Danach zeigt ihn dir niemand mehr — auch die App nicht.
-			</p>
-			<code>{freshToken}</code>
-			<button class="btn btn-secondary" type="button" onclick={copyToken}>
-				{copied ? 'Kopiert' : 'Kopieren'}
-			</button>
+	{#if status === 'success'}
+		<p role="status" class="done">Fahrt ist da.</p>
+		<div class="actions">
+			<a class="btn btn-primary" href={resolve('/(app)/rides/[id]', { id: String(activityId) })}>
+				Fahrt ansehen
+			</a>
+			<button class="btn btn-secondary" onclick={reset}>Noch eine hochladen</button>
 		</div>
+	{:else if status === 'error'}
+		<p role="alert">{errorMessage}</p>
+		<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
 	{/if}
 
-	{#if tokens.length > 0}
-		<ul class="token-list">
-			{#each tokens as token (token.id)}
-				<li>
-					<div>
-						<strong>{token.name}</strong>
-						<span class="token-meta">
-							angelegt am {tokenDate(token.created_at)} ·
-							{token.last_used_at
-								? `zuletzt benutzt am ${tokenDate(token.last_used_at)}`
-								: 'noch nie benutzt'}
-						</span>
-					</div>
-					<button class="btn btn-secondary" type="button" onclick={() => revoke(token)}>
-						Löschen
-					</button>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+	<details class="phone" ontoggle={loadTokens}>
+		<summary>Direkt vom Handy hochladen — ohne Umweg über den Rechner</summary>
 
-	<h3>2. Kurzbefehl bauen</h3>
-	<ol class="recipe">
-		<li>App <strong>Kurzbefehle</strong> öffnen, oben rechts auf <strong>+</strong>.</li>
-		<li>
-			<strong>Aktion hinzufügen</strong> → nach <em>„Inhalte von URL abrufen"</em> suchen und antippen.
-		</li>
-		<li>
-			Auf <strong>URL</strong> tippen und eintragen: <code>{page.url.origin}/api/activities</code>
-		</li>
-		<li>
-			Auf <em>„Weitere anzeigen"</em> tippen und <strong>Methode</strong> auf <code>POST</code> stellen.
-		</li>
-		<li>
-			Bei <strong>Header</strong> ein Feld hinzufügen: Schlüssel <code>Authorization</code>, Wert
-			<code>Bearer</code> + Leerzeichen + dein Schlüssel von oben.
-		</li>
-		<li>
-			Bei <strong>Anfragetext</strong> die Art <strong>Formular</strong> wählen, ein Feld
-			hinzufügen, dessen Typ auf <strong>Datei</strong> stellen, Schlüssel <code>file</code>, Wert
-			<em>„Kurzbefehlseingabe"</em>.
-		</li>
-		<li>
-			Oben auf den Namen tippen → <em>„Details"</em> → <strong>„Bei Teilen-Sheet anzeigen"</strong>
-			einschalten, Eingabetyp <strong>Dateien</strong>.
-		</li>
-		<li>Kurzbefehl benennen, z. B. <em>„An WFF senden"</em>, und sichern.</li>
-	</ol>
+		<h2>Android</h2>
+		<p>
+			Nichts einzurichten. Öffne die Fahrt in SIGMA RIDE, geh auf <strong>Teilen</strong> und wähle
+			<strong>WFF</strong> aus der Liste. Die Fahrt landet direkt hier — vorausgesetzt, du hast WFF
+			über <em>„Zum Startbildschirm hinzufügen"</em> installiert.
+		</p>
 
-	<h3>3. Benutzen</h3>
-	<p>
-		Fahrt in SIGMA RIDE öffnen → <strong>Exportieren/Teilen</strong> → <code>.fit</code> → in der
-		Liste <em>„An WFF senden"</em>. Danach steht sie unter „Fahrten".
-	</p>
+		<h2>iPhone</h2>
+		<p>
+			Apple lässt Web-Apps nicht in die Teilen-Liste. Der Umweg ist ein <strong>Kurzbefehl</strong> —
+			einmal angelegt, taucht er beim Teilen genauso auf. Dafür braucht er einen eigenen Schlüssel, weil
+			er sich nicht per Face ID anmelden kann.
+		</p>
 
-	<p class="token-note">
-		Der Schlüssel darf nur eines: Fahrten hochladen. Er kommt an keine Fahrt, keine Auswertung und
-		kein Profil heran und kann sich auch nicht selbst verlängern. Geht das Handy verloren, löschst
-		du ihn hier — ab dem Moment nimmt die App von diesem Gerät nichts mehr an.
-	</p>
-</details>
+		<h3>1. Schlüssel anlegen</h3>
+		{#if tokenError}
+			<p role="alert">{tokenError}</p>
+		{/if}
+		<div class="token-new">
+			<input class="input" bind:value={newTokenName} aria-label="Name des Geräts" maxlength="60" />
+			<button class="btn btn-secondary" type="button" onclick={addToken}>Schlüssel erzeugen</button>
+		</div>
+
+		{#if freshToken}
+			<div class="token-fresh">
+				<p>
+					<strong>Jetzt kopieren.</strong> Danach zeigt ihn dir niemand mehr — auch die App nicht.
+				</p>
+				<code>{freshToken}</code>
+				<button class="btn btn-secondary" type="button" onclick={copyToken}>
+					{copied ? 'Kopiert' : 'Kopieren'}
+				</button>
+			</div>
+		{/if}
+
+		{#if tokens.length > 0}
+			<ul class="token-list">
+				{#each tokens as token (token.id)}
+					<li>
+						<div>
+							<strong>{token.name}</strong>
+							<span class="token-meta">
+								angelegt am {tokenDate(token.created_at)} ·
+								{token.last_used_at
+									? `zuletzt benutzt am ${tokenDate(token.last_used_at)}`
+									: 'noch nie benutzt'}
+							</span>
+						</div>
+						<button class="btn btn-secondary" type="button" onclick={() => revoke(token)}>
+							Löschen
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+
+		<h3>2. Kurzbefehl bauen</h3>
+		<ol class="recipe">
+			<li>App <strong>Kurzbefehle</strong> öffnen, oben rechts auf <strong>+</strong>.</li>
+			<li>
+				<strong>Aktion hinzufügen</strong> → nach <em>„Inhalte von URL abrufen"</em> suchen und antippen.
+			</li>
+			<li>
+				Auf <strong>URL</strong> tippen und eintragen: <code>{page.url.origin}/api/activities</code>
+			</li>
+			<li>
+				Auf <em>„Weitere anzeigen"</em> tippen und <strong>Methode</strong> auf <code>POST</code> stellen.
+			</li>
+			<li>
+				Bei <strong>Header</strong> ein Feld hinzufügen: Schlüssel <code>Authorization</code>, Wert
+				<code>Bearer</code> + Leerzeichen + dein Schlüssel von oben.
+			</li>
+			<li>
+				Bei <strong>Anfragetext</strong> die Art <strong>Formular</strong> wählen, ein Feld
+				hinzufügen, dessen Typ auf <strong>Datei</strong> stellen, Schlüssel <code>file</code>, Wert
+				<em>„Kurzbefehlseingabe"</em>.
+			</li>
+			<li>
+				Oben auf den Namen tippen → <em>„Details"</em> →
+				<strong>„Bei Teilen-Sheet anzeigen"</strong>
+				einschalten, Eingabetyp <strong>Dateien</strong>.
+			</li>
+			<li>Kurzbefehl benennen, z. B. <em>„An WFF senden"</em>, und sichern.</li>
+		</ol>
+
+		<h3>3. Benutzen</h3>
+		<p>
+			Fahrt in SIGMA RIDE öffnen → <strong>Exportieren/Teilen</strong> → <code>.fit</code> → in der
+			Liste <em>„An WFF senden"</em>. Danach steht sie unter „Fahrten".
+		</p>
+
+		<p class="token-note">
+			Der Schlüssel darf nur eines: Fahrten hochladen. Er kommt an keine Fahrt, keine Auswertung und
+			kein Profil heran und kann sich auch nicht selbst verlängern. Geht das Handy verloren, löschst
+			du ihn hier — ab dem Moment nimmt die App von diesem Gerät nichts mehr an.
+		</p>
+	</details>
+</div>
 
 <style>
 	.lead {

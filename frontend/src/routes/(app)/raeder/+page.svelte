@@ -55,80 +55,88 @@
 	}
 </script>
 
-<h1>Deine Räder</h1>
+<div class="page-center">
+	<h1>Deine Räder</h1>
 
-{#if viewState === 'loading'}
-	<p>Lädt…</p>
-{:else if viewState === 'error'}
-	<p role="alert">{errorMessage}</p>
-{:else}
-	<p class="hint">
-		Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
-		nichts auswählen.
-	</p>
+	{#if viewState === 'loading'}
+		<p>Lädt…</p>
+	{:else if viewState === 'error'}
+		<p role="alert">{errorMessage}</p>
+	{:else}
+		<p class="hint">
+			Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
+			nichts auswählen.
+		</p>
 
-	<ul class="bikes">
-		{#each bikeList as bike (bike.id)}
-			<li class="bike" class:retired={bike.retired_at}>
-				<div class="bike-header">
-					<strong>{bike.name}</strong>
-					{#if bike.active}
-						<span class="badge">Aktiv</span>
-					{:else if bike.retired_at}
-						<span class="badge badge-muted">Stillgelegt</span>
-					{/if}
-				</div>
-				<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
-				<p class="stat" class:overdue={bike.chain_due_km <= 0}>{chainLabel(bike)}</p>
-				<div class="actions">
-					{#if !bike.active && !bike.retired_at}
+		<ul class="bikes">
+			{#each bikeList as bike (bike.id)}
+				<li class="bike" class:retired={bike.retired_at}>
+					<div class="bike-header">
+						<strong>{bike.name}</strong>
+						{#if bike.active}
+							<span class="badge">Aktiv</span>
+						{:else if bike.retired_at}
+							<span class="badge badge-muted">Stillgelegt</span>
+						{/if}
+					</div>
+					<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
+					<p class="stat" class:overdue={bike.chain_due_km <= 0}>{chainLabel(bike)}</p>
+					<div class="actions">
+						{#if !bike.active && !bike.retired_at}
+							<button
+								class="btn btn-secondary"
+								disabled={busy}
+								onclick={() => run(() => activateBike(bike.id))}
+							>
+								Als aktiv setzen
+							</button>
+						{/if}
 						<button
 							class="btn btn-secondary"
 							disabled={busy}
-							onclick={() => run(() => activateBike(bike.id))}
+							onclick={() => run(() => markChainReplaced(bike.id))}
 						>
-							Als aktiv setzen
+							Kette gewechselt
 						</button>
-					{/if}
-					<button
-						class="btn btn-secondary"
-						disabled={busy}
-						onclick={() => run(() => markChainReplaced(bike.id))}
-					>
-						Kette gewechselt
-					</button>
-					{#if bike.retired_at}
-						<button
-							class="btn btn-secondary"
-							disabled={busy}
-							onclick={() => run(() => updateBike(bike.id, { retired: false }))}
-						>
-							Reaktivieren
-						</button>
-					{:else}
-						<button
-							class="btn btn-secondary"
-							disabled={busy}
-							onclick={() => run(() => updateBike(bike.id, { retired: true }))}
-						>
-							Stilllegen
-						</button>
-					{/if}
-				</div>
-			</li>
-		{/each}
-	</ul>
+						{#if bike.retired_at}
+							<button
+								class="btn btn-secondary"
+								disabled={busy}
+								onclick={() => run(() => updateBike(bike.id, { retired: false }))}
+							>
+								Reaktivieren
+							</button>
+						{:else}
+							<button
+								class="btn btn-secondary"
+								disabled={busy}
+								onclick={() => run(() => updateBike(bike.id, { retired: true }))}
+							>
+								Stilllegen
+							</button>
+						{/if}
+					</div>
+				</li>
+			{/each}
+		</ul>
 
-	<form class="add-bike" onsubmit={addBike}>
-		<label for="new-bike-name">Neues Rad</label>
-		<div class="add-bike-row">
-			<input id="new-bike-name" class="input" type="text" bind:value={newName} placeholder="Name" />
-			<button class="btn btn-primary" type="submit" disabled={busy || !newName.trim()}>
-				Anlegen
-			</button>
-		</div>
-	</form>
-{/if}
+		<form class="add-bike" onsubmit={addBike}>
+			<label for="new-bike-name">Neues Rad</label>
+			<div class="add-bike-row">
+				<input
+					id="new-bike-name"
+					class="input"
+					type="text"
+					bind:value={newName}
+					placeholder="Name"
+				/>
+				<button class="btn btn-primary" type="submit" disabled={busy || !newName.trim()}>
+					Anlegen
+				</button>
+			</div>
+		</form>
+	{/if}
+</div>
 
 <style>
 	.hint {

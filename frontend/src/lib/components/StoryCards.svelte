@@ -94,7 +94,11 @@
 		{/if}
 	</section>
 	{#if secondaryGroups.length > 0}
-		<button class="details-toggle" type="button" onclick={() => (expanded = !expanded)}>
+		<button
+			class="btn btn-secondary details-toggle"
+			type="button"
+			onclick={() => (expanded = !expanded)}
+		>
 			{expanded ? 'Weniger anzeigen' : `${secondaryGroups.length} weitere Details anzeigen`}
 		</button>
 	{/if}
@@ -148,19 +152,7 @@
 	}
 
 	.details-toggle {
-		display: block;
-		margin: -1rem 0 2rem;
-		padding: 0.5rem 0;
-		background: none;
-		border: none;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		text-decoration: underline;
-		cursor: pointer;
-	}
-
-	.details-toggle:hover {
-		color: inherit;
+		margin: -0.75rem 0 1.5rem;
 	}
 
 	/* Each kind gets the colour of the chart series it refers to, so the same

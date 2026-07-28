@@ -64,9 +64,6 @@
 	// the same per-ride figures the trend chart already shows — only
 	// meaningful at the 20-minute window, never at 5 or 60.
 	let estimatedFtpSeries = $derived(powerCurveHistory.map((p) => p.watts * 0.95));
-	let configuredFtpSeries = $derived(
-		configuredFtpWatts !== null ? powerCurveHistory.map(() => configuredFtpWatts as number) : null
-	);
 
 	let powerCurveSeries = $derived.by(() => {
 		const series: { name: string; color: string; values: number[]; description?: string }[] = [
@@ -84,13 +81,6 @@
 			description:
 				'Übliche Faustregel: 95 % der besten 20-Minuten-Leistung einer Fahrt gilt als Schätzung für die Schwellenleistung (FTP).'
 		});
-		if (configuredFtpSeries) {
-			series.push({
-				name: 'Deine hinterlegte FTP',
-				color: 'var(--color-text-muted)',
-				values: configuredFtpSeries
-			});
-		}
 		return series;
 	});
 
@@ -357,6 +347,9 @@
 					ariaLabel="Verlauf der besten Leistung"
 					height={200}
 				/>
+				{#if powerCurveDuration === 1200 && configuredFtpWatts !== null}
+					<p class="ftp-reference">Deine hinterlegte FTP: {configuredFtpWatts} W</p>
+				{/if}
 			{:else}
 				<p class="empty">
 					Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
@@ -401,6 +394,12 @@
 		font-size: var(--text-sm);
 		margin: 0.25rem 0 0;
 		text-align: right;
+	}
+
+	.ftp-reference {
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		margin: 0.5rem 0 0;
 	}
 
 	.metric-switch,

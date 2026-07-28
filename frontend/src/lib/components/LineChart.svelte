@@ -67,7 +67,20 @@
 		if (allValues.length === 0) return [];
 		const min = Math.min(...allValues);
 		const max = Math.max(...allValues);
-		return niceTicks(min, max, 5);
+		const ticks = niceTicks(min, max, 5);
+		// A narrow value range can produce evenly-spaced ticks that all round to
+		// the same displayed label (five ticks, all showing "125") — drop the
+		// ones that would repeat the previous label rather than the caller
+		// having to know its own formatter's rounding to avoid it.
+		const deduped: number[] = [];
+		let lastLabel: string | null = null;
+		for (const tick of ticks) {
+			const label = yFormat(tick);
+			if (label === lastLabel) continue;
+			deduped.push(tick);
+			lastLabel = label;
+		}
+		return deduped;
 	});
 
 	// The y-axis gutter has to fit the widest label the formatter produces, not

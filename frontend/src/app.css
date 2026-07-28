@@ -155,6 +155,10 @@ button {
 	font: inherit;
 }
 
+a {
+	color: var(--color-brand);
+}
+
 .btn {
 	display: inline-flex;
 	align-items: center;
@@ -165,6 +169,7 @@ button {
 	padding: 0.625rem 1.25rem;
 	font-size: var(--text-base);
 	font-weight: 700;
+	text-decoration: none;
 	cursor: pointer;
 	transition:
 		box-shadow 0.15s ease,
@@ -222,6 +227,18 @@ button {
 	border-radius: var(--radius-md);
 	box-shadow: var(--shadow-md);
 	padding: 1.5rem;
+}
+
+/* Short pages (a form, a handful of stats) otherwise sit pinned to the top
+   with a wall of empty space below on a tall phone screen. min-height only
+   sets a floor, so a page whose content is actually longer than the screen
+   just grows past it and starts at the top as normal — nothing to opt out of
+   per page. */
+.page-center {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	min-height: calc(100dvh - 8rem);
 }
 
 /* Numbers that lead a view: large, tight, and tabular so they don't jitter
