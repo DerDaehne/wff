@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { RideStatement } from '$lib/rides';
+	import BottomSheet from './BottomSheet.svelte';
 
 	let { statements, label }: { statements: RideStatement[]; label: string } = $props();
 
@@ -37,122 +38,129 @@
 		return out;
 	});
 
-	// A ride with power/pulse and a full set of context signals produced ten
-	// or more full-sentence cards — helpful, but a wall of text on every
-	// single ride. Lead with the two universally-relevant kinds plus
-	// whatever is rare and actionable (a new record, a data-gap nudge); the
-	// rest — pace, climb, endurance, calories, zones prose, conditions,
-	// how-it-compares — is real information, just not urgent enough to force
-	// on every reading. Hidden behind one click instead of deleted.
-	const alwaysVisible = new Set<RideStatement['kind']>([
-		'effort',
-		'load',
-		'milestone',
-		'hint_profile',
-		'hint_history'
-	]);
+	// The compact row's second line — every item's metric joined, so a
+	// "context" group (wind + hills + heat) still reads as one line. Groups
+	// that carry no metric at all (hint_profile/hint_history, and comparison)
+	// have nothing numeric to lead with — the chip alone is the row, full
+	// text is one tap away either way.
+	function summaryOf(group: (typeof groups)[number]): string | null {
+		const metrics = group.items.map((s) => s.metric).filter((m): m is string => !!m);
+		return metrics.length > 0 ? metrics.join(' · ') : null;
+	}
 
-	// Pages whose statements don't include any always-visible kind at all
-	// (the dashboard's form/trend cards, say) fall back to showing
-	// everything — collapsing to an empty lead-in with a "show more" button
-	// hiding the ONLY content would be worse than the wall of text this
-	// exists to fix.
-	let hasPriority = $derived(groups.some((g) => alwaysVisible.has(g.kind)));
-	let primaryGroups = $derived(
-		hasPriority ? groups.filter((g) => alwaysVisible.has(g.kind)) : groups
-	);
-	let secondaryGroups = $derived(
-		hasPriority ? groups.filter((g) => !alwaysVisible.has(g.kind)) : []
-	);
-	let expanded = $state(false);
+	let activeGroup: (typeof groups)[number] | null = $state(null);
+
+	function closeDetail() {
+		activeGroup = null;
+	}
 </script>
 
-{#snippet card(group: (typeof groups)[number])}
-	<article class="statement statement-{group.kind}">
-		<p class="chip statement-chip">{statementLabel[group.kind]}</p>
-		{#each group.items as statement, j (j)}
-			<p class="statement-text">{statement.text}</p>
-			{#if statement.metric}
-				<p class="statement-metric">{statement.metric}</p>
-			{/if}
-		{/each}
-		{#if group.kind === 'hint_profile'}
-			<a class="statement-action" href={resolve('/(app)/profile')}> Werte im Profil eintragen </a>
+{#snippet row(group: (typeof groups)[number])}
+	<button
+		type="button"
+		class="statement-row statement-{group.kind}"
+		onclick={() => (activeGroup = group)}
+	>
+		<span class="chip statement-chip">{statementLabel[group.kind]}</span>
+		{#if summaryOf(group)}
+			<span class="row-summary">{summaryOf(group)}</span>
 		{/if}
-	</article>
+		<span class="row-chevron" aria-hidden="true">›</span>
+	</button>
 {/snippet}
 
 {#if groups.length > 0}
 	<section class="story" aria-label={label}>
-		{#each primaryGroups as group, i (i)}
-			{@render card(group)}
+		{#each groups as group, i (i)}
+			{@render row(group)}
 		{/each}
-		{#if expanded}
-			{#each secondaryGroups as group, i (i)}
-				{@render card(group)}
-			{/each}
-		{/if}
 	</section>
-	{#if secondaryGroups.length > 0}
-		<button
-			class="btn btn-secondary details-toggle"
-			type="button"
-			onclick={() => (expanded = !expanded)}
-		>
-			{expanded ? 'Weniger anzeigen' : `${secondaryGroups.length} weitere Details anzeigen`}
-		</button>
-	{/if}
+{/if}
+
+{#if activeGroup}
+	{@const group = activeGroup}
+	<BottomSheet open={true} title={statementLabel[group.kind]} onClose={closeDetail}>
+		{#each group.items as statement, j (j)}
+			<p class="detail-text">{statement.text}</p>
+			{#if statement.metric}
+				<p class="detail-metric">{statement.metric}</p>
+			{/if}
+		{/each}
+		{#if group.kind === 'hint_profile'}
+			<a class="detail-action" href={resolve('/(app)/profile')}> Werte im Profil eintragen </a>
+		{/if}
+	</BottomSheet>
 {/if}
 
 <style>
 	.story {
-		display: grid;
-		gap: 0.75rem;
-		grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
-		/* Cards size to their own content — without this the short ones stretch
-		   to match the tallest in the row and show a big empty box. */
-		align-items: start;
-		margin-bottom: 2rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.statement {
+	.statement-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		width: 100%;
+		border: none;
 		border-radius: var(--radius-md);
-		padding: 1.25rem;
+		padding: 0.75rem 1rem;
 		box-shadow: var(--shadow-sm);
 		background: var(--color-surface);
+		font: inherit;
+		color: var(--color-text);
+		text-align: left;
+		cursor: pointer;
 	}
 
-	/* The chip carries the colour, so the card itself stays a calm surface — a
-	   full-card wash behind body text hurt contrast in the dark scheme. */
+	.statement-row:hover {
+		box-shadow: var(--shadow-md);
+	}
+
 	.statement-chip {
-		margin: 0 0 0.75rem;
+		flex-shrink: 0;
+		margin: 0;
 	}
 
-	.statement-text {
+	.row-summary {
+		flex: 1;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+
+	.row-chevron {
+		flex-shrink: 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-lg);
+		line-height: 1;
+	}
+
+	.detail-text {
 		font-size: var(--text-base);
 		line-height: 1.5;
 		margin: 0;
 	}
 
-	.statement-metric {
+	.detail-metric {
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		margin: 0.5rem 0 0;
 	}
 
-	/* Second and later reasons inside one card need air above them. */
-	.statement-metric + .statement-text {
+	.detail-metric + .detail-text {
 		margin-top: 0.875rem;
 	}
 
-	.statement-action {
+	.detail-action {
 		display: inline-block;
-		margin-top: 0.5rem;
+		margin-top: 0.75rem;
 		font-size: var(--text-sm);
-	}
-
-	.details-toggle {
-		margin: -0.75rem 0 1.5rem;
 	}
 
 	/* Each kind gets the colour of the chart series it refers to, so the same
