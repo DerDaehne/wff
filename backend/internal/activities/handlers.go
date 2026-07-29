@@ -327,6 +327,18 @@ type sampleDTO struct {
 	AltitudeMeters *float64  `json:"altitude_meters"`
 	PowerWatts     *int      `json:"power_watts"`
 	HeartRate      *int      `json:"heart_rate"`
+
+	GradePercent                    *float64 `json:"grade_percent"`
+	CaloriesKcal                    *int     `json:"calories_kcal"`
+	LeftRightBalancePercent         *float64 `json:"left_right_balance_percent"`
+	LeftRightBalanceRightLeg        *bool    `json:"left_right_balance_right_leg"`
+	LeftTorqueEffectivenessPercent  *float64 `json:"left_torque_effectiveness_percent"`
+	RightTorqueEffectivenessPercent *float64 `json:"right_torque_effectiveness_percent"`
+	LeftPedalSmoothnessPercent      *float64 `json:"left_pedal_smoothness_percent"`
+	RightPedalSmoothnessPercent     *float64 `json:"right_pedal_smoothness_percent"`
+	CombinedPedalSmoothnessPercent  *float64 `json:"combined_pedal_smoothness_percent"`
+	GpsAccuracyMeters               *int     `json:"gps_accuracy_meters"`
+	Resistance                      *int     `json:"resistance"`
 }
 
 // samples returns an activity's raw time series (GPS track, elevation,
@@ -352,7 +364,11 @@ func (h *Handlers) samples(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT time, lat, lon, altitude_meters, power_watts, heart_rate
+		`SELECT time, lat, lon, altitude_meters, power_watts, heart_rate,
+		        grade_percent, calories_kcal, left_right_balance_percent, left_right_balance_right_leg,
+		        left_torque_effectiveness_percent, right_torque_effectiveness_percent,
+		        left_pedal_smoothness_percent, right_pedal_smoothness_percent, combined_pedal_smoothness_percent,
+		        gps_accuracy_meters, resistance
 		 FROM samples WHERE activity_id = $1 ORDER BY time`,
 		activityID,
 	)
@@ -365,7 +381,13 @@ func (h *Handlers) samples(w http.ResponseWriter, r *http.Request) {
 	samples := []sampleDTO{} // never null in the JSON response
 	for rows.Next() {
 		var s sampleDTO
-		if err := rows.Scan(&s.Time, &s.Lat, &s.Lon, &s.AltitudeMeters, &s.PowerWatts, &s.HeartRate); err != nil {
+		if err := rows.Scan(
+			&s.Time, &s.Lat, &s.Lon, &s.AltitudeMeters, &s.PowerWatts, &s.HeartRate,
+			&s.GradePercent, &s.CaloriesKcal, &s.LeftRightBalancePercent, &s.LeftRightBalanceRightLeg,
+			&s.LeftTorqueEffectivenessPercent, &s.RightTorqueEffectivenessPercent,
+			&s.LeftPedalSmoothnessPercent, &s.RightPedalSmoothnessPercent, &s.CombinedPedalSmoothnessPercent,
+			&s.GpsAccuracyMeters, &s.Resistance,
+		); err != nil {
 			http.Error(w, "could not load samples", http.StatusInternalServerError)
 			return
 		}

@@ -1,0 +1,12 @@
+ALTER TABLE samples
+    DROP COLUMN grade_percent,
+    DROP COLUMN calories_kcal,
+    DROP COLUMN left_right_balance_percent,
+    DROP COLUMN left_right_balance_right_leg,
+    DROP COLUMN left_torque_effectiveness_percent,
+    DROP COLUMN right_torque_effectiveness_percent,
+    DROP COLUMN left_pedal_smoothness_percent,
+    DROP COLUMN right_pedal_smoothness_percent,
+    DROP COLUMN combined_pedal_smoothness_percent,
+    DROP COLUMN gps_accuracy_meters,
+    DROP COLUMN resistance;

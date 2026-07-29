@@ -93,6 +93,51 @@ func TestParseMissingFieldsAreNil(t *testing.T) {
 	}
 }
 
+func TestParseExtendedSampleFields(t *testing.T) {
+	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
+	data := fitfixture.ValidActivity(1, created, 3)
+
+	act, err := fitparse.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	s := act.Samples[1]
+	if s.GradePercent == nil || *s.GradePercent != 2.5 {
+		t.Errorf("GradePercent = %v, want 2.5", s.GradePercent)
+	}
+	if s.CaloriesKcal == nil || *s.CaloriesKcal != 1 {
+		t.Errorf("CaloriesKcal = %v, want 1", s.CaloriesKcal)
+	}
+	if s.LeftRightBalancePercent == nil || *s.LeftRightBalancePercent != 48 {
+		t.Errorf("LeftRightBalancePercent = %v, want 48", s.LeftRightBalancePercent)
+	}
+	if s.LeftRightBalanceRightLeg == nil || !*s.LeftRightBalanceRightLeg {
+		t.Errorf("LeftRightBalanceRightLeg = %v, want true", s.LeftRightBalanceRightLeg)
+	}
+	if s.LeftTorqueEffectivenessPercent == nil || *s.LeftTorqueEffectivenessPercent != 80 {
+		t.Errorf("LeftTorqueEffectivenessPercent = %v, want 80", s.LeftTorqueEffectivenessPercent)
+	}
+	if s.RightTorqueEffectivenessPercent == nil || *s.RightTorqueEffectivenessPercent != 82 {
+		t.Errorf("RightTorqueEffectivenessPercent = %v, want 82", s.RightTorqueEffectivenessPercent)
+	}
+	if s.LeftPedalSmoothnessPercent == nil || *s.LeftPedalSmoothnessPercent != 20 {
+		t.Errorf("LeftPedalSmoothnessPercent = %v, want 20", s.LeftPedalSmoothnessPercent)
+	}
+	if s.RightPedalSmoothnessPercent == nil || *s.RightPedalSmoothnessPercent != 22 {
+		t.Errorf("RightPedalSmoothnessPercent = %v, want 22", s.RightPedalSmoothnessPercent)
+	}
+	if s.CombinedPedalSmoothnessPercent == nil || *s.CombinedPedalSmoothnessPercent != 30 {
+		t.Errorf("CombinedPedalSmoothnessPercent = %v, want 30", s.CombinedPedalSmoothnessPercent)
+	}
+	if s.GpsAccuracyMeters == nil || *s.GpsAccuracyMeters != 3 {
+		t.Errorf("GpsAccuracyMeters = %v, want 3", s.GpsAccuracyMeters)
+	}
+	if s.Resistance == nil || *s.Resistance != 50 {
+		t.Errorf("Resistance = %v, want 50", s.Resistance)
+	}
+}
+
 func TestParseCorruptedFile(t *testing.T) {
 	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
 	valid := fitfixture.ValidActivity(1, created, 5)

@@ -94,11 +94,23 @@ func storeOnce(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitpa
 	if len(act.Samples) > 0 {
 		rows := make([][]any, len(act.Samples))
 		for i, s := range act.Samples {
-			rows[i] = []any{activityID, s.Time, s.Lat, s.Lon, s.AltitudeMeters, s.PowerWatts, s.HeartRate, s.Cadence, s.SpeedMps, s.TemperatureCelsius}
+			rows[i] = []any{
+				activityID, s.Time, s.Lat, s.Lon, s.AltitudeMeters, s.PowerWatts, s.HeartRate, s.Cadence, s.SpeedMps, s.TemperatureCelsius,
+				s.GradePercent, s.CaloriesKcal, s.LeftRightBalancePercent, s.LeftRightBalanceRightLeg,
+				s.LeftTorqueEffectivenessPercent, s.RightTorqueEffectivenessPercent,
+				s.LeftPedalSmoothnessPercent, s.RightPedalSmoothnessPercent, s.CombinedPedalSmoothnessPercent,
+				s.GpsAccuracyMeters, s.Resistance,
+			}
 		}
 		_, err = tx.CopyFrom(ctx,
 			pgx.Identifier{"samples"},
-			[]string{"activity_id", "time", "lat", "lon", "altitude_meters", "power_watts", "heart_rate", "cadence", "speed_mps", "temperature_celsius"},
+			[]string{
+				"activity_id", "time", "lat", "lon", "altitude_meters", "power_watts", "heart_rate", "cadence", "speed_mps", "temperature_celsius",
+				"grade_percent", "calories_kcal", "left_right_balance_percent", "left_right_balance_right_leg",
+				"left_torque_effectiveness_percent", "right_torque_effectiveness_percent",
+				"left_pedal_smoothness_percent", "right_pedal_smoothness_percent", "combined_pedal_smoothness_percent",
+				"gps_accuracy_meters", "resistance",
+			},
 			pgx.CopyFromRows(rows),
 		)
 		if err != nil {

@@ -38,6 +38,16 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 		rec.HeartRate = uint8(120 + i%30)
 		rec.Cadence = uint8(80 + i%10)
 		rec.Speed = uint16(5000 + uint16(i%1000)) // scaled: m/s * 1000
+		rec.Calories = uint16(i)
+		rec.GpsAccuracy = 3
+		rec.Resistance = 50
+		rec.LeftTorqueEffectiveness = 160  // scaled /2: 80%
+		rec.RightTorqueEffectiveness = 164 // scaled /2: 82%
+		rec.LeftPedalSmoothness = 40       // scaled /2: 20%
+		rec.RightPedalSmoothness = 44      // scaled /2: 22%
+		rec.CombinedPedalSmoothness = 60   // scaled /2: 30%
+		rec.LeftRightBalance = typedef.LeftRightBalanceRight | 48 // right leg, 48%
+		rec.Grade = 250                                           // scaled /100: 2.5%
 
 		if i%3 != 0 {
 			rec.PositionLat = int32(500_000_000 + i)

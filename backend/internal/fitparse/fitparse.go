@@ -11,6 +11,7 @@ import (
 	"github.com/muktihari/fit/decoder"
 	"github.com/muktihari/fit/profile/basetype"
 	"github.com/muktihari/fit/profile/filedef"
+	"github.com/muktihari/fit/profile/typedef"
 )
 
 var (
@@ -60,6 +61,22 @@ type Sample struct {
 	Cadence            *int
 	SpeedMps           *float64
 	TemperatureCelsius *float64
+
+	GradePercent *float64
+	CaloriesKcal *int
+	// LeftRightBalance is a bitfield in the FIT spec, not a plain percentage:
+	// the low 7 bits are a contribution percent, the top bit says whether that
+	// percent describes the right leg or an unspecified side. Kept as the two
+	// underlying facts instead of guessing a side when the bit is unset.
+	LeftRightBalancePercent         *float64
+	LeftRightBalanceRightLeg        *bool
+	LeftTorqueEffectivenessPercent  *float64
+	RightTorqueEffectivenessPercent *float64
+	LeftPedalSmoothnessPercent      *float64
+	RightPedalSmoothnessPercent     *float64
+	CombinedPedalSmoothnessPercent  *float64
+	GpsAccuracyMeters               *int
+	Resistance                      *int
 }
 
 // Parse decodes raw .fit bytes into an Activity. Corrupt, empty, or non-FIT
@@ -148,6 +165,47 @@ func Parse(data []byte) (act *Activity, err error) {
 		if rec.Temperature != basetype.Sint8Invalid {
 			v := float64(rec.Temperature)
 			s.TemperatureCelsius = &v
+		}
+		if rec.Grade != basetype.Sint16Invalid {
+			v := rec.GradeScaled()
+			s.GradePercent = &v
+		}
+		if rec.Calories != basetype.Uint16Invalid {
+			v := int(rec.Calories)
+			s.CaloriesKcal = &v
+		}
+		if rec.LeftRightBalance != typedef.LeftRightBalanceInvalid {
+			pct := float64(rec.LeftRightBalance & typedef.LeftRightBalanceMask)
+			right := rec.LeftRightBalance&typedef.LeftRightBalanceRight != 0
+			s.LeftRightBalancePercent, s.LeftRightBalanceRightLeg = &pct, &right
+		}
+		if rec.LeftTorqueEffectiveness != basetype.Uint8Invalid {
+			v := rec.LeftTorqueEffectivenessScaled()
+			s.LeftTorqueEffectivenessPercent = &v
+		}
+		if rec.RightTorqueEffectiveness != basetype.Uint8Invalid {
+			v := rec.RightTorqueEffectivenessScaled()
+			s.RightTorqueEffectivenessPercent = &v
+		}
+		if rec.LeftPedalSmoothness != basetype.Uint8Invalid {
+			v := rec.LeftPedalSmoothnessScaled()
+			s.LeftPedalSmoothnessPercent = &v
+		}
+		if rec.RightPedalSmoothness != basetype.Uint8Invalid {
+			v := rec.RightPedalSmoothnessScaled()
+			s.RightPedalSmoothnessPercent = &v
+		}
+		if rec.CombinedPedalSmoothness != basetype.Uint8Invalid {
+			v := rec.CombinedPedalSmoothnessScaled()
+			s.CombinedPedalSmoothnessPercent = &v
+		}
+		if rec.GpsAccuracy != basetype.Uint8Invalid {
+			v := int(rec.GpsAccuracy)
+			s.GpsAccuracyMeters = &v
+		}
+		if rec.Resistance != basetype.Uint8Invalid {
+			v := int(rec.Resistance)
+			s.Resistance = &v
 		}
 		a.Samples = append(a.Samples, s)
 	}
