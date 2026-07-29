@@ -48,6 +48,25 @@ type Activity struct {
 	IntensityFactor      *float64
 	TrainingStressScore  *float64
 
+	TotalDescentMeters    *float64
+	AvgGradePercent       *float64
+	AvgPosGradePercent    *float64
+	AvgNegGradePercent    *float64
+	MaxPosGradePercent    *float64
+	MaxNegGradePercent    *float64
+	ThresholdPowerWatts   *float64
+	TotalCaloriesKcal     *float64
+	MetabolicCaloriesKcal *float64
+	// AvgLeftRightBalance, like Sample.LeftRightBalance, is a bitfield — percent
+	// + a right-leg flag, not a guessed side (see Sample for why).
+	AvgLeftRightBalancePercent         *float64
+	AvgLeftRightBalanceRightLeg        *bool
+	AvgLeftTorqueEffectivenessPercent  *float64
+	AvgRightTorqueEffectivenessPercent *float64
+	AvgLeftPedalSmoothnessPercent      *float64
+	AvgRightPedalSmoothnessPercent     *float64
+	AvgCombinedPedalSmoothnessPercent  *float64
+
 	Samples []Sample
 }
 
@@ -133,6 +152,27 @@ func Parse(data []byte) (act *Activity, err error) {
 		MaxCadence:           uint8OrNil(session.MaxCadence),
 		IntensityFactor:      scaledUint16OrNil(session.IntensityFactor, session.IntensityFactorScaled()),
 		TrainingStressScore:  scaledUint16OrNil(session.TrainingStressScore, session.TrainingStressScoreScaled()),
+
+		TotalDescentMeters:    uint16OrNil(session.TotalDescent),
+		AvgGradePercent:       scaledSint16OrNil(session.AvgGrade, session.AvgGradeScaled()),
+		AvgPosGradePercent:    scaledSint16OrNil(session.AvgPosGrade, session.AvgPosGradeScaled()),
+		AvgNegGradePercent:    scaledSint16OrNil(session.AvgNegGrade, session.AvgNegGradeScaled()),
+		MaxPosGradePercent:    scaledSint16OrNil(session.MaxPosGrade, session.MaxPosGradeScaled()),
+		MaxNegGradePercent:    scaledSint16OrNil(session.MaxNegGrade, session.MaxNegGradeScaled()),
+		ThresholdPowerWatts:   uint16OrNil(session.ThresholdPower),
+		TotalCaloriesKcal:     uint16OrNil(session.TotalCalories),
+		MetabolicCaloriesKcal: uint16OrNil(session.MetabolicCalories),
+
+		AvgLeftTorqueEffectivenessPercent:  scaledUint8OrNil(session.AvgLeftTorqueEffectiveness, session.AvgLeftTorqueEffectivenessScaled()),
+		AvgRightTorqueEffectivenessPercent: scaledUint8OrNil(session.AvgRightTorqueEffectiveness, session.AvgRightTorqueEffectivenessScaled()),
+		AvgLeftPedalSmoothnessPercent:      scaledUint8OrNil(session.AvgLeftPedalSmoothness, session.AvgLeftPedalSmoothnessScaled()),
+		AvgRightPedalSmoothnessPercent:     scaledUint8OrNil(session.AvgRightPedalSmoothness, session.AvgRightPedalSmoothnessScaled()),
+		AvgCombinedPedalSmoothnessPercent:  scaledUint8OrNil(session.AvgCombinedPedalSmoothness, session.AvgCombinedPedalSmoothnessScaled()),
+	}
+	if session.LeftRightBalance != typedef.LeftRightBalance100Invalid {
+		pct := float64(session.LeftRightBalance&typedef.LeftRightBalance100Mask) / 100
+		right := session.LeftRightBalance&typedef.LeftRightBalance100Right != 0
+		a.AvgLeftRightBalancePercent, a.AvgLeftRightBalanceRightLeg = &pct, &right
 	}
 
 	a.Samples = make([]Sample, 0, len(fileActivity.Records))
@@ -238,6 +278,20 @@ func scaledUint16OrNil(raw uint16, scaled float64) *float64 {
 
 func scaledUint32OrNil(raw uint32, scaled float64) *float64 {
 	if raw == basetype.Uint32Invalid {
+		return nil
+	}
+	return &scaled
+}
+
+func scaledSint16OrNil(raw int16, scaled float64) *float64 {
+	if raw == basetype.Sint16Invalid {
+		return nil
+	}
+	return &scaled
+}
+
+func scaledUint8OrNil(raw uint8, scaled float64) *float64 {
+	if raw == basetype.Uint8Invalid {
 		return nil
 	}
 	return &scaled

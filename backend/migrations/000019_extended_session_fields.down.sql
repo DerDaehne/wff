@@ -1,0 +1,17 @@
+ALTER TABLE activities
+    DROP COLUMN total_descent_meters,
+    DROP COLUMN avg_grade_percent,
+    DROP COLUMN avg_pos_grade_percent,
+    DROP COLUMN avg_neg_grade_percent,
+    DROP COLUMN max_pos_grade_percent,
+    DROP COLUMN max_neg_grade_percent,
+    DROP COLUMN threshold_power_watts,
+    DROP COLUMN total_calories_kcal,
+    DROP COLUMN metabolic_calories_kcal,
+    DROP COLUMN avg_left_right_balance_percent,
+    DROP COLUMN avg_left_right_balance_right_leg,
+    DROP COLUMN avg_left_torque_effectiveness_percent,
+    DROP COLUMN avg_right_torque_effectiveness_percent,
+    DROP COLUMN avg_left_pedal_smoothness_percent,
+    DROP COLUMN avg_right_pedal_smoothness_percent,
+    DROP COLUMN avg_combined_pedal_smoothness_percent;

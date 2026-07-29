@@ -93,6 +93,65 @@ func TestParseMissingFieldsAreNil(t *testing.T) {
 	}
 }
 
+func TestParseExtendedSessionFields(t *testing.T) {
+	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
+	data := fitfixture.ValidActivity(1, created, 3)
+
+	act, err := fitparse.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	if act.TotalDescentMeters == nil || *act.TotalDescentMeters != 38 {
+		t.Errorf("TotalDescentMeters = %v, want 38", act.TotalDescentMeters)
+	}
+	if act.AvgGradePercent == nil || *act.AvgGradePercent != 1.5 {
+		t.Errorf("AvgGradePercent = %v, want 1.5", act.AvgGradePercent)
+	}
+	if act.AvgPosGradePercent == nil || *act.AvgPosGradePercent != 3.2 {
+		t.Errorf("AvgPosGradePercent = %v, want 3.2", act.AvgPosGradePercent)
+	}
+	if act.AvgNegGradePercent == nil || *act.AvgNegGradePercent != -2.8 {
+		t.Errorf("AvgNegGradePercent = %v, want -2.8", act.AvgNegGradePercent)
+	}
+	if act.MaxPosGradePercent == nil || *act.MaxPosGradePercent != 9 {
+		t.Errorf("MaxPosGradePercent = %v, want 9", act.MaxPosGradePercent)
+	}
+	if act.MaxNegGradePercent == nil || *act.MaxNegGradePercent != -6.5 {
+		t.Errorf("MaxNegGradePercent = %v, want -6.5", act.MaxNegGradePercent)
+	}
+	if act.ThresholdPowerWatts == nil || *act.ThresholdPowerWatts != 250 {
+		t.Errorf("ThresholdPowerWatts = %v, want 250", act.ThresholdPowerWatts)
+	}
+	if act.TotalCaloriesKcal == nil || *act.TotalCaloriesKcal != 620 {
+		t.Errorf("TotalCaloriesKcal = %v, want 620", act.TotalCaloriesKcal)
+	}
+	if act.MetabolicCaloriesKcal == nil || *act.MetabolicCaloriesKcal != 700 {
+		t.Errorf("MetabolicCaloriesKcal = %v, want 700", act.MetabolicCaloriesKcal)
+	}
+	if act.AvgLeftRightBalancePercent == nil || *act.AvgLeftRightBalancePercent != 47 {
+		t.Errorf("AvgLeftRightBalancePercent = %v, want 47", act.AvgLeftRightBalancePercent)
+	}
+	if act.AvgLeftRightBalanceRightLeg == nil || !*act.AvgLeftRightBalanceRightLeg {
+		t.Errorf("AvgLeftRightBalanceRightLeg = %v, want true", act.AvgLeftRightBalanceRightLeg)
+	}
+	if act.AvgLeftTorqueEffectivenessPercent == nil || *act.AvgLeftTorqueEffectivenessPercent != 81 {
+		t.Errorf("AvgLeftTorqueEffectivenessPercent = %v, want 81", act.AvgLeftTorqueEffectivenessPercent)
+	}
+	if act.AvgRightTorqueEffectivenessPercent == nil || *act.AvgRightTorqueEffectivenessPercent != 83 {
+		t.Errorf("AvgRightTorqueEffectivenessPercent = %v, want 83", act.AvgRightTorqueEffectivenessPercent)
+	}
+	if act.AvgLeftPedalSmoothnessPercent == nil || *act.AvgLeftPedalSmoothnessPercent != 21 {
+		t.Errorf("AvgLeftPedalSmoothnessPercent = %v, want 21", act.AvgLeftPedalSmoothnessPercent)
+	}
+	if act.AvgRightPedalSmoothnessPercent == nil || *act.AvgRightPedalSmoothnessPercent != 23 {
+		t.Errorf("AvgRightPedalSmoothnessPercent = %v, want 23", act.AvgRightPedalSmoothnessPercent)
+	}
+	if act.AvgCombinedPedalSmoothnessPercent == nil || *act.AvgCombinedPedalSmoothnessPercent != 31 {
+		t.Errorf("AvgCombinedPedalSmoothnessPercent = %v, want 31", act.AvgCombinedPedalSmoothnessPercent)
+	}
+}
+
 func TestParseExtendedSampleFields(t *testing.T) {
 	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
 	data := fitfixture.ValidActivity(1, created, 3)

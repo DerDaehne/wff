@@ -1,0 +1,17 @@
+ALTER TABLE activities
+    ADD COLUMN total_descent_meters DOUBLE PRECISION,
+    ADD COLUMN avg_grade_percent DOUBLE PRECISION,
+    ADD COLUMN avg_pos_grade_percent DOUBLE PRECISION,
+    ADD COLUMN avg_neg_grade_percent DOUBLE PRECISION,
+    ADD COLUMN max_pos_grade_percent DOUBLE PRECISION,
+    ADD COLUMN max_neg_grade_percent DOUBLE PRECISION,
+    ADD COLUMN threshold_power_watts DOUBLE PRECISION,
+    ADD COLUMN total_calories_kcal DOUBLE PRECISION,
+    ADD COLUMN metabolic_calories_kcal DOUBLE PRECISION,
+    ADD COLUMN avg_left_right_balance_percent DOUBLE PRECISION,
+    ADD COLUMN avg_left_right_balance_right_leg BOOLEAN,
+    ADD COLUMN avg_left_torque_effectiveness_percent DOUBLE PRECISION,
+    ADD COLUMN avg_right_torque_effectiveness_percent DOUBLE PRECISION,
+    ADD COLUMN avg_left_pedal_smoothness_percent DOUBLE PRECISION,
+    ADD COLUMN avg_right_pedal_smoothness_percent DOUBLE PRECISION,
+    ADD COLUMN avg_combined_pedal_smoothness_percent DOUBLE PRECISION;

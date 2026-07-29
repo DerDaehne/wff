@@ -75,6 +75,21 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 	session.MaxHeartRate = 175
 	session.AvgCadence = 85
 	session.MaxCadence = 95
+	session.TotalDescent = 38
+	session.AvgGrade = 150     // scaled /100: 1.5%
+	session.AvgPosGrade = 320  // scaled /100: 3.2%
+	session.AvgNegGrade = -280 // scaled /100: -2.8%
+	session.MaxPosGrade = 900  // scaled /100: 9%
+	session.MaxNegGrade = -650 // scaled /100: -6.5%
+	session.ThresholdPower = 250
+	session.TotalCalories = 620
+	session.MetabolicCalories = 700
+	session.AvgLeftTorqueEffectiveness = 162  // scaled /2: 81%
+	session.AvgRightTorqueEffectiveness = 166 // scaled /2: 83%
+	session.AvgLeftPedalSmoothness = 42       // scaled /2: 21%
+	session.AvgRightPedalSmoothness = 46      // scaled /2: 23%
+	session.AvgCombinedPedalSmoothness = 62   // scaled /2: 31%
+	session.LeftRightBalance = typedef.LeftRightBalance100Right | 4700 // right leg, 47%
 	messages = append(messages, session.ToMesg(nil))
 
 	activityMesg := mesgdef.NewActivity(nil)

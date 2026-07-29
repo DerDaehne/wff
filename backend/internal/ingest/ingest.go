@@ -75,13 +75,28 @@ func storeOnce(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitpa
 			user_id, external_uid, sport, started_at, elapsed_seconds, moving_seconds,
 			distance_meters, elevation_gain_meters, avg_power_watts, max_power_watts,
 			normalized_power_watts, avg_heart_rate, max_heart_rate, avg_cadence, max_cadence,
-			intensity_factor, training_stress_score
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+			intensity_factor, training_stress_score,
+			total_descent_meters, avg_grade_percent, avg_pos_grade_percent, avg_neg_grade_percent,
+			max_pos_grade_percent, max_neg_grade_percent, threshold_power_watts,
+			total_calories_kcal, metabolic_calories_kcal,
+			avg_left_right_balance_percent, avg_left_right_balance_right_leg,
+			avg_left_torque_effectiveness_percent, avg_right_torque_effectiveness_percent,
+			avg_left_pedal_smoothness_percent, avg_right_pedal_smoothness_percent,
+			avg_combined_pedal_smoothness_percent
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
+			$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33)
 		RETURNING id`,
 		userID, externalUID, act.Sport, act.StartedAt, act.ElapsedSeconds, act.MovingSeconds,
 		act.DistanceMeters, act.ElevationGainMeters, act.AvgPowerWatts, act.MaxPowerWatts,
 		act.NormalizedPowerWatts, act.AvgHeartRate, act.MaxHeartRate, act.AvgCadence, act.MaxCadence,
 		act.IntensityFactor, act.TrainingStressScore,
+		act.TotalDescentMeters, act.AvgGradePercent, act.AvgPosGradePercent, act.AvgNegGradePercent,
+		act.MaxPosGradePercent, act.MaxNegGradePercent, act.ThresholdPowerWatts,
+		act.TotalCaloriesKcal, act.MetabolicCaloriesKcal,
+		act.AvgLeftRightBalancePercent, act.AvgLeftRightBalanceRightLeg,
+		act.AvgLeftTorqueEffectivenessPercent, act.AvgRightTorqueEffectivenessPercent,
+		act.AvgLeftPedalSmoothnessPercent, act.AvgRightPedalSmoothnessPercent,
+		act.AvgCombinedPedalSmoothnessPercent,
 	).Scan(&activityID)
 	if err != nil {
 		var pgErr *pgconn.PgError
