@@ -76,10 +76,11 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		/* Liquid-glass pilot (#644): the same translucent-blur surface the chart
-		   tooltip already uses, not a new pattern. Content scrolling underneath
-		   shows through, and the two body-level gradient glows (app.css) give it
-		   something to visibly refract on pages that are otherwise flat. */
+		/* Liquid-glass pilot (#644/#645): the same translucent-blur surface the
+		   chart tooltip already uses, not a new pattern. A decorative gradient
+		   behind it was tried and dropped (see app.css) — real content (cards,
+		   chips, chart colour) scrolling underneath gives the glass plenty to
+		   refract without a synthetic backdrop. */
 		background: var(--surface-glass);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);

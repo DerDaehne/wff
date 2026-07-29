@@ -132,24 +132,15 @@
 
 body {
 	margin: 0;
-	/* Two soft, static brand-teal glows behind the flat page colour — there
-	   only so the glass nav bar (see .nav in the app layout) has some colour
-	   and contrast to refract as content scrolls under it. Deliberately calm:
-	   this app's dark look has twice read as an industrial control panel, and
-	   a loud gradient would be a third way to get there. */
-	background:
-		radial-gradient(
-			60% 40% at 12% 0%,
-			color-mix(in srgb, var(--color-brand) 14%, transparent),
-			transparent 70%
-		),
-		radial-gradient(
-			55% 35% at 100% 100%,
-			color-mix(in srgb, var(--color-brand-accent) 12%, transparent),
-			transparent 70%
-		),
-		var(--color-bg);
-	background-attachment: fixed;
+	/* A decorative gradient here (tried in #645) tiled visibly on tall pages
+	   (no background-repeat: no-repeat) and, on iOS, background-attachment:
+	   fixed doesn't reliably cover the viewport through overscroll bounce —
+	   real seams at the top/bottom edge. Apple's own Liquid Glass guidance is
+	   also explicit that glass belongs on the control layer and shouldn't be
+	   decorative on the content layer beneath it. Flat colour avoids all of
+	   that; the glass nav bar still gets real cards/charts/chips to refract
+	   as content scrolls under it. */
+	background: var(--color-bg);
 	color: var(--color-text);
 	font-family: var(--font-sans);
 	font-size: var(--text-base);
