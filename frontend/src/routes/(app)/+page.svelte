@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { getTrainingLoad, type DayLoad, type Insight } from '$lib/trainingload';
-	import { listActivities, type RideStory } from '$lib/rides';
+	import { listActivities, type ActivitySummary, type RideStory } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import {
 		getProgress,
@@ -18,6 +18,7 @@
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import BikePictogram from '$lib/components/BikePictogram.svelte';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -30,8 +31,24 @@
 	let status: RideStory | null = $state(null);
 	let errorMessage = $state('');
 	let progress: Progress | null = $state(null);
+	let activities: ActivitySummary[] = $state([]);
 	let metricKey: ProgressMetricKey = $state('avg_speed_kmh');
 	let metric = $derived(progressMetrics.find((m) => m.key === metricKey)!);
+
+	// The four "auf einen Blick" figures around the pictogram (#657). Lifetime
+	// km and the streak load with `progress`, slightly after the rest of the
+	// page — the "–" placeholder covers that gap instead of a layout jump.
+	let lastRide = $derived(activities[0] ?? null);
+
+	function formatLastRide(a: ActivitySummary): string {
+		const date = new Date(a.started_at).toLocaleDateString('de-DE', {
+			weekday: 'short',
+			day: '2-digit',
+			month: '2-digit'
+		});
+		if (a.distance_meters == null) return date;
+		return `${date} · ${(a.distance_meters / 1000).toFixed(1)} km`;
+	}
 
 	// Power-curve trend (#593): "is my power at this duration going up",
 	// answered by the ride-by-ride figures themselves rather than a
@@ -86,7 +103,11 @@
 
 	onMount(async () => {
 		try {
-			const [trainingLoad, activities] = await Promise.all([getTrainingLoad(), listActivities()]);
+			const [trainingLoad, fetchedActivities] = await Promise.all([
+				getTrainingLoad(),
+				listActivities()
+			]);
+			activities = fetchedActivities;
 			series = trainingLoad.series;
 			insights = trainingLoad.insights;
 			status = trainingLoad.status;
@@ -160,9 +181,53 @@
 		actionLabel="FTP/LTHR im Profil hinterlegen"
 	/>
 {:else if viewState === 'ready'}
+	<!-- The pictogram is the page's visual centerpiece (#657): everything else
+	     below is detail and evidence for what these four figures already say. -->
+	<section class="glance" aria-label="Auf einen Blick">
+		<div class="glance-bike">
+			<BikePictogram size={140} />
+		</div>
+		<div class="glance-stats">
+			<div class="glance-stat">
+				<p class="glance-value">
+					{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
+					<span class="glance-unit">km</span>
+				</p>
+				<p class="glance-label">Insgesamt gefahren</p>
+			</div>
+			<div class="glance-stat">
+				<p class="glance-value glance-value-text">
+					{lastRide ? formatLastRide(lastRide) : '–'}
+				</p>
+				<p class="glance-label">Letzte Fahrt</p>
+			</div>
+			<div class="glance-stat">
+				<!-- gauge.label already carries its own category name, e.g.
+				     "Trainingsniveau: Gelegenheitsfahrer" (#611) — no separate
+				     static label needed here, unlike the other three tiles. -->
+				<p class="glance-value glance-value-text">{status?.gauge?.label ?? 'Trainingsniveau'}</p>
+				{#if status?.gauge?.caption}
+					<p class="glance-caption">{status.gauge.caption}</p>
+				{/if}
+			</div>
+			<div class="glance-stat">
+				<p class="glance-value">
+					{progress ? progress.current_streak_weeks : '–'}
+					<span class="glance-unit">Wochen</span>
+				</p>
+				<p class="glance-label">Aktuelle Streak</p>
+			</div>
+		</div>
+	</section>
+
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->
-	<StoryHero story={status} fallbackTitle="Dein Trainingsstand" meterColor="var(--chart-ctl)" />
+	<StoryHero
+		story={status}
+		fallbackTitle="Dein Trainingsstand"
+		meterColor="var(--chart-ctl)"
+		showGauge={false}
+	/>
 	<StoryCards statements={status?.statements ?? []} label="Dein aktueller Trainingsstand" />
 
 	<p class="year-review-link">
@@ -365,6 +430,72 @@
 {/if}
 
 <style>
+	.glance {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.25rem;
+		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		padding: 1.75rem 1.25rem;
+		margin-bottom: 1.5rem;
+		box-shadow: var(--shadow-md);
+	}
+
+	.glance-bike {
+		display: flex;
+		justify-content: center;
+	}
+
+	.glance-stats {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 1.25rem 1rem;
+		width: 100%;
+		max-width: 26rem;
+	}
+
+	.glance-stat {
+		text-align: center;
+	}
+
+	.glance-value {
+		margin: 0;
+		font-size: var(--text-2xl);
+		font-weight: 800;
+		font-variant-numeric: tabular-nums;
+	}
+
+	/* A date+distance or a level name needs to read as text, not a number —
+	   the shared figure size still ties it visually to the other three. */
+	.glance-value-text {
+		font-size: var(--text-lg);
+		font-variant-numeric: normal;
+	}
+
+	.glance-unit {
+		font-size: var(--text-sm);
+		font-weight: 700;
+		color: var(--color-text-muted);
+		margin-left: 0.2rem;
+	}
+
+	.glance-label {
+		margin: 0.25rem 0 0;
+		font-size: var(--text-xs);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		color: var(--color-text-muted);
+	}
+
+	/* A full sentence (the gauge's caption) reads as shouting in the other
+	   tiles' all-caps label style — sentence case instead. */
+	.glance-caption {
+		margin: 0.25rem 0 0;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+	}
+
 	.year-review-link {
 		margin: 0 0 1.5rem;
 		font-size: var(--text-sm);
