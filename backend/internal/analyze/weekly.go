@@ -36,6 +36,15 @@ type Progress struct {
 	// Zones is how the recent weeks were spread across the effort bands
 	// (#621) — the one place where a distribution says more than any average.
 	Zones ZoneDistribution `json:"zones"`
+	// LifetimeDistanceMeters is every ride ever uploaded, not bounded by
+	// progressWeeks — the dashboard's "auf einen Blick" figure (#655).
+	LifetimeDistanceMeters float64 `json:"lifetime_distance_meters"`
+	// CurrentStreakWeeks counts consecutive calendar weeks with at least one
+	// ride, back from the most recent week that has one. A week with no ride
+	// yet (including the current, still-open one) simply isn't in Weeks —
+	// see currentStreakWeeks for how a gap ends the streak. Capped at
+	// progressWeeks by the query window; a longer streak just reports 16.
+	CurrentStreakWeeks int `json:"current_streak_weeks"`
 }
 
 const (
@@ -84,6 +93,14 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	if err := rows.Err(); err != nil {
 		return Progress{}, err
 	}
+	progress.CurrentStreakWeeks = currentStreakWeeks(progress.Weeks)
+
+	if err := pool.QueryRow(ctx,
+		`SELECT coalesce(sum(distance_meters), 0) FROM activities WHERE user_id = $1`,
+		userID,
+	).Scan(&progress.LifetimeDistanceMeters); err != nil {
+		return Progress{}, err
+	}
 
 	progress.Statements = progressStatements(progress.Weeks)
 
@@ -108,6 +125,30 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 		return Progress{}, err
 	}
 	return progress, nil
+}
+
+// currentStreakWeeks counts consecutive calendar weeks with at least one
+// ride, walking backward from the most recent week present. Weeks are only
+// in the slice at all when they had a ride (the query's GROUP BY drops
+// empty ones) — so a gap shows up as a jump bigger than 7 days between
+// neighbouring entries, not as a zero-ride row to skip over.
+//
+// Deliberately "consecutive weeks", not days: a streak defined per day fits
+// someone training daily, not the 3-5 h/week hobbyist WFF is built for
+// (#600) — one ride most weeks is already the realistic, motivating pattern
+// to reward.
+func currentStreakWeeks(weeks []Week) int {
+	if len(weeks) == 0 {
+		return 0
+	}
+	streak := 1
+	for i := len(weeks) - 1; i > 0; i-- {
+		if weeks[i].Start.Sub(weeks[i-1].Start) != 7*24*time.Hour {
+			break
+		}
+		streak++
+	}
+	return streak
 }
 
 // progressStatements says which way things are going, in words.

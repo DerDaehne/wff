@@ -127,3 +127,34 @@ func TestBlockSpeedIsDistanceOverTime(t *testing.T) {
 		t.Errorf("blockSpeed = %.2f km/h, want ~28.7 (total distance over total time)", got)
 	}
 }
+
+// currentStreakWeeks (#655): consecutive weeks with a ride, counted back from
+// the most recent one present — a gap of more than 7 days between
+// neighbouring entries ends the streak.
+func TestCurrentStreakWeeks(t *testing.T) {
+	t.Run("no weeks at all", func(t *testing.T) {
+		if got := currentStreakWeeks(nil); got != 0 {
+			t.Errorf("currentStreakWeeks(nil) = %d, want 0", got)
+		}
+	})
+
+	t.Run("unbroken run counts every week", func(t *testing.T) {
+		w := weeks(5, func(int) float64 { return 50 }, func(int) float64 { return 25 })
+		if got := currentStreakWeeks(w); got != 5 {
+			t.Errorf("currentStreakWeeks = %d, want 5", got)
+		}
+	})
+
+	t.Run("a gap ends the streak before it", func(t *testing.T) {
+		start := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+		w := []Week{
+			{Start: start},                    // isolated week, 3 weeks before the gap
+			{Start: start.AddDate(0, 0, 7*4)}, // week 4: streak starts here
+			{Start: start.AddDate(0, 0, 7*5)}, // week 5
+			{Start: start.AddDate(0, 0, 7*6)}, // week 6: most recent
+		}
+		if got := currentStreakWeeks(w); got != 3 {
+			t.Errorf("currentStreakWeeks = %d, want 3 (only the last unbroken run)", got)
+		}
+	})
+}

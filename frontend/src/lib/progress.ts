@@ -37,6 +37,11 @@ export interface Progress {
 	/** Time per heart-rate band over the recent weeks (#621) — the distribution
 	 *  says more about training than any weekly average. */
 	zones: ZoneDistribution;
+	/** Every ride ever uploaded, not just the recent weeks above (#655). */
+	lifetime_distance_meters: number;
+	/** Consecutive calendar weeks with at least one ride, counted back from
+	 *  the most recent one (#655). */
+	current_streak_weeks: number;
 }
 
 export async function getProgress(): Promise<Progress> {
@@ -55,7 +60,9 @@ export async function getProgress(): Promise<Progress> {
 			from_power: data.endurance?.from_power ?? false,
 			unit: data.endurance?.unit ?? '',
 			statements: data.endurance?.statements ?? []
-		}
+		},
+		lifetime_distance_meters: data.lifetime_distance_meters ?? 0,
+		current_streak_weeks: data.current_streak_weeks ?? 0
 	};
 }
 
