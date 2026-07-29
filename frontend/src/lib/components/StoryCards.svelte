@@ -61,10 +61,12 @@
 		class="statement-row statement-{group.kind}"
 		onclick={() => (activeGroup = group)}
 	>
-		<span class="chip statement-chip">{statementLabel[group.kind]}</span>
-		{#if summaryOf(group)}
-			<span class="row-summary">{summaryOf(group)}</span>
-		{/if}
+		<span class="row-main">
+			<span class="chip statement-chip">{statementLabel[group.kind]}</span>
+			{#if summaryOf(group)}
+				<span class="row-summary">{summaryOf(group)}</span>
+			{/if}
+		</span>
 		<span class="row-chevron" aria-hidden="true">›</span>
 	</button>
 {/snippet}
@@ -120,18 +122,33 @@
 		box-shadow: var(--shadow-md);
 	}
 
+	/* Chip above, summary below, both full-width — trying to fit chip +
+	   summary + chevron on one line left the summary a handful of characters
+	   before it had to cut off mid-word. Stacked, it gets the row's whole
+	   width and only wraps (still bounded, at two lines) for the rare long
+	   one. */
+	.row-main {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.375rem;
+	}
+
 	.statement-chip {
-		flex-shrink: 0;
 		margin: 0;
 	}
 
 	.row-summary {
-		flex: 1;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
+		line-height: 1.35;
 	}
 
 	.row-chevron {

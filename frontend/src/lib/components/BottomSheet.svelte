@@ -1,5 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import { fly, fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let {
 		open,
@@ -62,7 +64,7 @@
 
 {#if open}
 	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-	<div class="backdrop" onclick={requestClose}></div>
+	<div class="backdrop" onclick={requestClose} transition:fade={{ duration: 200 }}></div>
 	<div
 		class="sheet"
 		bind:this={sheet}
@@ -71,6 +73,7 @@
 		aria-labelledby="bottom-sheet-title"
 		tabindex="-1"
 		onkeydown={onKeydown}
+		transition:fly={{ y: '100%', duration: 300, easing: cubicOut }}
 	>
 		<div class="sheet-header">
 			<h2 id="bottom-sheet-title">{title}</h2>
