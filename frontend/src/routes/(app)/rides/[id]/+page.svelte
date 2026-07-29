@@ -89,11 +89,28 @@
 		setTimeout(() => (copied = false), 2000);
 	}
 
+	// MapLibre paint properties take a resolved colour, not a CSS custom
+	// property — `var(--x)` works fine in a plain style attribute (the legend
+	// bar below) but not here.
+	function cssColor(variable: string, fallback: string): string {
+		return getComputedStyle(document.documentElement).getPropertyValue(variable).trim() || fallback;
+	}
+
 	function trackColor(): string {
-		return (
-			getComputedStyle(document.documentElement).getPropertyValue('--color-track').trim() ||
-			'#0f766e'
-		);
+		return cssColor('--color-track', '#0f766e');
+	}
+
+	// Same low-to-high ramp the heart-rate zone bars already use (ZoneBars,
+	// #621) — reused here instead of inventing a second colour language for
+	// "how hard" (#653).
+	function colorRamp(): string[] {
+		return [
+			cssColor('--zone-recovery', '#94a3b8'),
+			cssColor('--zone-endurance', '#2dd4bf'),
+			cssColor('--zone-tempo', '#fbbf24'),
+			cssColor('--zone-threshold', '#fb923c'),
+			cssColor('--zone-vo2', '#fb7185')
+		];
 	}
 
 	// A bright map inside a dark page is the one thing that still looked pasted
@@ -144,11 +161,118 @@
 	let showPower = $derived(hasPower);
 	let showHeartRate = $derived(!hasPower && hasHeartRate);
 
-	let gpsCoords = $derived(
-		samples
-			.filter((s): s is Sample & { lat: number; lon: number } => s.lat !== null && s.lon !== null)
-			.map((s) => [s.lon, s.lat] as [number, number])
+	// Kept together (not two independent filters) so a coordinate and its
+	// sample — power/heart-rate/time, needed for the colour-coded track below
+	// — never drift out of sync with each other.
+	let trackSamples = $derived(
+		samples.filter(
+			(s): s is Sample & { lat: number; lon: number } => s.lat !== null && s.lon !== null
+		)
 	);
+	let gpsCoords = $derived(trackSamples.map((s) => [s.lon, s.lat] as [number, number]));
+
+	// Strecke einfärben nach Tempo/Puls/Leistung (#653): which metric currently
+	// colours the track, chosen once the ride's samples say what it recorded
+	// (power preferred over heart rate — same priority as the Analyse tab's
+	// showPower/showHeartRate), 'none' being the plain single-colour line.
+	type ColorMetric = 'none' | 'speed' | 'power' | 'heart_rate';
+	let colorMetric: ColorMetric = $state('none');
+	let mapReady = $state(false);
+
+	const colorMetricLabels: Record<Exclude<ColorMetric, 'none'>, string> = {
+		speed: 'Tempo',
+		power: 'Leistung',
+		heart_rate: 'Puls'
+	};
+
+	function haversineMeters(a: [number, number], b: [number, number]): number {
+		const R = 6371000;
+		const toRad = (d: number) => (d * Math.PI) / 180;
+		const dLat = toRad(b[1] - a[1]);
+		const dLon = toRad(b[0] - a[0]);
+		const h =
+			Math.sin(dLat / 2) ** 2 +
+			Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLon / 2) ** 2;
+		return 2 * R * Math.asin(Math.sqrt(h));
+	}
+
+	// The value a segment (between two consecutive track points) is coloured
+	// by. Speed comes from GPS distance/time rather than a recorded field —
+	// samples don't carry one. A implausible spike (>120 km/h) is a GPS
+	// glitch, not a descent, and gets dropped rather than compressing the
+	// whole ramp into its shadow.
+	function segmentValue(
+		metric: ColorMetric,
+		a: (typeof trackSamples)[number],
+		b: (typeof trackSamples)[number]
+	): number | null {
+		if (metric === 'speed') {
+			const seconds = (new Date(b.time).getTime() - new Date(a.time).getTime()) / 1000;
+			if (seconds <= 0) return null;
+			const kmh = (haversineMeters([a.lon, a.lat], [b.lon, b.lat]) / seconds) * 3.6;
+			return kmh <= 120 ? kmh : null;
+		}
+		if (metric === 'power') {
+			if (a.power_watts === null || b.power_watts === null) return null;
+			return (a.power_watts + b.power_watts) / 2;
+		}
+		if (metric === 'heart_rate') {
+			if (a.heart_rate === null || b.heart_rate === null) return null;
+			return (a.heart_rate + b.heart_rate) / 2;
+		}
+		return null;
+	}
+
+	function percentile(sorted: number[], p: number): number {
+		const i = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * p)));
+		return sorted[i];
+	}
+
+	// The segments actually drawn colour-coded — gaps in the chosen metric
+	// (sensor dropout) simply have no feature here, so the plain track layer
+	// underneath shows through rather than a fabricated value.
+	let coloredTrack = $derived.by(() => {
+		if (colorMetric === 'none' || trackSamples.length < 2) return null;
+		const features: {
+			type: 'Feature';
+			properties: { value: number };
+			geometry: { type: 'LineString'; coordinates: [number, number][] };
+		}[] = [];
+		const values: number[] = [];
+		for (let i = 0; i < trackSamples.length - 1; i++) {
+			const a = trackSamples[i];
+			const b = trackSamples[i + 1];
+			const value = segmentValue(colorMetric, a, b);
+			if (value === null) continue;
+			features.push({
+				type: 'Feature',
+				properties: { value },
+				geometry: {
+					type: 'LineString',
+					coordinates: [
+						[a.lon, a.lat],
+						[b.lon, b.lat]
+					]
+				}
+			});
+			values.push(value);
+		}
+		if (values.length === 0) return null;
+		const sorted = [...values].sort((x, y) => x - y);
+		// 5th/95th percentile, not the raw min/max — one leftover GPS-speed
+		// outlier or a single missed heartbeat reading would otherwise wash out
+		// the whole ramp for every other, plausible segment.
+		const lo = percentile(sorted, 0.05);
+		const hi = Math.max(percentile(sorted, 0.95), lo + 1);
+		return { features, lo, hi };
+	});
+
+	function legendFormat(metric: ColorMetric, value: number): string {
+		if (metric === 'speed') return `${value.toFixed(0)} km/h`;
+		if (metric === 'power') return `${Math.round(value)} W`;
+		if (metric === 'heart_rate') return `${Math.round(value)} bpm`;
+		return '';
+	}
 
 	// Temperature only. The average headwind that used to sit here is the
 	// hourly figure that cancels itself out on an out-and-back — it showed
@@ -164,6 +288,11 @@
 		try {
 			const activityId = Number(page.params.id);
 			samples = await getActivitySamples(activityId);
+			colorMetric = hasAnyValue(samples.map((s) => s.power_watts))
+				? 'power'
+				: hasAnyValue(samples.map((s) => s.heart_rate))
+					? 'heart_rate'
+					: 'speed';
 			viewState = 'ready';
 			// Both are best-effort: a ride not yet enriched (or without power
 			// data) still shows its map and curves rather than an error.
@@ -215,6 +344,60 @@
 				// scheme's teal on a dark map.
 				paint: { 'line-color': trackColor(), 'line-width': 4 }
 			});
+			mapReady = true;
+		});
+	});
+
+	// The colour-coded overlay (#653): drawn on top of the plain 'track' layer
+	// rather than replacing it, so a gap in the chosen metric just shows the
+	// plain line through instead of a hole. Removed and rebuilt from scratch
+	// on every change rather than patched in place — the paint expression's
+	// colour stops are baked to this metric's own value range, so switching
+	// metric always needs a fresh one anyway.
+	$effect(() => {
+		if (!map || !mapReady) return;
+		if (map.getLayer('track-colored')) {
+			map.removeLayer('track-colored');
+			map.removeSource('track-colored');
+		}
+		const colored = coloredTrack;
+		if (!colored) return;
+		const { features, lo, hi } = colored;
+		const ramp = colorRamp();
+		const step = (hi - lo) / 4;
+		map.addSource('track-colored', {
+			type: 'geojson',
+			// geojson-vt's default simplification tolerance drops geometry below
+			// its threshold per tile-zoom — each segment here is only the
+			// distance between two consecutive samples (often single-digit
+			// metres), short enough that entire stretches of the coloured
+			// overlay silently vanished at a typical fitBounds zoom before this
+			// was set to 0.
+			tolerance: 0,
+			data: { type: 'FeatureCollection', features }
+		});
+		map.addLayer({
+			id: 'track-colored',
+			type: 'line',
+			source: 'track-colored',
+			paint: {
+				'line-width': 4,
+				'line-color': [
+					'interpolate',
+					['linear'],
+					['get', 'value'],
+					lo,
+					ramp[0],
+					lo + step,
+					ramp[1],
+					lo + step * 2,
+					ramp[2],
+					lo + step * 3,
+					ramp[3],
+					hi,
+					ramp[4]
+				]
+			}
 		});
 	});
 
@@ -320,7 +503,58 @@
 		<section class="panel">
 			<h2>Wo du gefahren bist</h2>
 			{#if gpsCoords.length > 1}
+				<div class="color-switch" role="group" aria-label="Strecke einfärben nach">
+					<button
+						type="button"
+						class="btn {colorMetric === 'none' ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={colorMetric === 'none'}
+						onclick={() => (colorMetric = 'none')}
+					>
+						Einfarbig
+					</button>
+					{#if hasPower}
+						<button
+							type="button"
+							class="btn {colorMetric === 'power' ? 'btn-primary' : 'btn-secondary'}"
+							aria-pressed={colorMetric === 'power'}
+							onclick={() => (colorMetric = 'power')}
+						>
+							Leistung
+						</button>
+					{/if}
+					{#if hasHeartRate}
+						<button
+							type="button"
+							class="btn {colorMetric === 'heart_rate' ? 'btn-primary' : 'btn-secondary'}"
+							aria-pressed={colorMetric === 'heart_rate'}
+							onclick={() => (colorMetric = 'heart_rate')}
+						>
+							Puls
+						</button>
+					{/if}
+					<button
+						type="button"
+						class="btn {colorMetric === 'speed' ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={colorMetric === 'speed'}
+						onclick={() => (colorMetric = 'speed')}
+					>
+						Tempo
+					</button>
+				</div>
 				<div class="map" bind:this={mapContainer}></div>
+				{#if coloredTrack}
+					<div class="color-legend">
+						<span
+							class="color-legend-bar"
+							style="background: linear-gradient(to right, var(--zone-recovery), var(--zone-endurance), var(--zone-tempo), var(--zone-threshold), var(--zone-vo2))"
+						></span>
+						<span class="color-legend-labels">
+							<span>{legendFormat(colorMetric, coloredTrack.lo)}</span>
+							<span>{colorMetricLabels[colorMetric as Exclude<ColorMetric, 'none'>]}</span>
+							<span>{legendFormat(colorMetric, coloredTrack.hi)}</span>
+						</span>
+					</div>
+				{/if}
 			{:else}
 				<p class="empty">Für diese Fahrt wurde keine Position aufgezeichnet.</p>
 			{/if}
@@ -547,6 +781,31 @@
 		border-radius: 12px;
 		overflow: hidden;
 		margin-top: 1rem;
+	}
+
+	.color-switch {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	.color-legend {
+		margin-top: 0.75rem;
+	}
+
+	.color-legend-bar {
+		display: block;
+		height: 8px;
+		border-radius: var(--radius-pill);
+	}
+
+	.color-legend-labels {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 0.25rem;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 
 	/* A narrow phone can't fit six columns — scroll the table itself rather
