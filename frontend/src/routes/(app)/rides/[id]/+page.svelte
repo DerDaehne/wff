@@ -49,6 +49,12 @@
 	let mapContainer: HTMLDivElement = $state()!;
 	let map: Map | null = null;
 
+	// Sections instead of one long scroll (#650, refinement of #646) — Karte
+	// and Analyse stay mounted (hidden, not destroyed) rather than behind an
+	// {#if}: the map is expensive to tear down and recreate, and the charts
+	// have nothing to lose by staying alive off-screen either.
+	let activeTab: 'uebersicht' | 'karte' | 'analyse' = $state('uebersicht');
+
 	// Share status (#641): loaded best-effort alongside the story, since a
 	// ride still renders fine without knowing whether it's shared yet.
 	let shareStatus: ShareStatus | null = $state(null);
@@ -215,6 +221,22 @@
 	onDestroy(() => {
 		map?.remove();
 	});
+
+	// MapLibre sizes its WebGL canvas from the container's on-screen dimensions
+	// at creation time — a container hidden behind the Übersicht/Analyse tabs
+	// is 0×0, so the map would otherwise stay blank forever once the Karte tab
+	// is finally shown. resize() re-reads the now-visible container's size.
+	$effect(() => {
+		if (activeTab !== 'karte' || !map) return;
+		map.resize();
+		// resize() alone re-reads the canvas size but doesn't recompute the
+		// framing — without this the track stays positioned for a 0×0 viewport
+		// and can render off to one side.
+		map.fitBounds(
+			gpsCoords.reduce((b, c) => b.extend(c), new LngLatBounds(gpsCoords[0], gpsCoords[0])),
+			{ padding: 32, animate: false }
+		);
+	});
 </script>
 
 {#if viewState === 'loading'}
@@ -222,163 +244,209 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<StoryHero {story} fallbackTitle="Deine Fahrt" note={conditions[0]} />
+	<!-- Sections instead of one long scroll (#650): Übersicht carries the
+	     always-relevant story, Karte and Analyse are their own tabs rather
+	     than more panels to scroll past. -->
+	<div class="tabs" role="tablist">
+		<button
+			class="tab"
+			class:active={activeTab === 'uebersicht'}
+			type="button"
+			role="tab"
+			aria-selected={activeTab === 'uebersicht'}
+			onclick={() => (activeTab = 'uebersicht')}
+		>
+			Übersicht
+		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'karte'}
+			type="button"
+			role="tab"
+			aria-selected={activeTab === 'karte'}
+			onclick={() => (activeTab = 'karte')}
+		>
+			Karte
+		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'analyse'}
+			type="button"
+			role="tab"
+			aria-selected={activeTab === 'analyse'}
+			onclick={() => (activeTab = 'analyse')}
+		>
+			Analyse
+		</button>
+	</div>
 
-	<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
+	<div hidden={activeTab !== 'uebersicht'}>
+		<StoryHero {story} fallbackTitle="Deine Fahrt" note={conditions[0]} />
 
-	{#if shareStatus?.active}
-		<div class="share-banner">
-			<p>
-				<strong>Diese Fahrt ist per Link geteilt</strong> — Kennzahlen sind ohne Login sichtbar.
+		<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
+
+		{#if shareStatus?.active}
+			<div class="share-banner">
+				<p>
+					<strong>Diese Fahrt ist per Link geteilt</strong> — Kennzahlen sind ohne Login sichtbar.
+				</p>
+				<div class="share-row">
+					<input
+						class="input"
+						type="text"
+						readonly
+						value={shareUrl}
+						onclick={(e) => e.currentTarget.select()}
+					/>
+					<button class="btn btn-secondary" type="button" onclick={copyShareLink}>
+						{copied ? 'Kopiert!' : 'Kopieren'}
+					</button>
+					<button class="btn btn-secondary" type="button" onclick={unshare} disabled={shareBusy}>
+						Teilen beenden
+					</button>
+				</div>
+			</div>
+		{:else}
+			<p class="export-hint">
+				<button class="link-button" type="button" onclick={share} disabled={shareBusy}>
+					Fahrt per Link teilen
+				</button>
+				· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
 			</p>
-			<div class="share-row">
-				<input
-					class="input"
-					type="text"
-					readonly
-					value={shareUrl}
-					onclick={(e) => e.currentTarget.select()}
+		{/if}
+	</div>
+
+	<div hidden={activeTab !== 'karte'}>
+		<section class="panel">
+			<h2>Wo du gefahren bist</h2>
+			{#if gpsCoords.length > 1}
+				<div class="map" bind:this={mapContainer}></div>
+			{:else}
+				<p class="empty">Für diese Fahrt wurde keine Position aufgezeichnet.</p>
+			{/if}
+		</section>
+
+		<section class="panel">
+			<h2>Bergauf, bergab</h2>
+			<p class="panel-sub">Höhe über dem Meer im Verlauf der Fahrt</p>
+			{#if hasElevation}
+				<LineChart
+					xValues={elapsedMinutes}
+					series={[
+						{
+							name: 'Höhe',
+							color: 'var(--chart-elevation)',
+							values: samples.map((s) => s.altitude_meters)
+						}
+					]}
+					xFormat={formatElapsed}
+					yFormat={(y) => `${Math.round(y)} m`}
+					ariaLabel="Höhenprofil"
+					height={160}
 				/>
-				<button class="btn btn-secondary" type="button" onclick={copyShareLink}>
-					{copied ? 'Kopiert!' : 'Kopieren'}
-				</button>
-				<button class="btn btn-secondary" type="button" onclick={unshare} disabled={shareBusy}>
-					Teilen beenden
-				</button>
-			</div>
-		</div>
-	{:else}
-		<p class="export-hint">
-			<button class="link-button" type="button" onclick={share} disabled={shareBusy}>
-				Fahrt per Link teilen
-			</button>
-			· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
-		</p>
-	{/if}
-
-	{#if story?.zones && story.zones.total_seconds > 0}
-		<section class="panel">
-			<h2>Wo dein Puls lag</h2>
-			<p class="panel-sub">
-				Der Durchschnittspuls verrät nicht, ob du gleichmäßig unterwegs warst oder zwischendurch
-				hart. Diese Aufteilung schon.
-			</p>
-			<ZoneBars distribution={story.zones} label="Zeit in den Pulsbereichen dieser Fahrt" />
+			{:else}
+				<p class="empty">Für diese Fahrt wurden keine Höhendaten aufgezeichnet.</p>
+			{/if}
 		</section>
-	{/if}
+	</div>
 
-	<section class="panel">
-		<h2>Wo du gefahren bist</h2>
-		{#if gpsCoords.length > 1}
-			<div class="map" bind:this={mapContainer}></div>
-		{:else}
-			<p class="empty">Für diese Fahrt wurde keine Position aufgezeichnet.</p>
+	<div hidden={activeTab !== 'analyse'}>
+		{#if story?.zones && story.zones.total_seconds > 0}
+			<section class="panel">
+				<h2>Wo dein Puls lag</h2>
+				<p class="panel-sub">
+					Der Durchschnittspuls verrät nicht, ob du gleichmäßig unterwegs warst oder zwischendurch
+					hart. Diese Aufteilung schon.
+				</p>
+				<ZoneBars distribution={story.zones} label="Zeit in den Pulsbereichen dieser Fahrt" />
+			</section>
 		{/if}
-	</section>
 
-	<section class="panel">
-		<h2>Bergauf, bergab</h2>
-		<p class="panel-sub">Höhe über dem Meer im Verlauf der Fahrt</p>
-		{#if hasElevation}
-			<LineChart
-				xValues={elapsedMinutes}
-				series={[
-					{
-						name: 'Höhe',
-						color: 'var(--chart-elevation)',
-						values: samples.map((s) => s.altitude_meters)
-					}
-				]}
-				xFormat={formatElapsed}
-				yFormat={(y) => `${Math.round(y)} m`}
-				ariaLabel="Höhenprofil"
-				height={160}
-			/>
-		{:else}
-			<p class="empty">Für diese Fahrt wurden keine Höhendaten aufgezeichnet.</p>
-		{/if}
-	</section>
-
-	<section class="panel">
-		{#if showPower}
-			<h2>Wie viel Kraft du aufs Pedal gebracht hast</h2>
-			<p class="panel-sub">Leistung in Watt — höher heißt kräftiger getreten</p>
-			<LineChart
-				xValues={elapsedMinutes}
-				series={[
-					{
-						name: 'Leistung',
-						color: 'var(--chart-power)',
-						values: samples.map((s) => s.power_watts)
-					}
-				]}
-				xFormat={formatElapsed}
-				yFormat={(y) => `${Math.round(y)} W`}
-				ariaLabel="Leistung"
-				height={160}
-			/>
-		{:else if showHeartRate}
-			<h2>Wie schnell dein Herz geschlagen hat</h2>
-			<p class="panel-sub">Herzfrequenz in Schlägen pro Minute — höher heißt anstrengender</p>
-			<LineChart
-				xValues={elapsedMinutes}
-				series={[
-					{
-						name: 'Herzfrequenz',
-						color: 'var(--chart-heart-rate)',
-						values: samples.map((s) => s.heart_rate)
-					}
-				]}
-				xFormat={formatElapsed}
-				yFormat={(y) => `${Math.round(y)} bpm`}
-				ariaLabel="Herzfrequenz"
-				height={160}
-			/>
-		{:else}
-			<h2>Wie anstrengend es war</h2>
-			<p class="empty">
-				Für diese Fahrt wurden weder Leistung noch Puls aufgezeichnet — dafür braucht das Rad einen
-				Leistungsmesser oder einen Pulsgurt.
-			</p>
-		{/if}
-	</section>
-
-	{#if laps.length > 0}
 		<section class="panel">
-			<h2>Zwischenzeiten</h2>
-			<p class="panel-sub">Runden, die dein Gerät selbst markiert hat</p>
-			<div class="laps-scroll">
-				<table class="laps">
-					<thead>
-						<tr>
-							<th>Runde</th>
-							<th>Zeit</th>
-							<th>Distanz</th>
-							<th>⌀ Leistung</th>
-							<th>⌀ Puls</th>
-							<th>⌀ Tempo</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each laps as lap (lap.lap_index)}
+			{#if showPower}
+				<h2>Wie viel Kraft du aufs Pedal gebracht hast</h2>
+				<p class="panel-sub">Leistung in Watt — höher heißt kräftiger getreten</p>
+				<LineChart
+					xValues={elapsedMinutes}
+					series={[
+						{
+							name: 'Leistung',
+							color: 'var(--chart-power)',
+							values: samples.map((s) => s.power_watts)
+						}
+					]}
+					xFormat={formatElapsed}
+					yFormat={(y) => `${Math.round(y)} W`}
+					ariaLabel="Leistung"
+					height={160}
+				/>
+			{:else if showHeartRate}
+				<h2>Wie schnell dein Herz geschlagen hat</h2>
+				<p class="panel-sub">Herzfrequenz in Schlägen pro Minute — höher heißt anstrengender</p>
+				<LineChart
+					xValues={elapsedMinutes}
+					series={[
+						{
+							name: 'Herzfrequenz',
+							color: 'var(--chart-heart-rate)',
+							values: samples.map((s) => s.heart_rate)
+						}
+					]}
+					xFormat={formatElapsed}
+					yFormat={(y) => `${Math.round(y)} bpm`}
+					ariaLabel="Herzfrequenz"
+					height={160}
+				/>
+			{:else}
+				<h2>Wie anstrengend es war</h2>
+				<p class="empty">
+					Für diese Fahrt wurden weder Leistung noch Puls aufgezeichnet — dafür braucht das Rad
+					einen Leistungsmesser oder einen Pulsgurt.
+				</p>
+			{/if}
+		</section>
+
+		{#if laps.length > 0}
+			<section class="panel">
+				<h2>Zwischenzeiten</h2>
+				<p class="panel-sub">Runden, die dein Gerät selbst markiert hat</p>
+				<div class="laps-scroll">
+					<table class="laps">
+						<thead>
 							<tr>
-								<td>{lap.lap_index + 1}</td>
-								<td>{formatLapTime(lap.elapsed_seconds)}</td>
-								<td>{formatDistance(lap.distance_meters)}</td>
-								<td
-									>{lap.avg_power_watts !== null ? `${Math.round(lap.avg_power_watts)} W` : '–'}</td
-								>
-								<td
-									>{lap.avg_heart_rate !== null ? `${Math.round(lap.avg_heart_rate)} bpm` : '–'}</td
-								>
-								<td>{formatSpeed(lap.avg_speed_mps)}</td>
+								<th>Runde</th>
+								<th>Zeit</th>
+								<th>Distanz</th>
+								<th>⌀ Leistung</th>
+								<th>⌀ Puls</th>
+								<th>⌀ Tempo</th>
 							</tr>
-						{/each}
-					</tbody>
-				</table>
-			</div>
-		</section>
-	{/if}
+						</thead>
+						<tbody>
+							{#each laps as lap (lap.lap_index)}
+								<tr>
+									<td>{lap.lap_index + 1}</td>
+									<td>{formatLapTime(lap.elapsed_seconds)}</td>
+									<td>{formatDistance(lap.distance_meters)}</td>
+									<td
+										>{lap.avg_power_watts !== null
+											? `${Math.round(lap.avg_power_watts)} W`
+											: '–'}</td
+									>
+									<td
+										>{lap.avg_heart_rate !== null
+											? `${Math.round(lap.avg_heart_rate)} bpm`
+											: '–'}</td
+									>
+									<td>{formatSpeed(lap.avg_speed_mps)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</section>
+		{/if}
+	</div>
 
 	<p class="glossary-hint">
 		Unsicher, was ein Begriff bedeutet? Im <a href={resolve('/(app)/glossar')}>Glossar</a> steht alles
@@ -387,6 +455,29 @@
 {/if}
 
 <style>
+	.tabs {
+		display: flex;
+		gap: 0.375rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.tab {
+		flex: 1;
+		border: none;
+		border-radius: var(--radius-pill);
+		padding: 0.5rem 1rem;
+		font: inherit;
+		font-weight: 700;
+		color: var(--color-text-muted);
+		background: color-mix(in srgb, var(--color-text) 6%, transparent);
+		cursor: pointer;
+	}
+
+	.tab.active {
+		color: color-mix(in srgb, var(--color-brand) 70%, var(--color-text));
+		background: color-mix(in srgb, var(--color-brand) 16%, transparent);
+	}
+
 	.panel {
 		background: var(--color-surface);
 		border-radius: var(--radius-md);
