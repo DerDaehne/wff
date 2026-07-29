@@ -255,6 +255,11 @@ type activitySummary struct {
 	MovingSeconds       int       `json:"moving_seconds"`
 	DistanceMeters      *float64  `json:"distance_meters"`
 	TrainingStressScore *float64  `json:"training_stress_score"`
+	// Added for the ride-vs-ride comparison view (#595) — cheap to carry on
+	// every list row, no reason for a per-activity round trip just for two
+	// numbers the table already has.
+	AvgPowerWatts *float64 `json:"avg_power_watts"`
+	AvgHeartRate  *float64 `json:"avg_heart_rate"`
 	// Zones is the ride's character at a glance in the list (#633) — nil
 	// without enough recorded pulse, same rule as the ride-detail zones.
 	Zones *analyze.ZoneShares `json:"zones,omitempty"`
@@ -266,7 +271,8 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 	userID, _ := auth.UserID(r.Context())
 
 	rows, err := h.pool.Query(r.Context(),
-		`SELECT id, started_at, sport, elapsed_seconds, moving_seconds, distance_meters, training_stress_score
+		`SELECT id, started_at, sport, elapsed_seconds, moving_seconds, distance_meters, training_stress_score,
+		        avg_power_watts, avg_heart_rate
 		 FROM activities WHERE user_id = $1 ORDER BY started_at DESC`,
 		userID,
 	)
@@ -280,7 +286,10 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 	var ids []int64
 	for rows.Next() {
 		var a activitySummary
-		if err := rows.Scan(&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore); err != nil {
+		if err := rows.Scan(
+			&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore,
+			&a.AvgPowerWatts, &a.AvgHeartRate,
+		); err != nil {
 			http.Error(w, "could not load activities", http.StatusInternalServerError)
 			return
 		}

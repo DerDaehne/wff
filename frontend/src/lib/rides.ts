@@ -9,6 +9,8 @@ export interface ActivitySummary {
 	moving_seconds: number;
 	distance_meters: number | null;
 	training_stress_score: number | null;
+	avg_power_watts: number | null;
+	avg_heart_rate: number | null;
 	/** The ride's character at a glance in the list (#633) — absent without
 	 *  enough recorded pulse, same rule as the ride-detail zones. */
 	zones?: ZoneShares | null;

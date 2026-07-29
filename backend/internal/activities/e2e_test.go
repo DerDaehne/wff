@@ -347,9 +347,11 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 	t.Run("list returns the rider's own activity", func(t *testing.T) {
 		listBody := getBody(t, rider, server.URL+"/api/activities", http.StatusOK)
 		var list []struct {
-			ID     int64  `json:"id"`
-			Sport  string `json:"sport"`
-			Moving int    `json:"moving_seconds"`
+			ID            int64    `json:"id"`
+			Sport         string   `json:"sport"`
+			Moving        int      `json:"moving_seconds"`
+			AvgPowerWatts *float64 `json:"avg_power_watts"`
+			AvgHeartRate  *float64 `json:"avg_heart_rate"`
 		}
 		if err := json.Unmarshal([]byte(listBody), &list); err != nil {
 			t.Fatalf("decode list response: %v (body: %s)", err, listBody)
@@ -360,6 +362,13 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 				found = true
 				if a.Sport != "cycling" {
 					t.Fatalf("sport = %q, want cycling", a.Sport)
+				}
+				// #595 (ride comparison) reads these off the list response.
+				if a.AvgPowerWatts == nil || *a.AvgPowerWatts != 180 {
+					t.Fatalf("avg_power_watts = %v, want 180", a.AvgPowerWatts)
+				}
+				if a.AvgHeartRate == nil || *a.AvgHeartRate != 140 {
+					t.Fatalf("avg_heart_rate = %v, want 140", a.AvgHeartRate)
 				}
 			}
 		}

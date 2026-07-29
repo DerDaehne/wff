@@ -11,6 +11,25 @@
 	let errorMessage = $state('');
 	let primaryMetric = $state('distance');
 
+	// Ride-vs-ride comparison (#595): a lightweight selection mode rather than
+	// a permanent checkbox on every row — most visits to this list never
+	// compare anything.
+	let compareMode = $state(false);
+	let selectedIds: number[] = $state([]);
+
+	function toggleCompareMode() {
+		compareMode = !compareMode;
+		selectedIds = [];
+	}
+
+	function toggleSelected(id: number) {
+		if (selectedIds.includes(id)) {
+			selectedIds = selectedIds.filter((i) => i !== id);
+		} else if (selectedIds.length < 2) {
+			selectedIds = [...selectedIds, id];
+		}
+	}
+
 	// The same order the ride's own hero uses (#616) — the list and the detail
 	// view must not disagree about what matters. Figures a ride has no value
 	// for are dropped, so a preference never leaves a gap.
@@ -83,7 +102,28 @@
 	}
 </script>
 
-<h1>Deine Fahrten</h1>
+<div class="header-row">
+	<h1>Deine Fahrten</h1>
+	{#if viewState === 'ready'}
+		<button class="btn btn-secondary" type="button" onclick={toggleCompareMode}>
+			{compareMode ? 'Abbrechen' : 'Fahrten vergleichen'}
+		</button>
+	{/if}
+</div>
+
+{#if compareMode}
+	<p class="compare-hint">
+		Wähle zwei Fahrten aus.
+		{#if selectedIds.length === 2}
+			<a
+				class="btn btn-primary compare-cta"
+				href="{resolve('/(app)/rides/vergleich')}?a={selectedIds[0]}&b={selectedIds[1]}"
+			>
+				Vergleichen
+			</a>
+		{/if}
+	</p>
+{/if}
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
@@ -100,7 +140,18 @@
 		<h2 class="month-header">{group.label}</h2>
 		<ul class="rides">
 			{#each group.rides as ride (ride.id)}
-				<li>
+				<li class:compare-row={compareMode}>
+					{#if compareMode}
+						<label class="compare-checkbox">
+							<input
+								type="checkbox"
+								checked={selectedIds.includes(ride.id)}
+								disabled={!selectedIds.includes(ride.id) && selectedIds.length >= 2}
+								onchange={() => toggleSelected(ride.id)}
+							/>
+							<span class="sr-only">{rideDate(ride.started_at)} auswählen</span>
+						</label>
+					{/if}
 					<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
 						<span class="ride-date">{rideDate(ride.started_at)}</span>
 						<!-- Same order as the ride's own hero: the list and the detail view
@@ -144,6 +195,56 @@
 {/if}
 
 <style>
+	.header-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.compare-hint {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+		margin: 0.5rem 0 1rem;
+	}
+
+	.compare-cta {
+		font-size: var(--text-sm);
+		padding: 0.4rem 1rem;
+	}
+
+	.compare-row {
+		display: flex;
+		align-items: center;
+	}
+
+	.compare-checkbox {
+		display: flex;
+		align-items: center;
+		padding: 0 0 0 1.25rem;
+	}
+
+	.compare-checkbox input {
+		width: 1.25rem;
+		height: 1.25rem;
+	}
+
+	.compare-row a {
+		flex: 1;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+	}
+
 	.month-header {
 		position: sticky;
 		top: 0;
