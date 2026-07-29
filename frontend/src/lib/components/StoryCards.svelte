@@ -48,6 +48,14 @@
 		return metrics.length > 0 ? metrics.join(' · ') : null;
 	}
 
+	// The structured figures behind summaryOf's text, when the backend could
+	// reduce the statement to one or two clear values (#651) — shown as big
+	// numbers instead of a text fragment. Statements without any (a four-way
+	// zone split, say) leave this empty and fall back to summaryOf's text.
+	function metricsOf(group: (typeof groups)[number]) {
+		return group.items.flatMap((s) => s.metrics ?? []);
+	}
+
 	let activeGroup: (typeof groups)[number] | null = $state(null);
 
 	function closeDetail() {
@@ -63,7 +71,18 @@
 	>
 		<span class="row-main">
 			<span class="chip statement-chip">{statementLabel[group.kind]}</span>
-			{#if summaryOf(group)}
+			{#if metricsOf(group).length > 0}
+				<span class="row-values">
+					{#each metricsOf(group) as m, i (i)}
+						<span class="row-metric">
+							<strong class="row-metric-value"
+								>{m.value}{#if m.unit}<span class="row-metric-unit">{m.unit}</span>{/if}</strong
+							>
+							{#if m.label}<span class="row-metric-label">{m.label}</span>{/if}
+						</span>
+					{/each}
+				</span>
+			{:else if summaryOf(group)}
 				<span class="row-summary">{summaryOf(group)}</span>
 			{/if}
 		</span>
@@ -149,6 +168,40 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 		line-height: 1.35;
+	}
+
+	/* The number itself, not a sentence fragment about it (#651) — the whole
+	   point of a compact row is that the figure IS the summary. */
+	.row-values {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: 1.25rem;
+	}
+
+	.row-metric {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.row-metric-value {
+		font-size: var(--text-xl);
+		font-weight: 800;
+		line-height: 1.1;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.row-metric-unit {
+		font-size: var(--text-xs);
+		font-weight: 700;
+		color: var(--color-text-muted);
+		margin-left: 0.25rem;
+	}
+
+	.row-metric-label {
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 
 	.row-chevron {

@@ -80,7 +80,8 @@ func caloriesStatement(kcal int, age int) Statement {
 		Text: fmt.Sprintf("Diese Fahrt hat dich etwa %d Kilokalorien gekostet. Das ist eine "+
 			"Schätzung aus deinem Puls, nicht eine Messung — je nach Tagesform liegt der "+
 			"echte Wert gut ein Fünftel darüber oder darunter.", kcal),
-		Metric: fmt.Sprintf("aus Puls, Gewicht und Alter (%d) · Formel nach Keytel", age),
-		Kind:   "calories",
+		Metric:  fmt.Sprintf("aus Puls, Gewicht und Alter (%d) · Formel nach Keytel", age),
+		Metrics: []Stat{{Value: fmt.Sprintf("%d", kcal), Unit: "kcal"}},
+		Kind:    "calories",
 	}
 }

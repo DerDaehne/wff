@@ -59,7 +59,11 @@ func distanceMilestone(f RideFacts) (Statement, bool) {
 			"Das war deine bisher längste Fahrt — %s km mehr als deine bisherige weiteste.",
 			decimal((meters-*prior)/1000, 1)),
 		Metric: fmt.Sprintf("%s km · bisher %s km", decimal(meters/1000, 1), decimal(*prior/1000, 1)),
-		Kind:   "milestone",
+		Metrics: []Stat{
+			{Value: decimal(meters/1000, 1), Unit: "km", Label: "Neuer Rekord"},
+			{Value: decimal(*prior/1000, 1), Unit: "km", Label: "Bisher"},
+		},
+		Kind: "milestone",
 	}, true
 }
 
@@ -77,6 +81,10 @@ func climbMilestone(f RideFacts) (Statement, bool) {
 			"So viele Höhenmeter wie heute hast du an einem Stück noch nie gesammelt — %d mehr als bisher.",
 			int(gain-*prior+0.5)),
 		Metric: fmt.Sprintf("%d Höhenmeter · bisher %d", int(gain+0.5), int(*prior+0.5)),
-		Kind:   "milestone",
+		Metrics: []Stat{
+			{Value: fmt.Sprintf("%d", int(gain+0.5)), Unit: "Höhenmeter", Label: "Neuer Rekord"},
+			{Value: fmt.Sprintf("%d", int(*prior+0.5)), Unit: "Höhenmeter", Label: "Bisher"},
+		},
+		Kind: "milestone",
 	}, true
 }

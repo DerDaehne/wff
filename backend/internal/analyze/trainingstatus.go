@@ -37,9 +37,10 @@ func TrainingStatus(series []DayLoad) Story {
 	}
 
 	story.Statements = append(story.Statements, Statement{
-		Text:   formExplanation(latest.TSB),
-		Metric: fmt.Sprintf("Frische (TSB) %s", signed(latest.TSB)),
-		Kind:   "form",
+		Text:    formExplanation(latest.TSB),
+		Metric:  fmt.Sprintf("Frische (TSB) %s", signed(latest.TSB)),
+		Metrics: []Stat{{Value: signed(latest.TSB), Label: "Frische (TSB)"}},
+		Kind:    "form",
 	})
 
 	if s, ok := trendStatement(series); ok {
@@ -179,7 +180,11 @@ func trendStatement(series []DayLoad) (Statement, bool) {
 	return Statement{
 		Text:   text,
 		Metric: fmt.Sprintf("Fitness (CTL) %d → %d", int(back.CTL+0.5), int(latest.CTL+0.5)),
-		Kind:   "trend",
+		Metrics: []Stat{
+			{Value: fmt.Sprintf("%d", int(back.CTL+0.5)), Label: fmt.Sprintf("Vor %d Tagen", days)},
+			{Value: fmt.Sprintf("%d", int(latest.CTL+0.5)), Label: "Jetzt"},
+		},
+		Kind: "trend",
 	}, true
 }
 

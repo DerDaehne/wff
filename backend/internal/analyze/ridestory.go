@@ -62,7 +62,13 @@ type Gauge struct {
 type Statement struct {
 	Text   string `json:"text"`
 	Metric string `json:"metric,omitempty"`
-	Kind   string `json:"kind"`
+	// Metrics is the number(s) behind Metric, structured so the frontend can
+	// typeset them large instead of showing the pre-formatted string (#651).
+	// Left empty for statements whose Metric is a genuine multi-part
+	// narrative (e.g. a four-way zone split) rather than one or two values —
+	// the frontend falls back to Metric text there, not to nothing.
+	Metrics []Stat `json:"metrics,omitempty"`
+	Kind    string `json:"kind"`
 }
 
 // RideFacts is everything RideStory reasons about. Pointers are genuinely
@@ -451,9 +457,10 @@ func effortStatement(f RideFacts) (Statement, bool) {
 		source = "aus deinem Puls geschätzt"
 	}
 	return Statement{
-		Text:   text,
-		Metric: fmt.Sprintf("Intensität (IF) %s · %s", decimal(*f.IntensityFactor, 2), source),
-		Kind:   "effort",
+		Text:    text,
+		Metric:  fmt.Sprintf("Intensität (IF) %s · %s", decimal(*f.IntensityFactor, 2), source),
+		Metrics: []Stat{{Value: decimal(*f.IntensityFactor, 2), Label: "Intensität (IF)"}},
+		Kind:    "effort",
 	}, true
 }
 
@@ -480,9 +487,10 @@ func loadStatement(f RideFacts) (Statement, bool) {
 		text = "Sehr große Belastung — so etwas braucht mehrere Tage Erholung."
 	}
 	return Statement{
-		Text:   text,
-		Metric: fmt.Sprintf("Belastung (TSS) %d", int(*f.TSS+0.5)),
-		Kind:   "load",
+		Text:    text,
+		Metric:  fmt.Sprintf("Belastung (TSS) %d", int(*f.TSS+0.5)),
+		Metrics: []Stat{{Value: fmt.Sprintf("%d", int(*f.TSS+0.5)), Label: "Belastung (TSS)"}},
+		Kind:    "load",
 	}, true
 }
 
@@ -525,7 +533,11 @@ func paceStatement(f RideFacts) (Statement, bool) {
 	}
 
 	metric := fmt.Sprintf("⌀ %s km/h · %s km", decimal(speed, 1), decimal(f.distanceMeters()/1000, 1))
-	return Statement{Text: text, Metric: metric, Kind: "pace"}, true
+	metrics := []Stat{
+		{Value: decimal(speed, 1), Unit: "km/h", Label: "⌀ Tempo"},
+		{Value: decimal(f.distanceMeters()/1000, 1), Unit: "km", Label: "Distanz"},
+	}
+	return Statement{Text: text, Metric: metric, Metrics: metrics, Kind: "pace"}, true
 }
 
 // climbStatement reports the ride's best ascent in climbing speed (VAM) —
@@ -549,6 +561,10 @@ func climbStatement(f RideFacts) (Statement, bool) {
 		decimal(c.DistanceMeters/1000, 1), decimal(c.GradePct, 1), int(c.VAM+0.5))
 
 	metric := fmt.Sprintf("%d hm/h · %d Höhenmeter · %s", int(c.VAM+0.5), int(c.GainMeters+0.5), duration(int(c.Seconds)))
+	metrics := []Stat{
+		{Value: fmt.Sprintf("%d", int(c.VAM+0.5)), Unit: "hm/h", Label: "Kletterrate"},
+		{Value: fmt.Sprintf("%d", int(c.GainMeters+0.5)), Unit: "Höhenmeter"},
+	}
 
 	if wkg, ok := c.RelativePowerWkg(); ok && f.WeightKg != nil && *f.WeightKg > 0 {
 		text += fmt.Sprintf(
@@ -556,9 +572,10 @@ func climbStatement(f RideFacts) (Statement, bool) {
 				"überschlagen aus Steigung und Tempo, nicht gemessen.",
 			decimal(wkg, 1), int(wkg**f.WeightKg+0.5))
 		metric += fmt.Sprintf(" · ≈ %s W/kg", decimal(wkg, 1))
+		metrics = append(metrics, Stat{Value: decimal(wkg, 1), Unit: "W/kg"})
 	}
 
-	return Statement{Text: text, Metric: metric, Kind: "climb"}, true
+	return Statement{Text: text, Metric: metric, Metrics: metrics, Kind: "climb"}, true
 }
 
 // contextStatements explain why a ride felt harder or easier than the bare
@@ -579,9 +596,10 @@ func contextStatements(f RideFacts) []Statement {
 			text = "Im Schnitt hattest du Rückenwind — dadurch fielen die Zeiten leichter als die Anstrengung vermuten lässt."
 		}
 		out = append(out, Statement{
-			Text:   text,
-			Metric: fmt.Sprintf("⌀ %s m/s %s", decimal(absf(wind), 1), windLabel(wind)),
-			Kind:   "context",
+			Text:    text,
+			Metric:  fmt.Sprintf("⌀ %s m/s %s", decimal(absf(wind), 1), windLabel(wind)),
+			Metrics: []Stat{{Value: decimal(absf(wind), 1), Unit: "m/s", Label: windLabel(wind)}},
+			Kind:    "context",
 		})
 	}
 
@@ -591,8 +609,9 @@ func contextStatements(f RideFacts) []Statement {
 		out = append(out, Statement{
 			Text: "Die Strecke war hügelig. Bergauf steigt die Anstrengung stark an, " +
 				"auch wenn die Durchschnittsgeschwindigkeit dadurch niedriger aussieht.",
-			Metric: fmt.Sprintf("%d Höhenmeter", int(*gain+0.5)),
-			Kind:   "context",
+			Metric:  fmt.Sprintf("%d Höhenmeter", int(*gain+0.5)),
+			Metrics: []Stat{{Value: fmt.Sprintf("%d", int(*gain+0.5)), Unit: "Höhenmeter"}},
+			Kind:    "context",
 		})
 	}
 
@@ -604,9 +623,10 @@ func contextStatements(f RideFacts) []Statement {
 				"der Puls bleibt am Anfang oft niedriger als die Anstrengung."
 		}
 		out = append(out, Statement{
-			Text:   text,
-			Metric: fmt.Sprintf("⌀ %d °C", int(*t+0.5)),
-			Kind:   "context",
+			Text:    text,
+			Metric:  fmt.Sprintf("⌀ %d °C", int(*t+0.5)),
+			Metrics: []Stat{{Value: fmt.Sprintf("%d", int(*t+0.5)), Unit: "°C", Label: "Temperatur"}},
+			Kind:    "context",
 		})
 	}
 
@@ -643,9 +663,10 @@ func comparisonStatement(f RideFacts) (Statement, bool) {
 		text = "Das liegt im Rahmen deiner üblichen Fahrten."
 	}
 	return Statement{
-		Text:   text,
-		Metric: fmt.Sprintf("Belastung sonst im Mittel %d", int(median+0.5)),
-		Kind:   "comparison",
+		Text:    text,
+		Metric:  fmt.Sprintf("Belastung sonst im Mittel %d", int(median+0.5)),
+		Metrics: []Stat{{Value: fmt.Sprintf("%d", int(median+0.5)), Label: "Sonst im Mittel"}},
+		Kind:    "comparison",
 	}, true
 }
 
@@ -699,6 +720,10 @@ func terrainStatement(c CourseStats, metersPerKm float64) Statement {
 		Text: text,
 		Metric: fmt.Sprintf("%d Höhenmeter · %d hm pro km",
 			int(c.ElevationGainMeters+0.5), int(metersPerKm+0.5)),
+		Metrics: []Stat{
+			{Value: fmt.Sprintf("%d", int(c.ElevationGainMeters+0.5)), Unit: "Höhenmeter"},
+			{Value: fmt.Sprintf("%d", int(metersPerKm+0.5)), Unit: "hm/km"},
+		},
 		Kind: "context",
 	}
 }

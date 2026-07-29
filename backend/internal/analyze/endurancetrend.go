@@ -359,6 +359,10 @@ func enduranceStatements(rides []ComparableRide, fromPower bool, now time.Time) 
 		Text: text,
 		Metric: fmt.Sprintf("%s %s je 100 Schläge · davor %s · %d vergleichbare Fahrten",
 			decimal(recentValue, 1), unit, decimal(earlierValue, 1), len(recent)+len(earlier)),
+		Metrics: []Stat{
+			{Value: decimal(recentValue, 1), Unit: unit + "/100 Schläge", Label: "Jetzt"},
+			{Value: decimal(earlierValue, 1), Unit: unit + "/100 Schläge", Label: "Davor"},
+		},
 		// Its own kind, not "trend": this answers whether the aerobic base is
 		// growing, which is a different question from whether the weekly figures
 		// are — and the two sit next to each other on the dashboard.

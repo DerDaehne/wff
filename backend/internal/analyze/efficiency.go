@@ -189,6 +189,9 @@ func efficiencyStatement(e Efficiency) Statement {
 	return Statement{
 		Text:   text,
 		Metric: fmt.Sprintf("%s %% Abfall in der zweiten Hälfte · %s", decimal(math.Abs(e.DecouplingPct), 1), source),
-		Kind:   "endurance",
+		Metrics: []Stat{
+			{Value: decimal(math.Abs(e.DecouplingPct), 1), Unit: "%", Label: "Abfall in der 2. Hälfte"},
+		},
+		Kind: "endurance",
 	}
 }

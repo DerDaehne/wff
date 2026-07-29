@@ -171,8 +171,9 @@ func RideZones(seconds []int) (ZoneDistribution, bool) {
 						"So sieht es aus, wenn du zwischendurch richtig Gas gegeben hast — der "+
 						"Durchschnittspuls verrät davon nichts, die Aufteilung schon.",
 					int(easy*100+0.5), int(grey*100+0.5), int(hard*100+0.5)),
-				Metric: fmt.Sprintf("%s Puls aufgezeichnet", duration(d.TotalSeconds)),
-				Kind:   "zones",
+				Metric:  fmt.Sprintf("%s Puls aufgezeichnet", duration(d.TotalSeconds)),
+				Metrics: []Stat{{Value: duration(d.TotalSeconds), Label: "Puls aufgezeichnet"}},
+				Kind:    "zones",
 			}},
 		}, true
 	}
@@ -182,6 +183,10 @@ func RideZones(seconds []int) (ZoneDistribution, bool) {
 			top.Name, top.Meaning),
 		Metric: fmt.Sprintf("%s davon · %s Puls aufgezeichnet",
 			duration(top.Seconds), duration(d.TotalSeconds)),
+		Metrics: []Stat{
+			{Value: duration(top.Seconds), Label: top.Name},
+			{Value: duration(d.TotalSeconds), Label: "Insgesamt aufgezeichnet"},
+		},
 		Kind: "zones",
 	}}
 	return d, true

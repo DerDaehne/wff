@@ -18,6 +18,17 @@ func kinds(s Story) map[string]string {
 	return out
 }
 
+// statementOf finds the one statement of a given kind, for tests that need
+// more than its Text (e.g. Metrics).
+func statementOf(s Story, kind string) (Statement, bool) {
+	for _, st := range s.Statements {
+		if st.Kind == kind {
+			return st, true
+		}
+	}
+	return Statement{}, false
+}
+
 func TestRideStorySessionBands(t *testing.T) {
 	for _, tc := range []struct {
 		ifactor  float64
@@ -185,5 +196,33 @@ func TestRideStoryLoadBands(t *testing.T) {
 		if !strings.Contains(k["load"], tc.want) {
 			t.Errorf("TSS %.0f: got %q, want it to mention %q", tc.tss, k["load"], tc.want)
 		}
+	}
+}
+
+// Statement.Metrics (#651) is what the frontend's compact row typesets as a
+// big number instead of showing the pre-formatted Metric string — every
+// statement kind that carries a single clear value must populate it.
+func TestRideStoryMetricsAreStructured(t *testing.T) {
+	story := RideStory(RideFacts{
+		IntensityFactor: f64(0.89),
+		TSS:             f64(79),
+		FromPower:       false,
+		ElapsedSeconds:  3600,
+	})
+
+	effort, ok := statementOf(story, "effort")
+	if !ok {
+		t.Fatal("no effort statement")
+	}
+	if len(effort.Metrics) != 1 || effort.Metrics[0].Value != "0,89" || effort.Metrics[0].Label != "Intensität (IF)" {
+		t.Errorf("effort.Metrics = %+v, want one Stat{Value: \"0,89\", Label: \"Intensität (IF)\"}", effort.Metrics)
+	}
+
+	load, ok := statementOf(story, "load")
+	if !ok {
+		t.Fatal("no load statement")
+	}
+	if len(load.Metrics) != 1 || load.Metrics[0].Value != "79" || load.Metrics[0].Label != "Belastung (TSS)" {
+		t.Errorf("load.Metrics = %+v, want one Stat{Value: \"79\", Label: \"Belastung (TSS)\"}", load.Metrics)
 	}
 }

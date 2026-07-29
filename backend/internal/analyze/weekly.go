@@ -155,7 +155,11 @@ func progressStatements(weeks []Week) []Statement {
 		out = append(out, Statement{
 			Text:   text,
 			Metric: fmt.Sprintf("⌀ %s km/h zuletzt · %s km/h davor", decimal(recentSpeed, 1), decimal(earlierSpeed, 1)),
-			Kind:   "trend",
+			Metrics: []Stat{
+				{Value: decimal(recentSpeed, 1), Unit: "km/h", Label: "Zuletzt"},
+				{Value: decimal(earlierSpeed, 1), Unit: "km/h", Label: "Davor"},
+			},
+			Kind: "trend",
 		})
 	}
 
@@ -167,14 +171,22 @@ func progressStatements(weeks []Week) []Statement {
 				Text: "Du fährst deutlich mehr Kilometer als vor zwei Monaten — genau so wächst " +
 					"Ausdauer.",
 				Metric: fmt.Sprintf("%d km in 4 Wochen · davor %d km", int(recentKm+0.5), int(earlierKm+0.5)),
-				Kind:   "trend",
+				Metrics: []Stat{
+					{Value: fmt.Sprintf("%d", int(recentKm+0.5)), Unit: "km", Label: "Letzte 4 Wochen"},
+					{Value: fmt.Sprintf("%d", int(earlierKm+0.5)), Unit: "km", Label: "Davor"},
+				},
+				Kind: "trend",
 			})
 		case ratio <= 0.85:
 			out = append(out, Statement{
 				Text: "Du bist zuletzt weniger unterwegs gewesen als davor. Kein Drama — aber wenn du " +
 					"aufbauen willst, ist regelmäßiges Fahren der wirksamste Hebel.",
 				Metric: fmt.Sprintf("%d km in 4 Wochen · davor %d km", int(recentKm+0.5), int(earlierKm+0.5)),
-				Kind:   "trend",
+				Metrics: []Stat{
+					{Value: fmt.Sprintf("%d", int(recentKm+0.5)), Unit: "km", Label: "Letzte 4 Wochen"},
+					{Value: fmt.Sprintf("%d", int(earlierKm+0.5)), Unit: "km", Label: "Davor"},
+				},
+				Kind: "trend",
 			})
 		}
 	}

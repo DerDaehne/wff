@@ -78,6 +78,11 @@ export async function getActivityWeather(id: number): Promise<WeatherSummary> {
 export interface RideStatement {
 	text: string;
 	metric?: string;
+	/** The number(s) behind `metric`, structured for a big/bold display
+	 *  instead of the pre-formatted string (#651). Absent when the statement
+	 *  is a genuine multi-part narrative (e.g. a four-way zone split) that
+	 *  doesn't reduce to one or two figures — `metric` is the fallback there. */
+	metrics?: RideStat[];
 	kind:
 		| 'effort'
 		| 'load'
