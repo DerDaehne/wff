@@ -60,6 +60,29 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 
 	endTime := timeCreated.Add(time.Duration(numRecords) * time.Second)
 
+	lap1 := mesgdef.NewLap(nil)
+	lap1.Timestamp = timeCreated.Add(10 * time.Second)
+	lap1.StartTime = timeCreated
+	lap1.TotalElapsedTime = 10_000 // scaled /1000: 10s
+	lap1.TotalDistance = 5000      // scaled /100: 50m
+	lap1.AvgPower = 170
+	lap1.MaxPower = 220
+	lap1.AvgHeartRate = 130
+	lap1.MaxHeartRate = 150
+	lap1.AvgSpeed = 5000 // scaled /1000: 5 m/s
+	lap1.MaxSpeed = 6000 // scaled /1000: 6 m/s
+	messages = append(messages, lap1.ToMesg(nil))
+
+	// Fixed, not derived from numRecords: laps aren't cross-checked against
+	// sample count by the parser (out of scope for #589), so keeping their
+	// durations independent avoids nonsense values on the short activities
+	// some tests use (numRecords as low as 3).
+	lap2 := mesgdef.NewLap(nil)
+	lap2.StartTime = timeCreated.Add(10 * time.Second)
+	lap2.Timestamp = lap2.StartTime.Add(20 * time.Second)
+	lap2.TotalElapsedTime = 20_000 // scaled /1000: 20s
+	messages = append(messages, lap2.ToMesg(nil))
+
 	session := mesgdef.NewSession(nil)
 	session.Timestamp = endTime
 	session.StartTime = timeCreated

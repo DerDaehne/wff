@@ -35,6 +35,27 @@ export async function getActivitySamples(id: number): Promise<Sample[]> {
 	return data ?? [];
 }
 
+/** A device-recorded round/interval marker (manual button press or
+ *  auto-lap) — a split, not something we derive ourselves (#589). */
+export interface Lap {
+	lap_index: number;
+	started_at: string;
+	elapsed_seconds: number;
+	distance_meters: number | null;
+	avg_power_watts: number | null;
+	max_power_watts: number | null;
+	avg_heart_rate: number | null;
+	max_heart_rate: number | null;
+	avg_speed_mps: number | null;
+	max_speed_mps: number | null;
+}
+
+export async function getActivityLaps(id: number): Promise<Lap[]> {
+	const res = await apiFetch(`/api/activities/${id}/laps`);
+	const data = await res.json();
+	return data ?? [];
+}
+
 export interface WeatherSummary {
 	avg_wind_speed_mps: number | null;
 	avg_headwind_mps: number | null;

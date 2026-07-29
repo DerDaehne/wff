@@ -68,6 +68,22 @@ type Activity struct {
 	AvgCombinedPedalSmoothnessPercent  *float64
 
 	Samples []Sample
+	Laps    []Lap
+}
+
+// Lap is a device-side round/interval marker (manual button press or
+// auto-lap), not something we derive ourselves — see arch-wff-ingestion.
+type Lap struct {
+	StartedAt      time.Time
+	ElapsedSeconds int
+
+	DistanceMeters *float64
+	AvgPowerWatts  *float64
+	MaxPowerWatts  *float64
+	AvgHeartRate   *float64
+	MaxHeartRate   *float64
+	AvgSpeedMps    *float64
+	MaxSpeedMps    *float64
 }
 
 type Sample struct {
@@ -248,6 +264,28 @@ func Parse(data []byte) (act *Activity, err error) {
 			s.Resistance = &v
 		}
 		a.Samples = append(a.Samples, s)
+	}
+
+	a.Laps = make([]Lap, 0, len(fileActivity.Laps))
+	for _, lap := range fileActivity.Laps {
+		// Unlike Session, the FIT spec doesn't require TotalElapsedTime on a
+		// Lap message — a lap we can't even place in time isn't a usable
+		// split, so skip it rather than store a nonsense duration.
+		if lap.TotalElapsedTime == basetype.Uint32Invalid {
+			continue
+		}
+		l := Lap{
+			StartedAt:      lap.StartTime,
+			ElapsedSeconds: int(lap.TotalElapsedTimeScaled()),
+			DistanceMeters: scaledUint32OrNil(lap.TotalDistance, lap.TotalDistanceScaled()),
+			AvgPowerWatts:  uint16OrNil(lap.AvgPower),
+			MaxPowerWatts:  uint16OrNil(lap.MaxPower),
+			AvgHeartRate:   uint8OrNil(lap.AvgHeartRate),
+			MaxHeartRate:   uint8OrNil(lap.MaxHeartRate),
+			AvgSpeedMps:    scaledUint16OrNil(lap.AvgSpeed, lap.AvgSpeedScaled()),
+			MaxSpeedMps:    scaledUint16OrNil(lap.MaxSpeed, lap.MaxSpeedScaled()),
+		}
+		a.Laps = append(a.Laps, l)
 	}
 
 	return a, nil

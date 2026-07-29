@@ -44,6 +44,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/activities", auth.RequireUploadAuth(h.pool)(http.HandlerFunc(h.upload)))
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
+	mux.Handle("GET /api/activities/{id}/laps", auth.RequireAuth(h.pool)(http.HandlerFunc(h.laps)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
 	mux.Handle("GET /api/activities/{id}/story", auth.RequireAuth(h.pool)(http.HandlerFunc(h.story)))
 	mux.Handle("GET /api/activities/{id}/export", auth.RequireAuth(h.pool)(http.HandlerFunc(h.export)))
@@ -399,6 +400,69 @@ func (h *Handlers) samples(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeActivitiesJSON(w, samples)
+}
+
+type lapDTO struct {
+	LapIndex       int       `json:"lap_index"`
+	StartedAt      time.Time `json:"started_at"`
+	ElapsedSeconds int       `json:"elapsed_seconds"`
+	DistanceMeters *float64  `json:"distance_meters"`
+	AvgPowerWatts  *float64  `json:"avg_power_watts"`
+	MaxPowerWatts  *float64  `json:"max_power_watts"`
+	AvgHeartRate   *float64  `json:"avg_heart_rate"`
+	MaxHeartRate   *float64  `json:"max_heart_rate"`
+	AvgSpeedMps    *float64  `json:"avg_speed_mps"`
+	MaxSpeedMps    *float64  `json:"max_speed_mps"`
+}
+
+// laps returns an activity's device-recorded splits (#589) for a simple
+// splits table on the Ride-Detail view. Same ownership check as samples().
+func (h *Handlers) laps(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, "invalid activity id", http.StatusBadRequest)
+		return
+	}
+
+	var ownerID int64
+	err = h.pool.QueryRow(r.Context(), `SELECT user_id FROM activities WHERE id = $1`, activityID).Scan(&ownerID)
+	if err != nil || ownerID != userID {
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+
+	rows, err := h.pool.Query(r.Context(),
+		`SELECT lap_index, started_at, elapsed_seconds, distance_meters,
+		        avg_power_watts, max_power_watts, avg_heart_rate, max_heart_rate, avg_speed_mps, max_speed_mps
+		 FROM laps WHERE activity_id = $1 ORDER BY lap_index`,
+		activityID,
+	)
+	if err != nil {
+		http.Error(w, "could not load laps", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	laps := []lapDTO{} // never null in the JSON response
+	for rows.Next() {
+		var l lapDTO
+		if err := rows.Scan(
+			&l.LapIndex, &l.StartedAt, &l.ElapsedSeconds, &l.DistanceMeters,
+			&l.AvgPowerWatts, &l.MaxPowerWatts, &l.AvgHeartRate, &l.MaxHeartRate, &l.AvgSpeedMps, &l.MaxSpeedMps,
+		); err != nil {
+			http.Error(w, "could not load laps", http.StatusInternalServerError)
+			return
+		}
+		laps = append(laps, l)
+	}
+	if err := rows.Err(); err != nil {
+		http.Error(w, "could not load laps", http.StatusInternalServerError)
+		return
+	}
+
+	writeActivitiesJSON(w, laps)
 }
 
 type weatherSummaryDTO struct {

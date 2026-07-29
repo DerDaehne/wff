@@ -197,6 +197,62 @@ func TestParseExtendedSampleFields(t *testing.T) {
 	}
 }
 
+func TestParseLaps(t *testing.T) {
+	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
+	data := fitfixture.ValidActivity(1, created, 30)
+
+	act, err := fitparse.Parse(data)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	if len(act.Laps) != 2 {
+		t.Fatalf("len(Laps) = %d, want 2", len(act.Laps))
+	}
+
+	lap1 := act.Laps[0]
+	if !lap1.StartedAt.Equal(created) {
+		t.Errorf("Laps[0].StartedAt = %v, want %v", lap1.StartedAt, created)
+	}
+	if lap1.ElapsedSeconds != 10 {
+		t.Errorf("Laps[0].ElapsedSeconds = %d, want 10", lap1.ElapsedSeconds)
+	}
+	if lap1.DistanceMeters == nil || *lap1.DistanceMeters != 50 {
+		t.Errorf("Laps[0].DistanceMeters = %v, want 50", lap1.DistanceMeters)
+	}
+	if lap1.AvgPowerWatts == nil || *lap1.AvgPowerWatts != 170 {
+		t.Errorf("Laps[0].AvgPowerWatts = %v, want 170", lap1.AvgPowerWatts)
+	}
+	if lap1.MaxPowerWatts == nil || *lap1.MaxPowerWatts != 220 {
+		t.Errorf("Laps[0].MaxPowerWatts = %v, want 220", lap1.MaxPowerWatts)
+	}
+	if lap1.AvgHeartRate == nil || *lap1.AvgHeartRate != 130 {
+		t.Errorf("Laps[0].AvgHeartRate = %v, want 130", lap1.AvgHeartRate)
+	}
+	if lap1.MaxHeartRate == nil || *lap1.MaxHeartRate != 150 {
+		t.Errorf("Laps[0].MaxHeartRate = %v, want 150", lap1.MaxHeartRate)
+	}
+	if lap1.AvgSpeedMps == nil || *lap1.AvgSpeedMps != 5 {
+		t.Errorf("Laps[0].AvgSpeedMps = %v, want 5", lap1.AvgSpeedMps)
+	}
+	if lap1.MaxSpeedMps == nil || *lap1.MaxSpeedMps != 6 {
+		t.Errorf("Laps[0].MaxSpeedMps = %v, want 6", lap1.MaxSpeedMps)
+	}
+
+	lap2 := act.Laps[1]
+	if lap2.ElapsedSeconds != 20 {
+		t.Errorf("Laps[1].ElapsedSeconds = %d, want 20", lap2.ElapsedSeconds)
+	}
+	// lap2 leaves distance/power/HR/speed unset by the fixture — must be nil,
+	// not a zero-valued 0.
+	if lap2.DistanceMeters != nil {
+		t.Errorf("Laps[1].DistanceMeters = %v, want nil", *lap2.DistanceMeters)
+	}
+	if lap2.AvgPowerWatts != nil {
+		t.Errorf("Laps[1].AvgPowerWatts = %v, want nil", *lap2.AvgPowerWatts)
+	}
+}
+
 func TestParseCorruptedFile(t *testing.T) {
 	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
 	valid := fitfixture.ValidActivity(1, created, 5)

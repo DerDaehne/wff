@@ -65,6 +65,14 @@ func TestStoreAndDedup(t *testing.T) {
 		t.Fatalf("sample count in DB = %d, want %d", sampleCount, len(act.Samples))
 	}
 
+	var lapCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM laps WHERE activity_id = $1`, activityID).Scan(&lapCount); err != nil {
+		t.Fatalf("count laps: %v", err)
+	}
+	if lapCount != len(act.Laps) {
+		t.Fatalf("lap count in DB = %d, want %d", lapCount, len(act.Laps))
+	}
+
 	// Second insert of the same activity must be rejected, not duplicated.
 	_, err = ingest.Store(ctx, pool, userID, act, externalUID)
 	if !errors.Is(err, ingest.ErrDuplicateActivity) {
@@ -87,6 +95,13 @@ func TestStoreAndDedup(t *testing.T) {
 	}
 	if sampleCount != len(act.Samples) {
 		t.Fatalf("sample count after rejected duplicate = %d, want unchanged %d (no partial insert leaked)", sampleCount, len(act.Samples))
+	}
+
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM laps WHERE activity_id = $1`, activityID).Scan(&lapCount); err != nil {
+		t.Fatalf("count laps after rejected duplicate: %v", err)
+	}
+	if lapCount != len(act.Laps) {
+		t.Fatalf("lap count after rejected duplicate = %d, want unchanged %d (no partial insert leaked)", lapCount, len(act.Laps))
 	}
 }
 

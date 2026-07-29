@@ -133,6 +133,27 @@ func storeOnce(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitpa
 		}
 	}
 
+	if len(act.Laps) > 0 {
+		rows := make([][]any, len(act.Laps))
+		for i, l := range act.Laps {
+			rows[i] = []any{
+				activityID, i, l.StartedAt, l.ElapsedSeconds, l.DistanceMeters,
+				l.AvgPowerWatts, l.MaxPowerWatts, l.AvgHeartRate, l.MaxHeartRate, l.AvgSpeedMps, l.MaxSpeedMps,
+			}
+		}
+		_, err = tx.CopyFrom(ctx,
+			pgx.Identifier{"laps"},
+			[]string{
+				"activity_id", "lap_index", "started_at", "elapsed_seconds", "distance_meters",
+				"avg_power_watts", "max_power_watts", "avg_heart_rate", "max_heart_rate", "avg_speed_mps", "max_speed_mps",
+			},
+			pgx.CopyFromRows(rows),
+		)
+		if err != nil {
+			return 0, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}

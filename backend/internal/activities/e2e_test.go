@@ -261,6 +261,8 @@ func TestUploadTriggersImmediateEnrichment(t *testing.T) {
 // Ride-Liste data source (GET /api/activities) and the Ride-Detail data
 // source (GET /api/activities/{id}/samples), including the ownership check
 // on samples — a second person must not be able to read someone else's ride.
+// Also covers the #589 splits endpoint (GET /api/activities/{id}/laps), same
+// ownership check.
 func TestListAndSamplesEndpoints(t *testing.T) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -417,6 +419,40 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("nonexistent activity: status = %d, want 404", resp.StatusCode)
+		}
+	})
+
+	t.Run("laps returns the fixture's two splits for the owner", func(t *testing.T) {
+		lapsURL := fmt.Sprintf("%s/api/activities/%d/laps", server.URL, uploaded.ActivityID)
+		lapsBody := getBody(t, rider, lapsURL, http.StatusOK)
+		var laps []struct {
+			LapIndex       int      `json:"lap_index"`
+			ElapsedSeconds int      `json:"elapsed_seconds"`
+			AvgPowerWatts  *float64 `json:"avg_power_watts"`
+		}
+		if err := json.Unmarshal([]byte(lapsBody), &laps); err != nil {
+			t.Fatalf("decode laps response: %v (body: %s)", err, lapsBody)
+		}
+		if len(laps) != 2 {
+			t.Fatalf("len(laps) = %d, want 2", len(laps))
+		}
+		if laps[0].ElapsedSeconds != 10 || laps[0].AvgPowerWatts == nil || *laps[0].AvgPowerWatts != 170 {
+			t.Fatalf("laps[0] = %+v, want elapsed=10 avg_power=170", laps[0])
+		}
+		if laps[1].ElapsedSeconds != 20 {
+			t.Fatalf("laps[1].ElapsedSeconds = %d, want 20", laps[1].ElapsedSeconds)
+		}
+	})
+
+	t.Run("laps 404s for another rider's activity", func(t *testing.T) {
+		lapsURL := fmt.Sprintf("%s/api/activities/%d/laps", server.URL, uploaded.ActivityID)
+		resp, err := otherRider.Get(lapsURL)
+		if err != nil {
+			t.Fatalf("GET laps: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("other rider GET laps: status = %d, want 404", resp.StatusCode)
 		}
 	})
 }

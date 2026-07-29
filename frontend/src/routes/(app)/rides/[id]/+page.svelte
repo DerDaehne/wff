@@ -9,9 +9,13 @@
 		getActivitySamples,
 		getActivityWeather,
 		getActivityStory,
+		getActivityLaps,
+		formatDistance,
+		formatDuration,
 		type Sample,
 		type WeatherSummary,
-		type RideStory
+		type RideStory,
+		type Lap
 	} from '$lib/rides';
 	import { getShareStatus, createShare, revokeShare, type ShareStatus } from '$lib/share';
 	import { ApiError } from '$lib/api';
@@ -38,6 +42,10 @@
 	let samples: Sample[] = $state([]);
 	let weather: WeatherSummary | null = $state(null);
 	let story: RideStory | null = $state(null);
+	// Splits (#589): only some devices/rides have laps (manual button press or
+	// auto-lap) — an empty list means "no splits", not an error, so the panel
+	// just doesn't render rather than showing an empty table.
+	let laps: Lap[] = $state([]);
 	let mapContainer: HTMLDivElement = $state()!;
 	let map: Map | null = null;
 
@@ -102,6 +110,18 @@
 		return samples.map((s) => (new Date(s.time).getTime() - start) / 60000);
 	});
 
+	function formatSpeed(mps: number | null): string {
+		if (mps === null) return '–';
+		return `${(mps * 3.6).toFixed(1)} km/h`;
+	}
+
+	// formatDuration (rides.ts) only shows whole minutes, fine for a ride but
+	// not for a lap — an auto-lap or a quick button press can be well under a
+	// minute, and "0 min" reads as broken rather than short.
+	function formatLapTime(seconds: number): string {
+		return seconds < 60 ? `${seconds} s` : formatDuration(seconds);
+	}
+
 	function formatElapsed(minutes: number): string {
 		if (minutes >= 60) {
 			const h = Math.floor(minutes / 60);
@@ -149,6 +169,9 @@
 				.catch(() => {});
 			getShareStatus(activityId)
 				.then((s) => (shareStatus = s))
+				.catch(() => {});
+			getActivityLaps(activityId)
+				.then((l) => (laps = l))
 				.catch(() => {});
 		} catch (err) {
 			errorMessage = err instanceof ApiError ? err.message : 'Fahrt konnte nicht geladen werden.';
@@ -320,6 +343,43 @@
 		{/if}
 	</section>
 
+	{#if laps.length > 0}
+		<section class="panel">
+			<h2>Zwischenzeiten</h2>
+			<p class="panel-sub">Runden, die dein Gerät selbst markiert hat</p>
+			<div class="laps-scroll">
+				<table class="laps">
+					<thead>
+						<tr>
+							<th>Runde</th>
+							<th>Zeit</th>
+							<th>Distanz</th>
+							<th>⌀ Leistung</th>
+							<th>⌀ Puls</th>
+							<th>⌀ Tempo</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each laps as lap (lap.lap_index)}
+							<tr>
+								<td>{lap.lap_index + 1}</td>
+								<td>{formatLapTime(lap.elapsed_seconds)}</td>
+								<td>{formatDistance(lap.distance_meters)}</td>
+								<td
+									>{lap.avg_power_watts !== null ? `${Math.round(lap.avg_power_watts)} W` : '–'}</td
+								>
+								<td
+									>{lap.avg_heart_rate !== null ? `${Math.round(lap.avg_heart_rate)} bpm` : '–'}</td
+								>
+								<td>{formatSpeed(lap.avg_speed_mps)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		</section>
+	{/if}
+
 	<p class="glossary-hint">
 		Unsicher, was ein Begriff bedeutet? Im <a href={resolve('/(app)/glossar')}>Glossar</a> steht alles
 		erklärt.
@@ -396,5 +456,30 @@
 		border-radius: 12px;
 		overflow: hidden;
 		margin-top: 1rem;
+	}
+
+	/* A narrow phone can't fit six columns — scroll the table itself rather
+	   than shrink the numbers unreadably or wrap rows onto a second line. */
+	.laps-scroll {
+		overflow-x: auto;
+	}
+
+	.laps {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: var(--text-sm);
+		white-space: nowrap;
+	}
+
+	.laps th {
+		text-align: left;
+		color: var(--color-text-muted);
+		font-weight: 700;
+		padding: 0.5rem 0.75rem;
+	}
+
+	.laps td {
+		padding: 0.5rem 0.75rem;
+		border-top: 1px solid var(--color-border);
 	}
 </style>
