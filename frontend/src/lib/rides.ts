@@ -11,6 +11,8 @@ export interface ActivitySummary {
 	training_stress_score: number | null;
 	avg_power_watts: number | null;
 	avg_heart_rate: number | null;
+	/** Whether this ride currently has an active share link (#641/#649). */
+	is_shared: boolean;
 	/** The ride's character at a glance in the list (#633) — absent without
 	 *  enough recorded pulse, same rule as the ride-detail zones. */
 	zones?: ZoneShares | null;

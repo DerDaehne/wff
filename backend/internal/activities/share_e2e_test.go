@@ -130,6 +130,12 @@ func TestRideShareLifecycle(t *testing.T) {
 		firstToken = *s.Token
 	})
 
+	t.Run("list marks the activity as shared (#649)", func(t *testing.T) {
+		if !isSharedInList(t, owner, server.URL, uploaded.ActivityID) {
+			t.Fatal("GET /api/activities: is_shared = false, want true after creating a share")
+		}
+	})
+
 	t.Run("creating a share again is idempotent", func(t *testing.T) {
 		var s shareStatusDTO
 		json.Unmarshal([]byte(postAndGetBody(t, owner, shareURL, http.StatusOK)), &s)
@@ -207,6 +213,9 @@ func TestRideShareLifecycle(t *testing.T) {
 		if s.Active {
 			t.Fatal("share still reports active after revoke")
 		}
+		if isSharedInList(t, owner, server.URL, uploaded.ActivityID) {
+			t.Fatal("GET /api/activities: is_shared = true, want false after revoking")
+		}
 
 		anon := &http.Client{}
 		publicResp, err := anon.Get(server.URL + "/api/share/" + firstToken)
@@ -252,4 +261,23 @@ func keysOf(m map[string]any) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+func isSharedInList(t *testing.T, client *http.Client, serverURL string, activityID int64) bool {
+	t.Helper()
+	var list []struct {
+		ID       int64 `json:"id"`
+		IsShared bool  `json:"is_shared"`
+	}
+	body := getBody(t, client, serverURL+"/api/activities", http.StatusOK)
+	if err := json.Unmarshal([]byte(body), &list); err != nil {
+		t.Fatalf("decode list response: %v (body: %s)", err, body)
+	}
+	for _, a := range list {
+		if a.ID == activityID {
+			return a.IsShared
+		}
+	}
+	t.Fatalf("activity %d not present in list: %s", activityID, body)
+	return false
 }

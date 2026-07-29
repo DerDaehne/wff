@@ -153,7 +153,24 @@
 						</label>
 					{/if}
 					<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
-						<span class="ride-date">{rideDate(ride.started_at)}</span>
+						<span class="ride-date">
+							{rideDate(ride.started_at)}
+							{#if ride.is_shared}
+								<svg
+									class="share-badge"
+									viewBox="0 0 24 24"
+									width="16"
+									height="16"
+									aria-hidden="true"
+								>
+									<path
+										fill="currentColor"
+										d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15.19l7.13 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.95-3.92z"
+									/>
+								</svg>
+								<span class="sr-only">Diese Fahrt ist per Link geteilt</span>
+							{/if}
+						</span>
 						<!-- Same order as the ride's own hero: the list and the detail view
 						     must not disagree about what matters. "TSS 101" became a
 						     labelled figure — the abbreviation said nothing to anyone who
@@ -199,7 +216,15 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 1rem;
+		flex-wrap: wrap;
+		gap: 0.75rem 1rem;
+	}
+
+	/* On a narrow phone "Deine Fahrten" plus the toggle button don't fit one
+	   row — wrap the row instead of letting the button's own two words wrap
+	   into a squashed two-line pill. */
+	.header-row .btn {
+		white-space: nowrap;
 	}
 
 	.compare-hint {
@@ -309,6 +334,15 @@
 
 	.ride-date {
 		font-weight: 700;
+	}
+
+	/* Status, not content — a small glyph next to the date rather than a
+	   labelled chip like the pulse zones, which need the label to mean
+	   anything. "Shared" needs no explanation once you know the icon. */
+	.share-badge {
+		vertical-align: -2px;
+		margin-left: 0.25rem;
+		color: var(--color-brand);
 	}
 
 	.ride-figures {

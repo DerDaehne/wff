@@ -260,6 +260,9 @@ type activitySummary struct {
 	// numbers the table already has.
 	AvgPowerWatts *float64 `json:"avg_power_watts"`
 	AvgHeartRate  *float64 `json:"avg_heart_rate"`
+	// IsShared surfaces the #641 share-link status in the list (#649) — until
+	// now a rider could only see it by opening the ride.
+	IsShared bool `json:"is_shared"`
 	// Zones is the ride's character at a glance in the list (#633) — nil
 	// without enough recorded pulse, same rule as the ride-detail zones.
 	Zones *analyze.ZoneShares `json:"zones,omitempty"`
@@ -272,8 +275,9 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.pool.Query(r.Context(),
 		`SELECT id, started_at, sport, elapsed_seconds, moving_seconds, distance_meters, training_stress_score,
-		        avg_power_watts, avg_heart_rate
-		 FROM activities WHERE user_id = $1 ORDER BY started_at DESC`,
+		        avg_power_watts, avg_heart_rate,
+		        EXISTS (SELECT 1 FROM ride_shares s WHERE s.activity_id = a.id AND s.revoked_at IS NULL)
+		 FROM activities a WHERE user_id = $1 ORDER BY started_at DESC`,
 		userID,
 	)
 	if err != nil {
@@ -288,7 +292,7 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 		var a activitySummary
 		if err := rows.Scan(
 			&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore,
-			&a.AvgPowerWatts, &a.AvgHeartRate,
+			&a.AvgPowerWatts, &a.AvgHeartRate, &a.IsShared,
 		); err != nil {
 			http.Error(w, "could not load activities", http.StatusInternalServerError)
 			return
