@@ -41,11 +41,11 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 		rec.Calories = uint16(i)
 		rec.GpsAccuracy = 3
 		rec.Resistance = 50
-		rec.LeftTorqueEffectiveness = 160  // scaled /2: 80%
-		rec.RightTorqueEffectiveness = 164 // scaled /2: 82%
-		rec.LeftPedalSmoothness = 40       // scaled /2: 20%
-		rec.RightPedalSmoothness = 44      // scaled /2: 22%
-		rec.CombinedPedalSmoothness = 60   // scaled /2: 30%
+		rec.LeftTorqueEffectiveness = 160                         // scaled /2: 80%
+		rec.RightTorqueEffectiveness = 164                        // scaled /2: 82%
+		rec.LeftPedalSmoothness = 40                              // scaled /2: 20%
+		rec.RightPedalSmoothness = 44                             // scaled /2: 22%
+		rec.CombinedPedalSmoothness = 60                          // scaled /2: 30%
 		rec.LeftRightBalance = typedef.LeftRightBalanceRight | 48 // right leg, 48%
 		rec.Grade = 250                                           // scaled /100: 2.5%
 
@@ -107,11 +107,11 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 	session.ThresholdPower = 250
 	session.TotalCalories = 620
 	session.MetabolicCalories = 700
-	session.AvgLeftTorqueEffectiveness = 162  // scaled /2: 81%
-	session.AvgRightTorqueEffectiveness = 166 // scaled /2: 83%
-	session.AvgLeftPedalSmoothness = 42       // scaled /2: 21%
-	session.AvgRightPedalSmoothness = 46      // scaled /2: 23%
-	session.AvgCombinedPedalSmoothness = 62   // scaled /2: 31%
+	session.AvgLeftTorqueEffectiveness = 162                           // scaled /2: 81%
+	session.AvgRightTorqueEffectiveness = 166                          // scaled /2: 83%
+	session.AvgLeftPedalSmoothness = 42                                // scaled /2: 21%
+	session.AvgRightPedalSmoothness = 46                               // scaled /2: 23%
+	session.AvgCombinedPedalSmoothness = 62                            // scaled /2: 31%
 	session.LeftRightBalance = typedef.LeftRightBalance100Right | 4700 // right leg, 47%
 	messages = append(messages, session.ToMesg(nil))
 
@@ -134,4 +134,62 @@ func ValidActivity(serialNumber uint32, timeCreated time.Time, numRecords int) [
 // producing a file that fails checksum validation on decode.
 func Truncate(valid []byte) []byte {
 	return valid[:len(valid)-4]
+}
+
+// DuplicateTimestampActivity builds a minimal but valid FIT activity file
+// whose Record stream contains two consecutive records sharing an identical
+// timestamp — the shape a real device occasionally produces around a
+// pause/resume or lap boundary (#700). Every other record is one second
+// apart as usual.
+func DuplicateTimestampActivity(serialNumber uint32, timeCreated time.Time, numRecords int) []byte {
+	fileID := mesgdef.NewFileId(nil)
+	fileID.Type = typedef.FileActivity
+	fileID.Manufacturer = typedef.ManufacturerDevelopment
+	fileID.Product = 1
+	fileID.SerialNumber = serialNumber
+	fileID.TimeCreated = timeCreated
+
+	messages := []proto.Message{fileID.ToMesg(nil)}
+
+	for i := 0; i < numRecords; i++ {
+		offset := i
+		if i >= 2 {
+			// Record 2 repeats record 1's timestamp; everything from there on
+			// shifts back by one second to keep the file's own duration honest.
+			offset = i - 1
+		}
+		rec := mesgdef.NewRecord(nil)
+		rec.Timestamp = timeCreated.Add(time.Duration(offset) * time.Second)
+		rec.Power = uint16(150 + i%50)
+		rec.HeartRate = uint8(120 + i%30)
+		messages = append(messages, rec.ToMesg(nil))
+	}
+
+	endTime := timeCreated.Add(time.Duration(numRecords-2) * time.Second)
+
+	session := mesgdef.NewSession(nil)
+	session.Timestamp = endTime
+	session.StartTime = timeCreated
+	session.Sport = typedef.SportCycling
+	session.TotalElapsedTime = uint32((numRecords - 1) * 1000)
+	session.TotalTimerTime = uint32((numRecords - 1) * 1000)
+	session.AvgPower = 180
+	session.MaxPower = 300
+	session.AvgHeartRate = 140
+	session.MaxHeartRate = 175
+	messages = append(messages, session.ToMesg(nil))
+
+	activityMesg := mesgdef.NewActivity(nil)
+	activityMesg.Timestamp = endTime
+	activityMesg.TotalTimerTime = session.TotalTimerTime
+	activityMesg.NumSessions = 1
+	activityMesg.Type = typedef.ActivityManual
+	messages = append(messages, activityMesg.ToMesg(nil))
+
+	var buf bytes.Buffer
+	enc := encoder.New(&buf)
+	if err := enc.Encode(&proto.FIT{Messages: messages}); err != nil {
+		panic("fitfixture: encode failed: " + err.Error())
+	}
+	return buf.Bytes()
 }

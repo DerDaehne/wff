@@ -105,6 +105,58 @@ func TestStoreAndDedup(t *testing.T) {
 	}
 }
 
+// A real device occasionally emits two Record messages that round to the
+// same second (pause/resume, lap boundary). Before #700 that blew up the
+// whole samples CopyFrom with a unique_violation on (activity_id, time),
+// rejecting the entire ride rather than losing one duplicate second.
+func TestStoreDedupesSamplesWithDuplicateTimestamp(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — skipping live-Postgres integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer pool.Close()
+
+	stamp := time.Now().UnixNano()
+	var userID int64
+	err = pool.QueryRow(ctx,
+		`INSERT INTO users (username, display_name) VALUES ($1, $2) RETURNING id`,
+		fmt.Sprintf("ingest-dup-test-%d", stamp), "Ingest Dup Test",
+	).Scan(&userID)
+	if err != nil {
+		t.Fatalf("insert test user: %v", err)
+	}
+
+	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
+	raw := fitfixture.DuplicateTimestampActivity(999889, created, 20)
+	act, err := fitparse.Parse(raw)
+	if err != nil {
+		t.Fatalf("fitparse.Parse: %v", err)
+	}
+	if len(act.Samples) != 20 {
+		t.Fatalf("fixture produced %d samples, want 20", len(act.Samples))
+	}
+
+	activityID, err := ingest.Store(ctx, pool, userID, act, ingest.ExternalUID(act.FileID, raw))
+	if err != nil {
+		t.Fatalf("Store: %v", err)
+	}
+
+	var sampleCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM samples WHERE activity_id = $1`, activityID).Scan(&sampleCount); err != nil {
+		t.Fatalf("count samples: %v", err)
+	}
+	// 20 decoded samples, one pair sharing a timestamp -> 19 stored rows.
+	if sampleCount != 19 {
+		t.Fatalf("sample count in DB = %d, want 19 (one duplicate timestamp merged away)", sampleCount)
+	}
+}
+
 func TestExternalUIDFallback(t *testing.T) {
 	created := time.Date(2026, 7, 20, 8, 0, 0, 0, time.UTC)
 	rawA := fitfixture.ValidActivity(0, created, 5) // SerialNumber 0 -> hash fallback

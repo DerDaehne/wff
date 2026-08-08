@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/DerDaehne/wff/internal/fitparse"
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,28 @@ func ExternalUID(fileID fitparse.FileID, rawContent []byte) string {
 	}
 	sum := sha256.Sum256(rawContent)
 	return hex.EncodeToString(sum[:])
+}
+
+// dedupeSamplesByTime drops any sample whose timestamp repeats an earlier
+// one in the same file, keeping the first occurrence.
+//
+// (activity_id, time) is the samples table's primary key, and CopyFrom has
+// no ON CONFLICT to fall back on the way a plain INSERT would — a single
+// repeated timestamp fails the whole batch (#700, a real device: two Record
+// messages both rounding to the same second around a pause/resume). Losing
+// one second of one field's worth of data to an admittedly arbitrary
+// first-wins rule is a fair trade against rejecting the entire ride.
+func dedupeSamplesByTime(samples []fitparse.Sample) []fitparse.Sample {
+	seen := make(map[time.Time]bool, len(samples))
+	out := make([]fitparse.Sample, 0, len(samples))
+	for _, s := range samples {
+		if seen[s.Time] {
+			continue
+		}
+		seen[s.Time] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // Store persists a parsed activity and its samples for userID in a single
@@ -107,8 +130,9 @@ func storeOnce(ctx context.Context, pool *pgxpool.Pool, userID int64, act *fitpa
 	}
 
 	if len(act.Samples) > 0 {
-		rows := make([][]any, len(act.Samples))
-		for i, s := range act.Samples {
+		samples := dedupeSamplesByTime(act.Samples)
+		rows := make([][]any, len(samples))
+		for i, s := range samples {
 			rows[i] = []any{
 				activityID, s.Time, s.Lat, s.Lon, s.AltitudeMeters, s.PowerWatts, s.HeartRate, s.Cadence, s.SpeedMps, s.TemperatureCelsius,
 				s.GradePercent, s.CaloriesKcal, s.LeftRightBalancePercent, s.LeftRightBalanceRightLeg,
