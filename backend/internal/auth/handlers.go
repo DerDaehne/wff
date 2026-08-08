@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
@@ -42,6 +44,10 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("GET /api/device-tokens", RequireAuth(h.pool)(http.HandlerFunc(h.listDeviceTokens)))
 	mux.Handle("POST /api/device-tokens", RequireAuth(h.pool)(http.HandlerFunc(h.createDeviceToken)))
 	mux.Handle("DELETE /api/device-tokens/{id}", RequireAuth(h.pool)(http.HandlerFunc(h.revokeDeviceToken)))
+	// Any registered person can invite another — there is no admin role
+	// (#702). Session only, same reasoning as device tokens above: a device
+	// token is scoped to uploads and must not be able to mint account access.
+	mux.Handle("POST /api/invites", RequireAuth(h.pool)(http.HandlerFunc(h.createInvite)))
 }
 
 func (h *Handlers) beginRegistration(w http.ResponseWriter, r *http.Request) {
@@ -253,6 +259,51 @@ func (h *Handlers) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) whoAmI(w http.ResponseWriter, r *http.Request) {
 	userID, _ := UserID(r.Context())
 	writeJSON(w, map[string]any{"user_id": userID})
+}
+
+// createInvite lets any signed-in person invite another — there is no admin
+// role (#702), this used to be CLI-only (`wff invite create`). Checked
+// against `users` up front rather than left to fail at redemption time: the
+// invitee would otherwise hit a raw SQL error deep in finishRegistration
+// with no way to know why.
+func (h *Handlers) createInvite(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Username    string `json:"username"`
+		DisplayName string `json:"display_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+	username := strings.TrimSpace(body.Username)
+	displayName := strings.TrimSpace(body.DisplayName)
+	if username == "" || displayName == "" {
+		http.Error(w, "username and display name are required", http.StatusBadRequest)
+		return
+	}
+
+	var taken bool
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT EXISTS (SELECT 1 FROM users WHERE username = $1)`, username,
+	).Scan(&taken); err != nil {
+		http.Error(w, "could not check username", http.StatusInternalServerError)
+		return
+	}
+	if taken {
+		http.Error(w, "username already taken", http.StatusConflict)
+		return
+	}
+
+	token, err := CreateInvite(r.Context(), h.pool, username, displayName)
+	if err != nil {
+		http.Error(w, "could not create invite", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, struct {
+		Token     string    `json:"token"`
+		ExpiresAt time.Time `json:"expires_at"`
+	}{Token: token, ExpiresAt: time.Now().Add(InviteTTL)})
 }
 
 func loadCredentials(ctx context.Context, pool *pgxpool.Pool, userID int64) ([]webauthn.Credential, error) {

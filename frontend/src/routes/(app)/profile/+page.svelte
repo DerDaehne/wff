@@ -11,6 +11,7 @@
 	} from '$lib/profile';
 	import { ApiError } from '$lib/api';
 	import { progressMetrics } from '$lib/progress';
+	import { createInvite } from '$lib/invites';
 
 	let viewState: 'loading' | 'ready' | 'error' = $state('loading');
 	let errorMessage = $state('');
@@ -46,6 +47,54 @@
 			viewState = 'error';
 		}
 	});
+
+	// Einladung erstellen (#702): jede registrierte Person, keine Admin-Rolle.
+	let inviteUsername = $state('');
+	let inviteDisplayName = $state('');
+	let inviteBusy = $state(false);
+	let inviteError = $state('');
+	let inviteLink = $state('');
+	let inviteExpiresAt = $state('');
+	let inviteCopied = $state(false);
+
+	async function submitInvite(e: SubmitEvent) {
+		e.preventDefault();
+		inviteBusy = true;
+		inviteError = '';
+		inviteLink = '';
+		try {
+			const created = await createInvite(inviteUsername.trim(), inviteDisplayName.trim());
+			inviteLink = `${window.location.origin}/invite/${created.token}`;
+			inviteExpiresAt = created.expires_at;
+			inviteUsername = '';
+			inviteDisplayName = '';
+		} catch (err) {
+			// 409 (Nutzername vergeben) ist der einzige Fehlerfall, den jemand
+			// beim Ausfüllen selbst auslösen kann — verdient eine echte
+			// Übersetzung statt der rohen (englischen) Backend-Meldung.
+			inviteError =
+				err instanceof ApiError && err.status === 409
+					? 'Dieser Nutzername ist schon vergeben.'
+					: 'Einladung konnte nicht erstellt werden.';
+		} finally {
+			inviteBusy = false;
+		}
+	}
+
+	async function copyInviteLink() {
+		await navigator.clipboard.writeText(inviteLink);
+		inviteCopied = true;
+		setTimeout(() => (inviteCopied = false), 2000);
+	}
+
+	function inviteExpiryLabel(iso: string): string {
+		return new Date(iso).toLocaleString('de-DE', {
+			day: '2-digit',
+			month: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
 
 	function rideDate(iso: string): string {
 		return new Date(iso).toLocaleDateString('de-DE', {
@@ -280,6 +329,60 @@
 	</section>
 
 	<section class="export">
+		<h2>Neue Person einladen</h2>
+		<p class="hint">
+			Jede registrierte Person kann weitere einladen — es gibt keine Admin-Rolle. Der Link ist 72
+			Stunden gültig und nur einmal einlösbar.
+		</p>
+		<form onsubmit={submitInvite}>
+			<div class="field">
+				<label for="invite-username">Nutzername</label>
+				<input
+					id="invite-username"
+					class="input"
+					type="text"
+					bind:value={inviteUsername}
+					required
+				/>
+			</div>
+			<div class="field">
+				<label for="invite-display-name">Anzeigename</label>
+				<input
+					id="invite-display-name"
+					class="input"
+					type="text"
+					bind:value={inviteDisplayName}
+					required
+				/>
+			</div>
+			<button class="btn btn-secondary" type="submit" disabled={inviteBusy}>
+				{inviteBusy ? 'Erstellt…' : 'Einladung erstellen'}
+			</button>
+		</form>
+		{#if inviteError}
+			<p class="error" role="alert">{inviteError}</p>
+		{/if}
+		{#if inviteLink}
+			<div class="invite-fresh">
+				<input
+					class="input"
+					type="text"
+					readonly
+					value={inviteLink}
+					onclick={(e) => e.currentTarget.select()}
+				/>
+				<button class="btn btn-secondary" type="button" onclick={copyInviteLink}>
+					{inviteCopied ? 'Kopiert!' : 'Kopieren'}
+				</button>
+				<p class="hint">
+					Gültig bis {inviteExpiryLabel(inviteExpiresAt)}. Nur der eingeladenen Person schicken —
+					wer den Link öffnet, kann ihn einlösen.
+				</p>
+			</div>
+		{/if}
+	</section>
+
+	<section class="export">
 		<h2>Deine Daten</h2>
 		<p class="hint">
 			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten
@@ -397,5 +500,23 @@
 	.error {
 		color: var(--color-danger);
 		font-size: var(--text-sm);
+	}
+
+	.invite-fresh {
+		margin-top: 0.75rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.invite-fresh .input {
+		flex: 1;
+		min-width: 12rem;
+	}
+
+	.invite-fresh .hint {
+		flex-basis: 100%;
+		margin: 0.25rem 0 0;
 	}
 </style>

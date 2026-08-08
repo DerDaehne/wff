@@ -100,6 +100,113 @@ func TestPasskeyFlow(t *testing.T) {
 	}
 }
 
+// Any registered person can invite another — there is no admin role (#702).
+func TestCreateInviteEndpoint(t *testing.T) {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set — skipping live-Postgres integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := db.Open(ctx, dbURL)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer pool.Close()
+
+	listener, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	server := httptest.NewUnstartedServer(nil)
+	server.Listener.Close()
+	server.Listener = listener
+
+	os.Setenv("WEBAUTHN_RPID", "localhost")
+	os.Setenv("WEBAUTHN_ORIGIN", "http://"+listener.Addr().String())
+	os.Setenv("COOKIE_SECURE", "false")
+
+	wa, err := auth.NewWebAuthn()
+	if err != nil {
+		t.Fatalf("NewWebAuthn: %v", err)
+	}
+	mux := http.NewServeMux()
+	auth.NewHandlers(pool, wa).Register(mux)
+	server.Config.Handler = mux
+	server.Start()
+	defer server.Close()
+
+	rp := virtualwebauthn.RelyingParty{Name: "WFF", ID: "localhost", Origin: server.URL}
+	stamp := time.Now().UnixNano()
+	inviter := registerUser(t, ctx, pool, server.URL, rp, fmt.Sprintf("inviter-%d", stamp), "Inviter")
+
+	t.Run("unauthenticated request is rejected", func(t *testing.T) {
+		anon := &http.Client{}
+		mustGetStatus(t, anon, server.URL+"/api/me", http.StatusUnauthorized) // sanity: anon really isn't logged in
+		resp, err := anon.Post(server.URL+"/api/invites", "application/json",
+			strings.NewReader(fmt.Sprintf(`{"username":"anon-%d","display_name":"Anon"}`, stamp)))
+		if err != nil {
+			t.Fatalf("POST /api/invites: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("unauthenticated POST /api/invites: status = %d, want 401", resp.StatusCode)
+		}
+	})
+
+	newUsername := fmt.Sprintf("invitee-%d", stamp)
+	var inviteToken string
+
+	t.Run("a signed-in rider can invite someone new", func(t *testing.T) {
+		body := mustPostBody(t, inviter.client, server.URL+"/api/invites",
+			fmt.Sprintf(`{"username":%q,"display_name":"Invitee"}`, newUsername), http.StatusCreated)
+		var decoded struct {
+			Token     string `json:"token"`
+			ExpiresAt string `json:"expires_at"`
+		}
+		if err := json.Unmarshal([]byte(body), &decoded); err != nil {
+			t.Fatalf("decode invite response: %v (body: %s)", err, body)
+		}
+		if decoded.Token == "" {
+			t.Fatalf("invite response has no token: %s", body)
+		}
+		if decoded.ExpiresAt == "" {
+			t.Fatalf("invite response has no expires_at: %s", body)
+		}
+		inviteToken = decoded.Token
+	})
+
+	t.Run("the minted token actually redeems into a working account", func(t *testing.T) {
+		invitee := redeemInvite(t, server.URL, rp, inviteToken, newUsername)
+		if invitee.id == inviter.id {
+			t.Fatalf("invitee got the inviter's own user_id")
+		}
+	})
+
+	t.Run("a second invite for the now-taken username is rejected up front", func(t *testing.T) {
+		resp, err := inviter.client.Post(server.URL+"/api/invites", "application/json",
+			strings.NewReader(fmt.Sprintf(`{"username":%q,"display_name":"Invitee Two"}`, newUsername)))
+		if err != nil {
+			t.Fatalf("POST /api/invites: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusConflict {
+			t.Fatalf("invite for taken username: status = %d, want 409", resp.StatusCode)
+		}
+	})
+
+	t.Run("missing fields are rejected", func(t *testing.T) {
+		resp, err := inviter.client.Post(server.URL+"/api/invites", "application/json", strings.NewReader(`{"username":"","display_name":""}`))
+		if err != nil {
+			t.Fatalf("POST /api/invites: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Fatalf("invite with empty fields: status = %d, want 400", resp.StatusCode)
+		}
+	})
+}
+
 type registeredUser struct {
 	id            int64
 	username      string
@@ -115,6 +222,15 @@ func registerUser(t *testing.T, ctx context.Context, pool *pgxpool.Pool, baseURL
 	if err != nil {
 		t.Fatalf("CreateInvite(%s): %v", username, err)
 	}
+	return redeemInvite(t, baseURL, rp, token, username)
+}
+
+// redeemInvite runs the WebAuthn registration ceremony against an
+// already-minted token — split out of registerUser so a test can verify a
+// token that came from somewhere else (the HTTP invite-creation endpoint,
+// not a direct CreateInvite call) actually works end to end.
+func redeemInvite(t *testing.T, baseURL string, rp virtualwebauthn.RelyingParty, token, username string) *registeredUser {
+	t.Helper()
 
 	jar, err := cookiejar.New(nil)
 	if err != nil {
