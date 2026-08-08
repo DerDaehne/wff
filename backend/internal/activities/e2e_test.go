@@ -464,6 +464,89 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 			t.Fatalf("other rider GET laps: status = %d, want 404", resp.StatusCode)
 		}
 	})
+
+	// #701: the web UI had no way to undo an accidental double-upload.
+	// Subtests below run last and actually delete `uploaded` — everything
+	// above this point must keep working against the still-live activity.
+	activityURL := fmt.Sprintf("%s/api/activities/%d", server.URL, uploaded.ActivityID)
+
+	t.Run("delete 404s for another rider's activity, leaves it intact", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodDelete, activityURL, nil)
+		resp, err := otherRider.Do(req)
+		if err != nil {
+			t.Fatalf("DELETE activity as other rider: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("other rider DELETE activity: status = %d, want 404", resp.StatusCode)
+		}
+		// Still there for the actual owner.
+		getBody(t, rider, activityURL+"/samples", http.StatusOK)
+	})
+
+	t.Run("delete removes the activity, its samples, and the raw file", func(t *testing.T) {
+		var rawPath string
+		if err := pool.QueryRow(ctx, `SELECT raw_file_path FROM activities WHERE id = $1`, uploaded.ActivityID).Scan(&rawPath); err != nil {
+			t.Fatalf("query raw_file_path before delete: %v", err)
+		}
+		if _, err := os.Stat(rawPath); err != nil {
+			t.Fatalf("raw file %s missing before delete: %v", rawPath, err)
+		}
+
+		req, _ := http.NewRequest(http.MethodDelete, activityURL, nil)
+		resp, err := rider.Do(req)
+		if err != nil {
+			t.Fatalf("DELETE activity: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNoContent {
+			t.Fatalf("DELETE activity: status = %d, want 204", resp.StatusCode)
+		}
+
+		var activityCount int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM activities WHERE id = $1`, uploaded.ActivityID).Scan(&activityCount); err != nil {
+			t.Fatalf("count activities after delete: %v", err)
+		}
+		if activityCount != 0 {
+			t.Fatalf("activities row count after delete = %d, want 0", activityCount)
+		}
+		var sampleCount int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM samples WHERE activity_id = $1`, uploaded.ActivityID).Scan(&sampleCount); err != nil {
+			t.Fatalf("count samples after delete: %v", err)
+		}
+		if sampleCount != 0 {
+			t.Fatalf("samples row count after delete = %d, want 0 (cascade)", sampleCount)
+		}
+		if _, err := os.Stat(rawPath); !os.IsNotExist(err) {
+			t.Fatalf("raw file %s still present after delete (err = %v)", rawPath, err)
+		}
+
+		// Gone from the list, not just from its own endpoints.
+		listBody := getBody(t, rider, server.URL+"/api/activities", http.StatusOK)
+		var list []struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal([]byte(listBody), &list); err != nil {
+			t.Fatalf("decode list response: %v (body: %s)", err, listBody)
+		}
+		for _, a := range list {
+			if a.ID == uploaded.ActivityID {
+				t.Fatalf("deleted activity %d still present in list", uploaded.ActivityID)
+			}
+		}
+	})
+
+	t.Run("delete 404s for an already-deleted activity", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodDelete, activityURL, nil)
+		resp, err := rider.Do(req)
+		if err != nil {
+			t.Fatalf("DELETE activity again: %v", err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusNotFound {
+			t.Fatalf("second DELETE activity: status = %d, want 404", resp.StatusCode)
+		}
+	})
 }
 
 func getBody(t *testing.T, client *http.Client, url string, wantStatus int) string {

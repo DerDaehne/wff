@@ -39,6 +39,13 @@ export async function getActivitySamples(id: number): Promise<Sample[]> {
 	return data ?? [];
 }
 
+/** Removes a ride and everything derived from it — samples, laps, share
+ *  link, weather buckets, power-curve points (#701). Irreversible; the
+ *  caller is responsible for confirming with the rider first. */
+export async function deleteActivity(id: number): Promise<void> {
+	await apiFetch(`/api/activities/${id}`, { method: 'DELETE' });
+}
+
 /** A device-recorded round/interval marker (manual button press or
  *  auto-lap) — a split, not something we derive ourselves (#589). */
 export interface Lap {

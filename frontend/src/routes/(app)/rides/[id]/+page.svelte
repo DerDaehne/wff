@@ -2,6 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import { goto } from '$app/navigation';
 	import { Map, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -10,6 +11,7 @@
 		getActivityWeather,
 		getActivityStory,
 		getActivityLaps,
+		deleteActivity,
 		formatDistance,
 		formatDuration,
 		type Sample,
@@ -80,6 +82,29 @@
 			shareStatus = await revokeShare(Number(page.params.id));
 		} finally {
 			shareBusy = false;
+		}
+	}
+
+	let deleteBusy = $state(false);
+	let deleteError = $state('');
+
+	// Irreversible (#701) — everything derived from the ride goes with it,
+	// same as the confirm-then-cascade pattern the CLI's user-delete already
+	// uses. Native confirm() rather than a custom sheet: this is a one-shot
+	// yes/no gate, not a view worth its own component.
+	async function deleteRide() {
+		const label = story?.subtitle ? `Fahrt vom ${story.subtitle}` : 'diese Fahrt';
+		if (!confirm(`${label} endgültig löschen? Das kann nicht rückgängig gemacht werden.`)) {
+			return;
+		}
+		deleteBusy = true;
+		deleteError = '';
+		try {
+			await deleteActivity(Number(page.params.id));
+			await goto(resolve('/(app)/rides'));
+		} catch (err) {
+			deleteError = err instanceof ApiError ? err.message : 'Fahrt konnte nicht gelöscht werden.';
+			deleteBusy = false;
 		}
 	}
 
@@ -497,6 +522,20 @@
 				· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
 			</p>
 		{/if}
+
+		<p class="export-hint">
+			<button
+				class="link-button link-button-danger"
+				type="button"
+				onclick={deleteRide}
+				disabled={deleteBusy}
+			>
+				Fahrt löschen
+			</button>
+		</p>
+		{#if deleteError}
+			<p role="alert" class="delete-error">{deleteError}</p>
+		{/if}
 	</div>
 
 	<div hidden={activeTab !== 'karte'}>
@@ -744,6 +783,16 @@
 		color: var(--color-brand);
 		text-decoration: underline;
 		cursor: pointer;
+	}
+
+	.link-button-danger {
+		color: var(--color-danger);
+	}
+
+	.delete-error {
+		color: var(--color-danger);
+		font-size: var(--text-sm);
+		margin: 0.5rem 0 0;
 	}
 
 	/* Prominent on purpose (#641) — a rider who shared a ride and forgot

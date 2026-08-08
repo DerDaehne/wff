@@ -43,6 +43,7 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	// post a ride without a browser session (#617).
 	mux.Handle("POST /api/activities", auth.RequireUploadAuth(h.pool)(http.HandlerFunc(h.upload)))
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
+	mux.Handle("DELETE /api/activities/{id}", auth.RequireAuth(h.pool)(http.HandlerFunc(h.deleteActivity)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/laps", auth.RequireAuth(h.pool)(http.HandlerFunc(h.laps)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
@@ -332,6 +333,39 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeActivitiesJSON(w, activities)
+}
+
+// deleteActivity removes a ride and everything derived from it (#701 — the
+// web UI had no way to undo an accidental double-upload, e.g. after a
+// samples-COPY failure that left the rider unsure whether the first attempt
+// had actually gone through, see #700). Samples/laps/weather buckets/shares/
+// power-curve points all cascade via their FK to activities (ON DELETE
+// CASCADE, same as the CLI's user-delete), so one statement is enough.
+func (h *Handlers) deleteActivity(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || !h.ownsActivity(r.Context(), userID, activityID) {
+		// Same 404 for "not yours" and "doesn't exist" — see samples().
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+
+	var rawPath *string
+	if err := h.pool.QueryRow(r.Context(),
+		`DELETE FROM activities WHERE id = $1 RETURNING raw_file_path`, activityID,
+	).Scan(&rawPath); err != nil {
+		http.Error(w, "could not delete activity", http.StatusInternalServerError)
+		return
+	}
+	// Best effort: the row (and everything cascaded from it) is already gone
+	// either way — a leftover .fit on disk is a cleanup nit, not a reason to
+	// tell the rider their delete failed.
+	if rawPath != nil {
+		if err := os.Remove(*rawPath); err != nil && !os.IsNotExist(err) {
+			log.Printf("delete activity %d: could not remove raw file %s: %v", activityID, *rawPath, err)
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 type sampleDTO struct {
