@@ -12,6 +12,8 @@
 		getActivityStory,
 		getActivityLaps,
 		deleteActivity,
+		getActivityBike,
+		updateActivityBike,
 		formatDistance,
 		formatDuration,
 		type Sample,
@@ -20,6 +22,7 @@
 		type Lap
 	} from '$lib/rides';
 	import { getShareStatus, createShare, revokeShare, type ShareStatus } from '$lib/share';
+	import { listBikes, type Bike } from '$lib/bikes';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryHero from '$lib/components/StoryHero.svelte';
@@ -87,6 +90,30 @@
 
 	let deleteBusy = $state(false);
 	let deleteError = $state('');
+
+	// Which bike this ride is credited to, correctable after the fact (#730)
+	// — upload time only ever sets it automatically from the active bike
+	// (#637). All bikes are offered, retired ones included: fixing a mistake
+	// might mean attributing the ride to a bike the rider no longer owns.
+	let bikeList: Bike[] = $state([]);
+	let currentBikeId: number | null = $state(null);
+	let bikeBusy = $state(false);
+	let bikeError = $state('');
+
+	async function changeBike(e: Event) {
+		const value = (e.currentTarget as HTMLSelectElement).value;
+		const bikeId = value === '' ? null : Number(value);
+		bikeBusy = true;
+		bikeError = '';
+		try {
+			await updateActivityBike(Number(page.params.id), bikeId);
+			currentBikeId = bikeId;
+		} catch (err) {
+			bikeError = err instanceof ApiError ? err.message : 'Rad konnte nicht geändert werden.';
+		} finally {
+			bikeBusy = false;
+		}
+	}
 
 	// Irreversible (#701) — everything derived from the ride goes with it,
 	// same as the confirm-then-cascade pattern the CLI's user-delete already
@@ -333,6 +360,12 @@
 			getActivityLaps(activityId)
 				.then((l) => (laps = l))
 				.catch(() => {});
+			listBikes()
+				.then((b) => (bikeList = b))
+				.catch(() => {});
+			getActivityBike(activityId)
+				.then((id) => (currentBikeId = id))
+				.catch(() => {});
 		} catch (err) {
 			errorMessage = err instanceof ApiError ? err.message : 'Fahrt konnte nicht geladen werden.';
 			viewState = 'error';
@@ -521,6 +554,27 @@
 				</button>
 				· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
 			</p>
+		{/if}
+
+		{#if bikeList.length > 0}
+			<p class="export-hint bike-select-row">
+				<label for="ride-bike">Rad:</label>
+				<select
+					id="ride-bike"
+					class="input"
+					value={currentBikeId ?? ''}
+					disabled={bikeBusy}
+					onchange={changeBike}
+				>
+					<option value="">Kein Rad</option>
+					{#each bikeList as bike (bike.id)}
+						<option value={bike.id}>{bike.name}{bike.retired_at ? ' (stillgelegt)' : ''}</option>
+					{/each}
+				</select>
+			</p>
+			{#if bikeError}
+				<p role="alert" class="delete-error">{bikeError}</p>
+			{/if}
 		{/if}
 
 		<p class="export-hint">
@@ -793,6 +847,20 @@
 		color: var(--color-danger);
 		font-size: var(--text-sm);
 		margin: 0.5rem 0 0;
+	}
+
+	.bike-select-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.bike-select-row select {
+		/* flex-basis:0% via the shorthand overrides the global .input's
+		   width:100%, same trick .share-row .input already uses below. */
+		flex: 1;
+		min-width: 10rem;
+		max-width: 16rem;
 	}
 
 	/* Prominent on purpose (#641) — a rider who shared a ride and forgot
