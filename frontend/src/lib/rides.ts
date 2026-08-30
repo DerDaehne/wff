@@ -16,6 +16,10 @@ export interface ActivitySummary {
 	/** The ride's character at a glance in the list (#633) — absent without
 	 *  enough recorded pulse, same rule as the ride-detail zones. */
 	zones?: ZoneShares | null;
+	/** Null for rides uploaded before a bike existed, or without an active
+	 *  bike set (#637) — the bulk-assignment view (#729) targets exactly
+	 *  these. */
+	bike_id: number | null;
 }
 
 export interface Sample {
@@ -44,6 +48,33 @@ export async function getActivitySamples(id: number): Promise<Sample[]> {
  *  caller is responsible for confirming with the rider first. */
 export async function deleteActivity(id: number): Promise<void> {
 	await apiFetch(`/api/activities/${id}`, { method: 'DELETE' });
+}
+
+/** Which bike (if any) this ride is credited to (#730). */
+export async function getActivityBike(id: number): Promise<number | null> {
+	const res = await apiFetch(`/api/activities/${id}/bike`);
+	const data = await res.json();
+	return data.bike_id;
+}
+
+/** Corrects a single ride's bike after the fact — `bikeId: null` clears it
+ *  (#730). Upload time only ever sets it from the active bike (#637). */
+export async function updateActivityBike(id: number, bikeId: number | null): Promise<void> {
+	await apiFetch(`/api/activities/${id}/bike`, {
+		method: 'PATCH',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ bike_id: bikeId })
+	});
+}
+
+/** Backfills bike_id on several rides at once — for adopting #637 after
+ *  already having rides without a bike (#729). */
+export async function bulkAssignBike(activityIds: number[], bikeId: number): Promise<void> {
+	await apiFetch('/api/activities/bike-assignment', {
+		method: 'PATCH',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ activity_ids: activityIds, bike_id: bikeId })
+	});
 }
 
 /** A device-recorded round/interval marker (manual button press or

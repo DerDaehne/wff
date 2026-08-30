@@ -14,6 +14,15 @@ export interface Bike {
 	/** Km remaining before the chain reminder fires — negative once the
 	 *  interval has been exceeded. */
 	chain_due_km: number;
+	/** Cumulative figures for the per-bike comparison view (#731) — the same
+	 *  honest, Strava/Garmin-Gear-style totals rather than a constructed
+	 *  "which bike is faster" score (speed is too route/wind-dependent to
+	 *  attribute fairly to the bike). */
+	ride_count: number;
+	moving_seconds: number;
+	elevation_gain_meters: number;
+	/** 0 (not null) when there's no moving time yet — nothing to divide by. */
+	avg_speed_kmh: number;
 }
 
 export async function listBikes(): Promise<Bike[]> {
