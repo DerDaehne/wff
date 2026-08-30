@@ -24,6 +24,11 @@ type Story struct {
 	// split into value/unit so it can typeset the number large and the unit
 	// small (#607).
 	Stats []Stat `json:"stats"`
+	// DetailStats is every headline-style figure this ride has data for, in a
+	// fixed order — the data-dense ride-detail grid, unlike Stats above,
+	// doesn't curate down to 2-3 (nil on the dashboard story, which has no
+	// single ride to detail).
+	DetailStats []Stat `json:"detail_stats,omitempty"`
 	// Gauge is the one bar this view shows: ride intensity on a ride,
 	// training level on the dashboard. Nil when there is nothing to show one
 	// for.
@@ -198,10 +203,11 @@ func (f RideFacts) metersPerKm() float64 {
 // what IS known first, not an apology for what isn't.
 func RideStory(f RideFacts) Story {
 	story := Story{
-		Title:    rideTitle(f),
-		Subtitle: germanDate(f.StartedAt),
-		Stats:    headlineStats(f),
-		Gauge:    intensityGauge(f),
+		Title:       rideTitle(f),
+		Subtitle:    germanDate(f.StartedAt),
+		Stats:       headlineStats(f),
+		DetailStats: detailStats(f),
+		Gauge:       intensityGauge(f),
 	}
 	var hints []Statement
 
@@ -343,6 +349,12 @@ const (
 	MetricDuration  = "duration"
 	MetricElevation = "elevation"
 	MetricLoad      = "load"
+	// The four below are never a PrimaryMetric choice (defaultMetricOrder is
+	// unchanged) — they only key detailStatsMap for the ride-detail grid.
+	MetricHeartRate = "heart_rate"
+	MetricIntensity = "intensity"
+	MetricDrift     = "drift"
+	MetricHeadwind  = "headwind"
 )
 
 // defaultMetricOrder is what the page showed before anyone could choose:
@@ -362,6 +374,32 @@ const headlineStatsLimit = 3
 // no training load without FTP) is skipped rather than shown empty, so the
 // next one moves up — a preference must not turn into a gap.
 func headlineStats(f RideFacts) []Stat {
+	available := detailStatsMap(f)
+
+	var stats []Stat
+	seen := map[string]bool{}
+	for _, metric := range append([]string{f.PrimaryMetric}, defaultMetricOrder...) {
+		if metric == "" || seen[metric] {
+			continue
+		}
+		seen[metric] = true
+		if stat, ok := available[metric]; ok {
+			stats = append(stats, stat)
+		}
+		if len(stats) == headlineStatsLimit {
+			break
+		}
+	}
+	return stats
+}
+
+// detailStatsMap computes every headline-style figure this ride has data
+// for, keyed by metric name. headlineStats above curates a PrimaryMetric-led
+// 2-3 of these for the narrative hero; detailStats below returns all of them,
+// in a fixed order, for the data-dense ride-detail grid (the Nocturne reskin,
+// 2026-08-30) — nil/unavailable figures are simply absent, never a
+// placeholder, same rule as everywhere else in this file.
+func detailStatsMap(f RideFacts) map[string]Stat {
 	available := map[string]Stat{}
 
 	if km := f.distanceMeters() / 1000; km > 0 {
@@ -391,19 +429,41 @@ func headlineStats(f RideFacts) []Stat {
 			Value: fmt.Sprintf("%d", int(*f.TSS+0.5)), Label: "Belastung",
 		}
 	}
-
-	var stats []Stat
-	seen := map[string]bool{}
-	for _, metric := range append([]string{f.PrimaryMetric}, defaultMetricOrder...) {
-		if metric == "" || seen[metric] {
-			continue
+	if f.AvgHeartRate != nil && *f.AvgHeartRate > 0 {
+		available[MetricHeartRate] = Stat{
+			Value: fmt.Sprintf("%d", int(*f.AvgHeartRate+0.5)), Unit: "bpm", Label: "⌀ Puls",
 		}
-		seen[metric] = true
+	}
+	if f.IntensityFactor != nil {
+		available[MetricIntensity] = Stat{Value: decimal(*f.IntensityFactor, 2), Label: "Intensität (IF)"}
+	}
+	// Same guard efficiencyStatement's call site uses: decoupling only means
+	// something on a steady ride, not an interval session (#630).
+	if f.Endurance != nil && !f.isMixed() {
+		available[MetricDrift] = Stat{
+			Value: decimal(absf(f.Endurance.DecouplingPct), 1), Unit: "%", Label: "Abfall 2. Hälfte",
+		}
+	}
+	if f.Course != nil && f.Course.DistanceMeters > 0 {
+		available[MetricHeadwind] = Stat{
+			Value: fmt.Sprintf("%d", int(f.Course.HeadwindShare*100+0.5)), Unit: "%", Label: "Gegenwind",
+		}
+	}
+	return available
+}
+
+// detailStats is detailStatsMap flattened into the fixed order the
+// data-dense ride-detail grid displays it in.
+func detailStats(f RideFacts) []Stat {
+	available := detailStatsMap(f)
+	order := []string{
+		MetricDistance, MetricSpeed, MetricHeartRate, MetricLoad,
+		MetricElevation, MetricDrift, MetricIntensity, MetricHeadwind,
+	}
+	stats := make([]Stat, 0, len(order))
+	for _, metric := range order {
 		if stat, ok := available[metric]; ok {
 			stats = append(stats, stat)
-		}
-		if len(stats) == headlineStatsLimit {
-			break
 		}
 	}
 	return stats

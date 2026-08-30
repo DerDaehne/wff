@@ -95,3 +95,29 @@ func TestHeadlineStatsIgnoresUnknownPreference(t *testing.T) {
 		t.Errorf("unknown preference should fall back to the default order, got %v", got)
 	}
 }
+
+// The ride-detail grid (Nocturne reskin, 2026-08-30) shows every figure the
+// ride has, unlike headlineStats' curated 2-3 — but in a fixed order, and it
+// must still omit whatever the ride doesn't have data for rather than
+// showing a placeholder.
+func TestDetailStatsFixedOrderWithEverythingAvailable(t *testing.T) {
+	f := fullRide()
+	f.AvgHeartRate = f64(142)
+	f.IntensityFactor = f64(0.74)
+	f.Course = &CourseStats{DistanceMeters: 42300, HeadwindShare: 0.41}
+	got := statLabels(detailStats(f))
+	want := []string{"Distanz", "⌀ Tempo", "⌀ Puls", "Belastung", "Anstieg", "Intensität (IF)", "Gegenwind"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("detailStats order %v, want %v", got, want)
+	}
+}
+
+func TestDetailStatsOmitsWhatIsUnavailable(t *testing.T) {
+	f := RideFacts{DistanceMeters: f64(20000), ElapsedSeconds: 3600, MovingSeconds: 3600}
+	got := detailStats(f)
+	for _, s := range got {
+		if s.Label == "⌀ Puls" || s.Label == "Intensität (IF)" || s.Label == "Gegenwind" || s.Label == "Abfall 2. Hälfte" {
+			t.Errorf("detailStats included %q with no source data for it", s.Label)
+		}
+	}
+}
