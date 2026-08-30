@@ -29,13 +29,17 @@ import (
 )
 
 type bike struct {
-	ID              int64      `json:"id"`
-	Name            string     `json:"name"`
-	Active          bool       `json:"active"`
-	RetiredAt       *time.Time `json:"retired_at"`
-	DistanceKm      float64    `json:"distance_km"`
-	ChainIntervalKm float64    `json:"chain_interval_km"`
-	ChainDueKm      float64    `json:"chain_due_km"`
+	ID                  int64      `json:"id"`
+	Name                string     `json:"name"`
+	Active              bool       `json:"active"`
+	RetiredAt           *time.Time `json:"retired_at"`
+	DistanceKm          float64    `json:"distance_km"`
+	ChainIntervalKm     float64    `json:"chain_interval_km"`
+	ChainDueKm          float64    `json:"chain_due_km"`
+	RideCount           int        `json:"ride_count"`
+	MovingSeconds       int64      `json:"moving_seconds"`
+	ElevationGainMeters float64    `json:"elevation_gain_meters"`
+	AvgSpeedKmh         float64    `json:"avg_speed_kmh"`
 }
 
 func TestBikesLifecycle(t *testing.T) {
@@ -129,6 +133,25 @@ func TestBikesLifecycle(t *testing.T) {
 	roadAfter := findBike(t, list, road.ID)
 	if roadAfter.DistanceKm != 0 {
 		t.Errorf("Rennrad distance_km = %v, want 0 — the ride went to the active bike, not this one", roadAfter.DistanceKm)
+	}
+
+	// Comparison aggregates (#731): the untouched bike stays at zero across
+	// the board, the ridden one reflects the upload with an internally
+	// consistent avg speed — checked against the ridden bike's own numbers
+	// rather than a hardcoded fixture value, since what matters here is the
+	// unit conversion (distance/time), not the fixture's exact speed.
+	if roadAfter.RideCount != 0 || roadAfter.MovingSeconds != 0 || roadAfter.AvgSpeedKmh != 0 {
+		t.Errorf("untouched Rennrad aggregates = %+v, want all zero", roadAfter)
+	}
+	if gravelAfter.RideCount != 1 {
+		t.Errorf("Gravelbike ride_count = %d, want 1", gravelAfter.RideCount)
+	}
+	if gravelAfter.MovingSeconds <= 0 {
+		t.Errorf("Gravelbike moving_seconds = %d, want > 0", gravelAfter.MovingSeconds)
+	}
+	wantAvgSpeed := gravelAfter.DistanceKm / (float64(gravelAfter.MovingSeconds) / 3600.0)
+	if got, want := gravelAfter.AvgSpeedKmh, wantAvgSpeed; got < want-0.01 || got > want+0.01 {
+		t.Errorf("Gravelbike avg_speed_kmh = %v, want ≈ %v (distance_km/moving_hours)", got, want)
 	}
 
 	// Chain due shrinks below the default interval once there's real distance.

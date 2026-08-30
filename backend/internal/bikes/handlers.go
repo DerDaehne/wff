@@ -45,7 +45,10 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT b.id, b.name, b.retired_at, b.chain_interval_km, b.chain_replaced_at_km,
-		       coalesce(sum(a.distance_meters), 0) / 1000.0
+		       coalesce(sum(a.distance_meters), 0) / 1000.0,
+		       count(a.id),
+		       coalesce(sum(a.moving_seconds), 0),
+		       coalesce(sum(a.elevation_gain_meters), 0)
 		FROM bikes b
 		LEFT JOIN activities a ON a.bike_id = b.id
 		WHERE b.user_id = $1
@@ -64,19 +67,28 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 		var id int64
 		var name string
 		var retiredAt *time.Time
-		var intervalKm, replacedAtKm, distanceKm float64
-		if err := rows.Scan(&id, &name, &retiredAt, &intervalKm, &replacedAtKm, &distanceKm); err != nil {
+		var intervalKm, replacedAtKm, distanceKm, elevationGainMeters float64
+		var rideCount int
+		var movingSeconds int64
+		if err := rows.Scan(
+			&id, &name, &retiredAt, &intervalKm, &replacedAtKm, &distanceKm,
+			&rideCount, &movingSeconds, &elevationGainMeters,
+		); err != nil {
 			http.Error(w, "could not load bikes", http.StatusInternalServerError)
 			return
 		}
 		out = append(out, Bike{
-			ID:              id,
-			Name:            name,
-			Active:          activeBikeID != nil && *activeBikeID == id,
-			RetiredAt:       retiredAt,
-			DistanceKm:      distanceKm,
-			ChainIntervalKm: intervalKm,
-			ChainDueKm:      chainDueKm(distanceKm, intervalKm, replacedAtKm),
+			ID:                  id,
+			Name:                name,
+			Active:              activeBikeID != nil && *activeBikeID == id,
+			RetiredAt:           retiredAt,
+			DistanceKm:          distanceKm,
+			ChainIntervalKm:     intervalKm,
+			ChainDueKm:          chainDueKm(distanceKm, intervalKm, replacedAtKm),
+			RideCount:           rideCount,
+			MovingSeconds:       movingSeconds,
+			ElevationGainMeters: elevationGainMeters,
+			AvgSpeedKmh:         avgSpeedKmh(distanceKm, movingSeconds),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -242,8 +254,15 @@ func (h *Handlers) chainReplaced(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handlers) ownsBike(ctx context.Context, userID, bikeID int64) bool {
+	return OwnsBike(ctx, h.pool, userID, bikeID)
+}
+
+// OwnsBike reports whether bikeID belongs to userID — exported so the
+// activities package can validate a bike assignment (#729/#730) without
+// duplicating this query.
+func OwnsBike(ctx context.Context, pool *pgxpool.Pool, userID, bikeID int64) bool {
 	var owner int64
-	err := h.pool.QueryRow(ctx, `SELECT user_id FROM bikes WHERE id = $1`, bikeID).Scan(&owner)
+	err := pool.QueryRow(ctx, `SELECT user_id FROM bikes WHERE id = $1`, bikeID).Scan(&owner)
 	return err == nil && owner == userID
 }
 

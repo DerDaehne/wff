@@ -20,6 +20,14 @@ type Bike struct {
 	// render "in 400 km" and "400 km overdue" with the same number and a
 	// sign check, rather than two different fields.
 	ChainDueKm float64 `json:"chain_due_km"`
+	// RideCount, MovingSeconds, ElevationGainMeters and AvgSpeedKmh feed the
+	// per-bike comparison view (#731) — the same honest, cumulative figures
+	// Strava/Garmin show per gear item rather than a constructed "which bike
+	// is faster" score, which would conflate bike with route and wind.
+	RideCount           int     `json:"ride_count"`
+	MovingSeconds       int64   `json:"moving_seconds"`
+	ElevationGainMeters float64 `json:"elevation_gain_meters"`
+	AvgSpeedKmh         float64 `json:"avg_speed_kmh"`
 }
 
 // chainDueKm is the distance left before the configured interval is up,
@@ -27,4 +35,14 @@ type Bike struct {
 // not from a calendar date, because wear follows distance, not time.
 func chainDueKm(totalKm, intervalKm, replacedAtKm float64) float64 {
 	return replacedAtKm + intervalKm - totalKm
+}
+
+// avgSpeedKmh is 0 (not NaN or Inf) for a bike with no moving time yet —
+// "unknown" and "zero" both render the same "–" in the frontend either way,
+// so there's nothing to distinguish by using a pointer here.
+func avgSpeedKmh(distanceKm float64, movingSeconds int64) float64 {
+	if movingSeconds <= 0 {
+		return 0
+	}
+	return distanceKm / (float64(movingSeconds) / 3600.0)
 }

@@ -24,6 +24,7 @@ import (
 
 	"github.com/DerDaehne/wff/internal/activities"
 	"github.com/DerDaehne/wff/internal/auth"
+	"github.com/DerDaehne/wff/internal/bikes"
 	"github.com/DerDaehne/wff/internal/db"
 	"github.com/DerDaehne/wff/internal/fitparse/fitfixture"
 	"github.com/DerDaehne/wff/internal/openmeteo"
@@ -301,6 +302,7 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 	mux := http.NewServeMux()
 	auth.NewHandlers(pool, wa).Register(mux)
 	activities.NewHandlers(pool, t.TempDir(), openmeteo.New(weatherServer.URL)).Register(mux)
+	bikes.NewHandlers(pool).Register(mux)
 	server.Config.Handler = mux
 	server.Start()
 	defer server.Close()
@@ -465,10 +467,90 @@ func TestListAndSamplesEndpoints(t *testing.T) {
 		}
 	})
 
+	activityURL := fmt.Sprintf("%s/api/activities/%d", server.URL, uploaded.ActivityID)
+
+	t.Run("bike is unset for a ride uploaded before any bike existed", func(t *testing.T) {
+		bikeBody := getBody(t, rider, activityURL+"/bike", http.StatusOK)
+		var got struct {
+			BikeID *int64 `json:"bike_id"`
+		}
+		if err := json.Unmarshal([]byte(bikeBody), &got); err != nil {
+			t.Fatalf("decode bike response: %v (body: %s)", err, bikeBody)
+		}
+		if got.BikeID != nil {
+			t.Fatalf("bike_id = %v, want nil", *got.BikeID)
+		}
+	})
+
+	gravel := createTestBike(t, rider, server.URL, fmt.Sprintf("Gravelbike-%d", stamp))
+	road := createTestBike(t, rider, server.URL, fmt.Sprintf("Rennrad-%d", stamp))
+
+	t.Run("bike can be assigned to a single ride after the fact (#730)", func(t *testing.T) {
+		patchJSON(t, rider, activityURL+"/bike", map[string]any{"bike_id": gravel}, http.StatusOK)
+		bikeBody := getBody(t, rider, activityURL+"/bike", http.StatusOK)
+		var got struct {
+			BikeID *int64 `json:"bike_id"`
+		}
+		if err := json.Unmarshal([]byte(bikeBody), &got); err != nil {
+			t.Fatalf("decode bike response: %v (body: %s)", err, bikeBody)
+		}
+		if got.BikeID == nil || *got.BikeID != gravel {
+			t.Fatalf("bike_id = %v, want %d", got.BikeID, gravel)
+		}
+	})
+
+	t.Run("single-ride bike assignment 404s for another rider's bike", func(t *testing.T) {
+		otherBike := createTestBike(t, otherRider, server.URL, fmt.Sprintf("Not-Yours-%d", stamp))
+		patchJSON(t, rider, activityURL+"/bike", map[string]any{"bike_id": otherBike}, http.StatusNotFound)
+	})
+
+	t.Run("single-ride bike assignment 404s for another rider's activity", func(t *testing.T) {
+		patchJSON(t, otherRider, activityURL+"/bike", map[string]any{"bike_id": road}, http.StatusNotFound)
+	})
+
+	t.Run("bike assignment can be cleared back to none", func(t *testing.T) {
+		patchJSON(t, rider, activityURL+"/bike", map[string]any{"bike_id": nil}, http.StatusOK)
+		bikeBody := getBody(t, rider, activityURL+"/bike", http.StatusOK)
+		var got struct {
+			BikeID *int64 `json:"bike_id"`
+		}
+		if err := json.Unmarshal([]byte(bikeBody), &got); err != nil {
+			t.Fatalf("decode bike response: %v (body: %s)", err, bikeBody)
+		}
+		if got.BikeID != nil {
+			t.Fatalf("bike_id after clearing = %v, want nil", *got.BikeID)
+		}
+	})
+
+	t.Run("bulk assignment backfills several rides at once (#729)", func(t *testing.T) {
+		patchJSON(t, rider, server.URL+"/api/activities/bike-assignment",
+			map[string]any{"activity_ids": []int64{uploaded.ActivityID}, "bike_id": road}, http.StatusNoContent)
+		bikeBody := getBody(t, rider, activityURL+"/bike", http.StatusOK)
+		var got struct {
+			BikeID *int64 `json:"bike_id"`
+		}
+		if err := json.Unmarshal([]byte(bikeBody), &got); err != nil {
+			t.Fatalf("decode bike response: %v (body: %s)", err, bikeBody)
+		}
+		if got.BikeID == nil || *got.BikeID != road {
+			t.Fatalf("bike_id after bulk assignment = %v, want %d", got.BikeID, road)
+		}
+	})
+
+	t.Run("bulk assignment rejects another rider's bike", func(t *testing.T) {
+		otherBike := createTestBike(t, otherRider, server.URL, fmt.Sprintf("Still-Not-Yours-%d", stamp))
+		patchJSON(t, rider, server.URL+"/api/activities/bike-assignment",
+			map[string]any{"activity_ids": []int64{uploaded.ActivityID}, "bike_id": otherBike}, http.StatusNotFound)
+	})
+
+	t.Run("bulk assignment rejects an empty activity list", func(t *testing.T) {
+		patchJSON(t, rider, server.URL+"/api/activities/bike-assignment",
+			map[string]any{"activity_ids": []int64{}, "bike_id": road}, http.StatusBadRequest)
+	})
+
 	// #701: the web UI had no way to undo an accidental double-upload.
 	// Subtests below run last and actually delete `uploaded` — everything
 	// above this point must keep working against the still-live activity.
-	activityURL := fmt.Sprintf("%s/api/activities/%d", server.URL, uploaded.ActivityID)
 
 	t.Run("delete 404s for another rider's activity, leaves it intact", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodDelete, activityURL, nil)
@@ -561,6 +643,56 @@ func getBody(t *testing.T, client *http.Client, url string, wantStatus int) stri
 		t.Fatalf("GET %s = %d, want %d, body: %s", url, resp.StatusCode, wantStatus, body)
 	}
 	return string(body)
+}
+
+func createTestBike(t *testing.T, client *http.Client, baseURL, name string) int64 {
+	t.Helper()
+	body, _ := json.Marshal(map[string]string{"name": name})
+	resp, err := client.Post(baseURL+"/api/bikes", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("POST /api/bikes: %v", err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("create bike: status = %d, body: %s", resp.StatusCode, respBody)
+	}
+	var list []struct {
+		ID   int64  `json:"id"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(respBody, &list); err != nil {
+		t.Fatalf("decode create-bike response: %v (body: %s)", err, respBody)
+	}
+	for _, b := range list {
+		if b.Name == name {
+			return b.ID
+		}
+	}
+	t.Fatalf("created bike %q not found in response: %s", name, respBody)
+	return 0
+}
+
+func patchJSON(t *testing.T, client *http.Client, url string, payload any, wantStatus int) {
+	t.Helper()
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal PATCH body: %v", err)
+	}
+	req, err := http.NewRequest(http.MethodPatch, url, bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("build PATCH request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("PATCH %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != wantStatus {
+		t.Fatalf("PATCH %s: status = %d, want %d, body: %s", url, resp.StatusCode, wantStatus, respBody)
+	}
 }
 
 func postMultipart(t *testing.T, client *http.Client, url, contentType string, body []byte, wantStatus int) {

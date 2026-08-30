@@ -17,6 +17,7 @@ import (
 
 	"github.com/DerDaehne/wff/internal/analyze"
 	"github.com/DerDaehne/wff/internal/auth"
+	"github.com/DerDaehne/wff/internal/bikes"
 	"github.com/DerDaehne/wff/internal/enrich"
 	"github.com/DerDaehne/wff/internal/fitparse"
 	"github.com/DerDaehne/wff/internal/ingest"
@@ -44,6 +45,9 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	mux.Handle("POST /api/activities", auth.RequireUploadAuth(h.pool)(http.HandlerFunc(h.upload)))
 	mux.Handle("GET /api/activities", auth.RequireAuth(h.pool)(http.HandlerFunc(h.list)))
 	mux.Handle("DELETE /api/activities/{id}", auth.RequireAuth(h.pool)(http.HandlerFunc(h.deleteActivity)))
+	mux.Handle("GET /api/activities/{id}/bike", auth.RequireAuth(h.pool)(http.HandlerFunc(h.getActivityBike)))
+	mux.Handle("PATCH /api/activities/{id}/bike", auth.RequireAuth(h.pool)(http.HandlerFunc(h.updateActivityBike)))
+	mux.Handle("PATCH /api/activities/bike-assignment", auth.RequireAuth(h.pool)(http.HandlerFunc(h.bulkAssignBike)))
 	mux.Handle("GET /api/activities/{id}/samples", auth.RequireAuth(h.pool)(http.HandlerFunc(h.samples)))
 	mux.Handle("GET /api/activities/{id}/laps", auth.RequireAuth(h.pool)(http.HandlerFunc(h.laps)))
 	mux.Handle("GET /api/activities/{id}/weather", auth.RequireAuth(h.pool)(http.HandlerFunc(h.weatherSummary)))
@@ -267,6 +271,10 @@ type activitySummary struct {
 	// Zones is the ride's character at a glance in the list (#633) — nil
 	// without enough recorded pulse, same rule as the ride-detail zones.
 	Zones *analyze.ZoneShares `json:"zones,omitempty"`
+	// BikeID is nil for rides uploaded before a bike existed, or without an
+	// active bike set (#637) — the bulk-assignment view (#729) uses exactly
+	// this to find what still needs backfilling.
+	BikeID *int64 `json:"bike_id"`
 }
 
 // list returns the requesting person's activities, most recent first — the
@@ -277,7 +285,8 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.pool.Query(r.Context(),
 		`SELECT id, started_at, sport, elapsed_seconds, moving_seconds, distance_meters, training_stress_score,
 		        avg_power_watts, avg_heart_rate,
-		        EXISTS (SELECT 1 FROM ride_shares s WHERE s.activity_id = a.id AND s.revoked_at IS NULL)
+		        EXISTS (SELECT 1 FROM ride_shares s WHERE s.activity_id = a.id AND s.revoked_at IS NULL),
+		        bike_id
 		 FROM activities a WHERE user_id = $1 ORDER BY started_at DESC`,
 		userID,
 	)
@@ -293,7 +302,7 @@ func (h *Handlers) list(w http.ResponseWriter, r *http.Request) {
 		var a activitySummary
 		if err := rows.Scan(
 			&a.ID, &a.StartedAt, &a.Sport, &a.ElapsedSeconds, &a.MovingSeconds, &a.DistanceMeters, &a.TrainingStressScore,
-			&a.AvgPowerWatts, &a.AvgHeartRate, &a.IsShared,
+			&a.AvgPowerWatts, &a.AvgHeartRate, &a.IsShared, &a.BikeID,
 		); err != nil {
 			http.Error(w, "could not load activities", http.StatusInternalServerError)
 			return
@@ -364,6 +373,97 @@ func (h *Handlers) deleteActivity(w http.ResponseWriter, r *http.Request) {
 		if err := os.Remove(*rawPath); err != nil && !os.IsNotExist(err) {
 			log.Printf("delete activity %d: could not remove raw file %s: %v", activityID, *rawPath, err)
 		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// getActivityBike answers which bike (if any) is credited with this ride —
+// there is no generic GET /api/activities/{id} to piggyback on, so the
+// reassignment dropdown on the ride-detail page (#730) gets its own small
+// endpoint, same shape as getShare/createShare.
+func (h *Handlers) getActivityBike(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || !h.ownsActivity(r.Context(), userID, activityID) {
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+	var bikeID *int64
+	if err := h.pool.QueryRow(r.Context(),
+		`SELECT bike_id FROM activities WHERE id = $1`, activityID,
+	).Scan(&bikeID); err != nil {
+		http.Error(w, "could not load activity", http.StatusInternalServerError)
+		return
+	}
+	writeActivitiesJSON(w, struct {
+		BikeID *int64 `json:"bike_id"`
+	}{bikeID})
+}
+
+// updateActivityBike lets a rider correct which bike a single ride is
+// credited to (#730) — until now bike_id was only ever set automatically at
+// upload time from the rider's active bike (#637), with no way to fix a
+// wrong assignment afterwards. bike_id: null clears it (e.g. a ride on a
+// borrowed bike).
+func (h *Handlers) updateActivityBike(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+	activityID, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || !h.ownsActivity(r.Context(), userID, activityID) {
+		http.Error(w, "activity not found", http.StatusNotFound)
+		return
+	}
+	var body struct {
+		BikeID *int64 `json:"bike_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if body.BikeID != nil && !bikes.OwnsBike(r.Context(), h.pool, userID, *body.BikeID) {
+		http.Error(w, "bike not found", http.StatusNotFound)
+		return
+	}
+	if _, err := h.pool.Exec(r.Context(),
+		`UPDATE activities SET bike_id = $1 WHERE id = $2`, body.BikeID, activityID,
+	); err != nil {
+		http.Error(w, "could not update activity", http.StatusInternalServerError)
+		return
+	}
+	writeActivitiesJSON(w, struct {
+		BikeID *int64 `json:"bike_id"`
+	}{body.BikeID})
+}
+
+// bulkAssignBike backfills bike_id on rides uploaded before a bike existed,
+// or without an active bike set (#729) — a rider adopting #637 can have
+// dozens of unassigned rides, and doing that one at a time would be needless
+// friction. Deliberately allows assigning to a retired bike: backfilling
+// history is exactly the case where the rider may be attributing old rides
+// to a bike they no longer own.
+func (h *Handlers) bulkAssignBike(w http.ResponseWriter, r *http.Request) {
+	userID, _ := auth.UserID(r.Context())
+	var body struct {
+		ActivityIDs []int64 `json:"activity_ids"`
+		BikeID      int64   `json:"bike_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
+	if len(body.ActivityIDs) == 0 {
+		http.Error(w, "activity_ids is required", http.StatusBadRequest)
+		return
+	}
+	if !bikes.OwnsBike(r.Context(), h.pool, userID, body.BikeID) {
+		http.Error(w, "bike not found", http.StatusNotFound)
+		return
+	}
+	if _, err := h.pool.Exec(r.Context(),
+		`UPDATE activities SET bike_id = $1 WHERE id = ANY($2) AND user_id = $3`,
+		body.BikeID, body.ActivityIDs, userID,
+	); err != nil {
+		http.Error(w, "could not assign bike", http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
