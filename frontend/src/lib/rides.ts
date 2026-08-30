@@ -165,6 +165,11 @@ export interface RideStory {
 	title: string;
 	subtitle: string;
 	stats: RideStat[];
+	/** Every headline-style figure this ride has data for, in a fixed order —
+	 *  unlike `stats` above (curated to 2-3 for the narrative hero), this is
+	 *  all of them, for the data-dense ride-detail grid. Absent on the
+	 *  dashboard's story, which has no single ride to detail. */
+	detail_stats?: RideStat[];
 	/** The one bar a view shows: ride intensity, or training level (#611). */
 	gauge?: RideGauge;
 	statements: RideStatement[];

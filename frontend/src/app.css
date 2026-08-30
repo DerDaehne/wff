@@ -34,6 +34,11 @@
 	--text-4xl: 64px;
 
 	--font-sans: 'Manrope', system-ui, sans-serif;
+	/* System stack, no @font-face — used for a handful of mono numeric labels
+	   (ride-detail's data-dense grid, Nocturne reskin) where the Manrope
+	   digits would otherwise sit at a different rhythm than the surrounding
+	   monospace-looking tabular numbers. */
+	--font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
 	--radius-sm: 10px;
 	--radius-md: 16px;
@@ -94,35 +99,72 @@
 	--wash-base: var(--color-surface);
 }
 
+/* "Nocturne" — the dark palette from the WFF Mobile design review
+   (claude.ai/design project db4dcd7d, 2026-08-30). Values are lifted
+   directly from that mockup (a lavender accent instead of teal, oklch zone
+   colours, hairline-ring cards instead of blurred shadows) — checked against
+   WCAG AA at the pairings that matter (text-muted/#9397ab-equivalent on
+   --color-surface: 5.25:1; --color-brand on --color-bg: 5.45:1, also used
+   reversed for --btn-primary's text-on-brand). The mock's own fifth text
+   tier (#75798c) does NOT clear AA against --color-surface (3.52:1) so it
+   was deliberately left out — this scheme keeps the existing two-tier
+   text/text-muted system rather than adding a tier that would fail contrast
+   the moment it landed on real content. Font stays Manrope: the mock's
+   Inter+JetBrains Mono pairing loads from Google Fonts, which would add a
+   CDN dependency this self-hosted, offline-capable PWA deliberately doesn't
+   have (see the self-hosted font comment above) — not something a colour
+   reskin should quietly trade away. Light scheme is untouched; this mockup
+   only designed a dark one. */
 @media (prefers-color-scheme: dark) {
 	:root {
 		color-scheme: dark;
 
-		--color-brand: #2dd4bf;
-		--color-brand-accent: #5eead4;
-		--color-bg: #0b1114;
-		--color-surface: #151d21;
-		--color-surface-raised: #1c262b;
-		--color-hero-bg: #10302e;
-		--color-hero-text: #ecfdf9;
-		--color-hero-muted: #7cc9bf;
-		--color-border: #26333a;
-		--color-text: #e8eef2;
-		/* Muted text on dark still has to clear WCAG AA (4.5:1) against
-		   --color-surface — the usual slate-500 does not. */
-		--color-text-muted: #a3b3bf;
-		--color-success: #4ade80;
-		--color-warning: #fbbf24;
-		--color-danger: #fb7185;
-		--color-info: #60a5fa;
-		--color-track: #2dd4bf;
+		--color-brand: #9184d9;
+		--color-brand-accent: #b5abfc;
+		--color-bg: #161826;
+		--color-surface: #232532;
+		--color-surface-raised: #2b2e3d;
+		--color-hero-bg: #232532;
+		--color-hero-text: #e9e9ed;
+		--color-hero-muted: #b5abfc;
+		--color-border: #3f424d;
+		--color-text: #e9e9ed;
+		--color-text-muted: #9397ab;
+		--color-success: oklch(0.75 0.09 195);
+		--color-warning: oklch(0.7 0.12 60);
+		--color-danger: oklch(0.66 0.13 25);
+		--color-info: oklch(0.72 0.07 230);
+		--color-track: #9184d9;
 
-		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-		--shadow-md: 0 6px 16px rgba(0, 0, 0, 0.45);
-		--shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.55);
-		--surface-glass: rgba(21, 29, 33, 0.78);
+		/* Nocturne's cards are a flat hairline ring (0 0 0 1px), never a blurred
+		   drop-shadow — no elevation hierarchy between sm/md/lg, which is
+		   deliberate, not a shortcut: it's the same flatter, less-card-heavy
+		   direction already applied to /raeder this session. */
+		--shadow-sm: 0 0 0 1px var(--color-border);
+		--shadow-md: 0 0 0 1px var(--color-border);
+		--shadow-lg: 0 0 0 1px var(--color-border);
+		--surface-glass: rgba(22, 24, 38, 0.82);
 		--wash-strength: 18%;
 		--wash-base: var(--color-surface);
+
+		/* Series colours (shared, non-dark-specific in :root above) get a
+		   dark-only override here rather than changing the shared default —
+		   the mock only designed a dark palette, so light mode keeps its
+		   existing series colours untouched. */
+		--chart-elevation: #75798c;
+		--chart-power: oklch(0.78 0.14 85);
+		--chart-heart-rate: oklch(0.66 0.13 25);
+		--chart-speed: oklch(0.72 0.07 230);
+		--chart-cadence: #a78bfa;
+		--chart-ctl: #9184d9;
+		--chart-atl: #c79a63;
+		--chart-tsb: #75798c;
+
+		--zone-recovery: oklch(0.68 0.05 265);
+		--zone-endurance: oklch(0.7 0.09 195);
+		--zone-tempo: oklch(0.74 0.1 110);
+		--zone-threshold: oklch(0.7 0.12 60);
+		--zone-vo2: oklch(0.66 0.13 25);
 	}
 }
 

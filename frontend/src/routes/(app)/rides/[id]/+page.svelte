@@ -25,7 +25,6 @@
 	import { listBikes, type Bike } from '$lib/bikes';
 	import { ApiError } from '$lib/api';
 	import LineChart from '$lib/components/LineChart.svelte';
-	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 
@@ -522,7 +521,28 @@
 	</div>
 
 	<div hidden={activeTab !== 'uebersicht'}>
-		<StoryHero {story} fallbackTitle="Deine Fahrt" note={conditions[0]} />
+		<!-- Data-dense grid (Nocturne reskin, 2026-08-30) — chosen over the
+		     narrative-hero alternative for this page specifically; the dashboard
+		     keeps StoryHero's sentence-first shape (#602) unchanged. Every figure
+		     the ride actually has data for (story.detail_stats), never a curated
+		     2-3 like the hero shows elsewhere. -->
+		<div class="ride-header">
+			<h1 class="ride-title">{story?.title || 'Deine Fahrt'}</h1>
+			<p class="ride-date-mono">
+				{story?.subtitle}{conditions[0] ? ` · ${conditions[0]}` : ''}
+			</p>
+		</div>
+
+		{#if story?.detail_stats && story.detail_stats.length > 0}
+			<div class="stat-grid">
+				{#each story.detail_stats as stat (stat.label)}
+					<div class="stat-cell">
+						<p class="stat-cell-value">{stat.value}</p>
+						<p class="stat-cell-label">{stat.unit ? `${stat.unit} ` : ''}{stat.label}</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
 
 		<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
 
@@ -811,6 +831,66 @@
 		padding: 1.25rem;
 		box-shadow: var(--shadow-md);
 		margin-bottom: 1.5rem;
+	}
+
+	.ride-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.ride-title {
+		margin: 0;
+		font-size: var(--text-xl);
+	}
+
+	/* Mono, not Manrope, for the date/time stamp — a small nod to the
+	   Nocturne mock's numeric styling without pulling in a second font. */
+	.ride-date-mono {
+		margin: 0;
+		flex-shrink: 0;
+		font-family: var(--font-mono);
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
+		text-align: right;
+	}
+
+	.stat-grid {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 1px;
+		border-radius: var(--radius-sm);
+		overflow: hidden;
+		margin-bottom: 1.5rem;
+	}
+
+	.stat-cell {
+		background: var(--color-surface);
+		padding: 0.75rem 0.625rem;
+	}
+
+	.stat-cell-value {
+		margin: 0;
+		font-size: var(--text-lg);
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		letter-spacing: -0.01em;
+	}
+
+	.stat-cell-label {
+		margin: 0.2rem 0 0;
+		font-size: 9.5px;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--color-text-muted);
+	}
+
+	@media (max-width: 420px) {
+		.stat-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
 	}
 
 	.panel h2 {
