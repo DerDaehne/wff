@@ -584,8 +584,8 @@
 
 		{#if gridStats.length > 0}
 			<div class="stat-grid">
-				{#each gridStats as stat (stat.label)}
-					<div class="fact-tile">
+				{#each gridStats as stat, i (stat.label)}
+					<div class="fact-tile" style="--i: {i}">
 						<p class="fact-tile-value">{stat.value}</p>
 						<p class="fact-tile-label">{stat.unit ? `${stat.unit} ` : ''}{stat.label}</p>
 					</div>
@@ -593,7 +593,52 @@
 			</div>
 		{/if}
 
-		<StoryCards statements={story?.statements ?? []} label="Einordnung dieser Fahrt" />
+		<StoryCards
+			statements={story?.statements ?? []}
+			label="Einordnung dieser Fahrt"
+			context={{
+				...(showPower || showHeartRate
+					? {
+							effort: {
+								xValues: elapsedMinutes,
+								series: [
+									showPower
+										? {
+												name: 'Leistung',
+												color: 'var(--chart-power)',
+												values: samples.map((s) => s.power_watts)
+											}
+										: {
+												name: 'Herzfrequenz',
+												color: 'var(--chart-heart-rate)',
+												values: samples.map((s) => s.heart_rate)
+											}
+								],
+								xFormat: formatElapsed,
+								yFormat: (y: number) => `${Math.round(y)}${showPower ? ' W' : ' bpm'}`,
+								caption: 'Verlauf während der Fahrt'
+							}
+						}
+					: {}),
+				...(hasElevation
+					? {
+							climb: {
+								xValues: elapsedMinutes,
+								series: [
+									{
+										name: 'Höhe',
+										color: 'var(--chart-elevation)',
+										values: samples.map((s) => s.altitude_meters)
+									}
+								],
+								xFormat: formatElapsed,
+								yFormat: (y: number) => `${Math.round(y)} m`,
+								caption: 'Höhenprofil dieser Fahrt'
+							}
+						}
+					: {})
+			}}
+		/>
 
 		{#if shareStatus?.active}
 			<div class="share-banner">
@@ -882,11 +927,11 @@
 		margin-bottom: 1.5rem;
 	}
 
+	/* Stacked, not a space-between row — a long title (weather note included:
+	   "Donnerstag, 18. Juni · 10:00 · 22 °C") plus the title text genuinely
+	   don't both fit on one line on a real phone width, and the row version
+	   let the date run past its own container with nothing to stop it. */
 	.ride-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.75rem;
 		margin-bottom: 1rem;
 	}
 
@@ -899,12 +944,10 @@
 	   remaining "industrial control panel" tell on the page (Nocturne v2);
 	   tabular-nums gives the same alignment without a second typeface. */
 	.ride-date-mono {
-		margin: 0;
-		flex-shrink: 0;
+		margin: 0.25rem 0 0;
 		font-variant-numeric: tabular-nums;
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
-		text-align: right;
 	}
 
 	.elevation-strip {

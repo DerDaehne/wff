@@ -30,8 +30,8 @@
 
 	{#if story && story.stats.length > 0}
 		<div class="hero-stats">
-			{#each story.stats as stat (stat.label)}
-				<div>
+			{#each story.stats as stat, i (stat.label)}
+				<div style="--i: {i}">
 					<p class="hero-stat-figure">
 						<span class="stat-value">{stat.value}</span>
 						{#if stat.unit}<span class="stat-unit">{stat.unit}</span>{/if}
@@ -90,10 +90,31 @@
 		font-weight: 700;
 	}
 
+	/* Grid, not flex-wrap: three stats (CTL/ATL/TSB) at a narrow phone width
+	   used to wrap 2-then-1, the lone third stat sitting oddly under a big
+	   gap instead of in an aligned column. A grid keeps every row's columns
+	   the same width even when a later row has fewer items. */
 	.hero-stats {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 1.5rem 2.5rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+		gap: 1.5rem 1rem;
+	}
+
+	/* The three figures settle in on mount, staggered — starts at the same
+	   t=0 as the tile grids elsewhere on the page, so nothing waits for
+	   anything else to finish first (Nocturne v3). */
+	.hero-stats > div {
+		transition:
+			opacity var(--dur-base) var(--ease-out-soft),
+			transform var(--dur-base) var(--ease-out-soft);
+		transition-delay: calc(min(var(--i, 0), 5) * 60ms);
+	}
+
+	@starting-style {
+		.hero-stats > div {
+			opacity: 0;
+			transform: translateY(8px);
+		}
 	}
 
 	.hero-stat-figure {

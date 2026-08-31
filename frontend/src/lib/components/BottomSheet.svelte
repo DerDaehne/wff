@@ -126,6 +126,15 @@
 		font-size: var(--text-lg);
 	}
 
+	/* A chart inside the sheet body would otherwise start its own draw-in at
+	   the same instant the sheet itself starts sliding up (300ms) — content
+	   moving while its container is also moving reads as jittery, not lively
+	   (Nocturne v3). Waiting until the sheet is most of the way open before
+	   the chart starts drawing keeps the two motions from competing. */
+	.sheet-body :global(.chart-ink) {
+		transition-delay: 260ms;
+	}
+
 	.close {
 		background: color-mix(in srgb, var(--color-text) 8%, transparent);
 		border: none;

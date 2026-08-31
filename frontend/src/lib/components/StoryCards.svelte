@@ -2,8 +2,33 @@
 	import { resolve } from '$app/paths';
 	import type { RideStatement } from '$lib/rides';
 	import BottomSheet from './BottomSheet.svelte';
+	import LineChart from './LineChart.svelte';
 
-	let { statements, label }: { statements: RideStatement[]; label: string } = $props();
+	// A small chart to show inside a kind's detail sheet, when real history for
+	// that exact figure already lives on the page — e.g. the dashboard's
+	// Frische sparkline reuses the same `series` the main chart already
+	// fetched. Deliberately keyed by kind, not by statement: a sheet only
+	// shows one group's worth of items at a time, all sharing a kind, so one
+	// context per kind is enough. Absent for kinds with no on-page history to
+	// draw from (a single ride has no history of its own) — see
+	// design-wff-nocturne-v3, "what needs backend work".
+	interface SparkContext {
+		xValues: number[];
+		series: { name: string; color: string; values: (number | null)[] }[];
+		xFormat: (x: number) => string;
+		yFormat?: (y: number) => string;
+		caption: string;
+	}
+
+	let {
+		statements,
+		label,
+		context = {}
+	}: {
+		statements: RideStatement[];
+		label: string;
+		context?: Partial<Record<RideStatement['kind'], SparkContext>>;
+	} = $props();
 
 	// Every statement leads with what it MEANS; the chip says which question it
 	// answers, so nobody has to infer that from the sentence itself.
@@ -63,10 +88,11 @@
 	}
 </script>
 
-{#snippet row(group: (typeof groups)[number])}
+{#snippet row(group: (typeof groups)[number], i: number)}
 	<button
 		type="button"
 		class="statement-row statement-{group.kind}"
+		style="--i: {i}"
 		onclick={() => (activeGroup = group)}
 	>
 		<span class="row-main">
@@ -93,17 +119,45 @@
 {#if groups.length > 0}
 	<section class="story" aria-label={label}>
 		{#each groups as group, i (i)}
-			{@render row(group)}
+			{@render row(group, i)}
 		{/each}
 	</section>
 {/if}
 
 {#if activeGroup}
 	{@const group = activeGroup}
+	{@const metrics = metricsOf(group)}
+	{@const spark = context[group.kind]}
 	<BottomSheet open={true} title={statementLabel[group.kind]} onClose={closeDetail}>
+		{#if metrics.length > 0}
+			<div class="detail-stats">
+				{#each metrics as m, i (i)}
+					<div class="fact-tile" style="--i: {4 + i}">
+						<p class="fact-tile-value">
+							{m.value}{#if m.unit}<span class="fact-tile-unit">{m.unit}</span>{/if}
+						</p>
+						<p class="fact-tile-label">{m.label}</p>
+					</div>
+				{/each}
+			</div>
+		{/if}
+		{#if spark}
+			<div class="bleed detail-chart">
+				<LineChart
+					xValues={spark.xValues}
+					series={spark.series}
+					xFormat={spark.xFormat}
+					yFormat={spark.yFormat ?? ((v) => String(Math.round(v)))}
+					ariaLabel={spark.caption}
+					height={72}
+					bare
+				/>
+			</div>
+			<p class="detail-caption">{spark.caption}</p>
+		{/if}
 		{#each group.items as statement, j (j)}
 			<p class="detail-text">{statement.text}</p>
-			{#if statement.metric}
+			{#if metrics.length === 0 && statement.metric}
 				<p class="detail-metric">{statement.metric}</p>
 			{/if}
 		{/each}
@@ -144,6 +198,28 @@
 
 	.statement-row:active {
 		transform: scale(0.985);
+	}
+
+	/* Rows rise in on mount, staggered — same mechanism as the fact-tile
+	   grids (Nocturne v3). `translate` rather than `transform`, so this
+	   doesn't fight :active's `transform: scale()` above — the two
+	   properties composite independently instead of one overwriting the
+	   other. Excludes .statement-milestone: it already runs its own glow+pop
+	   entrance below, and stacking a second one would make a record read as
+	   noisier, the opposite of what the one-glow-in-the-app rule is for. */
+	.statement-row:not(.statement-milestone) {
+		transition:
+			transform var(--dur-fast) ease-out,
+			opacity var(--dur-base) var(--ease-out-soft),
+			translate var(--dur-base) var(--ease-out-soft);
+		transition-delay: 0s, calc(min(var(--i, 0), 5) * 60ms), calc(min(var(--i, 0), 5) * 60ms);
+	}
+
+	@starting-style {
+		.statement-row:not(.statement-milestone) {
+			opacity: 0;
+			translate: 0 8px;
+		}
 	}
 
 	.statement-milestone.statement-row {
@@ -220,6 +296,29 @@
 		color: var(--color-text-muted);
 		font-size: var(--text-lg);
 		line-height: 1;
+	}
+
+	/* The sheet's own figures, structured (#651) — the whole point of this
+	   pass: a popup used to say "0,70" once in prose and nowhere else,
+	   despite the backend already sending it as a proper Stat (Nocturne v3,
+	   design-wff-nocturne-v3 §2 P1). Falls back to detail-metric below when a
+	   group truly has no structured figures (a four-way zone split, the hint
+	   kinds). */
+	.detail-stats {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.detail-chart {
+		margin-bottom: 0.25rem;
+	}
+
+	.detail-caption {
+		margin: 0 0 1rem;
+		font-size: var(--text-xs);
+		color: var(--color-text-muted);
 	}
 
 	.detail-text {

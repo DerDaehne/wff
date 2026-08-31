@@ -321,13 +321,24 @@
 	}
 
 	/* Promoted right under the date — the row's own zone-coloured identity,
-	   not an afterthought at the bottom of a card that no longer exists. */
+	   not an afterthought at the bottom of a card that no longer exists.
+	   Wipes open on mount (Nocturne v3), --dur-base and no per-row stagger:
+	   a long list cascading at 40ms/row would take seconds to finish, so
+	   every row's bar wipes at once instead. */
 	.zone-bar {
 		display: flex;
 		height: 0.375rem;
 		border-radius: var(--radius-pill);
 		overflow: hidden;
 		background: var(--color-border);
+		transform-origin: left;
+		transition: transform var(--dur-base) var(--ease-out-soft);
+	}
+
+	@starting-style {
+		.zone-bar {
+			transform: scaleX(0);
+		}
 	}
 
 	.zone-segment {

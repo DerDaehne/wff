@@ -67,12 +67,25 @@
 		font-size: var(--text-sm);
 	}
 
+	/* Wipes open left to right on mount, same --dur-slow as the charts on the
+	   same pages so a page with both reads as one motion (Nocturne v3).
+	   Animates the container's own scaleX rather than each segment's width —
+	   one composited property, and the segments keep their proportions
+	   instead of racing each other open. */
 	.bar {
 		display: flex;
 		height: 1.25rem;
 		border-radius: var(--radius-pill);
 		overflow: hidden;
 		background: var(--color-border);
+		transform-origin: left;
+		transition: transform var(--dur-slow) var(--ease-out-soft);
+	}
+
+	@starting-style {
+		.bar {
+			transform: scaleX(0);
+		}
 	}
 
 	.segment {

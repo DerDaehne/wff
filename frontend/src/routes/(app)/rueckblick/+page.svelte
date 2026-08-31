@@ -53,19 +53,19 @@
 		<EmptyState message="Keine Fahrten im Jahr {year}." />
 	{:else if review}
 		<div class="sums">
-			<div class="fact-tile sum">
+			<div class="fact-tile sum" style="--i: 0">
 				<p class="fact-tile-value">{review.ride_count}</p>
 				<p class="fact-tile-label">{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</p>
 			</div>
-			<div class="fact-tile sum">
+			<div class="fact-tile sum" style="--i: 1">
 				<p class="fact-tile-value">{formatDistance(review.distance_meters)}</p>
 				<p class="fact-tile-label">Distanz</p>
 			</div>
-			<div class="fact-tile sum">
+			<div class="fact-tile sum" style="--i: 2">
 				<p class="fact-tile-value">{Math.round(review.elevation_gain_meters)} hm</p>
 				<p class="fact-tile-label">Höhenmeter</p>
 			</div>
-			<div class="fact-tile sum">
+			<div class="fact-tile sum" style="--i: 3">
 				<p class="fact-tile-value">{formatDuration(review.moving_seconds)}</p>
 				<p class="fact-tile-label">Auf dem Rad</p>
 			</div>

@@ -72,8 +72,9 @@
 		return Array.from({ length: count }, (_, i) => min + i * step);
 	}
 
+	let allValues = $derived(series.flatMap((s) => s.values.filter((v): v is number => v !== null)));
+
 	let yTicks = $derived.by(() => {
-		const allValues = series.flatMap((s) => s.values.filter((v): v is number => v !== null));
 		if (allValues.length === 0) return [];
 		const min = Math.min(...allValues);
 		const max = Math.max(...allValues);
@@ -104,8 +105,25 @@
 		return Math.max(narrow ? 34 : 38, Math.ceil(widest * 6.2) + 12);
 	});
 
-	let yMin = $derived(yTicks.length > 0 ? yTicks[0] : 0);
-	let yMax = $derived(yTicks.length > 0 ? yTicks[yTicks.length - 1] : 1);
+	// Driven by the raw data, not by yTicks: a narrow value range whose ticks
+	// all round to the same displayed label used to collapse yTicks to one
+	// element, and since yMin/yMax used to read off yTicks[0]/yTicks.at(-1),
+	// the real max got silently discarded — every point then plotted at the
+	// same height, a flat line pinned to the axis instead of the real
+	// (small) variation. A perfectly flat series is padded so it draws
+	// mid-height instead of on the edge.
+	let yMin = $derived.by(() => {
+		if (allValues.length === 0) return 0;
+		const min = Math.min(...allValues);
+		const max = Math.max(...allValues);
+		return min === max ? min - Math.max(Math.abs(min) * 0.1, 0.5) : min;
+	});
+	let yMax = $derived.by(() => {
+		if (allValues.length === 0) return 1;
+		const min = Math.min(...allValues);
+		const max = Math.max(...allValues);
+		return min === max ? max + Math.max(Math.abs(max) * 0.1, 0.5) : max;
+	});
 
 	let xMin = $derived(xValues.length > 0 ? Math.min(...xValues) : 0);
 	let xMax = $derived(xValues.length > 0 ? Math.max(...xValues) : 1);

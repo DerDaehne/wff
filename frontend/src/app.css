@@ -424,8 +424,15 @@ a.fact:active {
 
 /* The fill IS the value — transform, not width, so it composites instead of
    triggering layout, and so @starting-style below can animate it in on
-   mount without JavaScript. */
-.fact-fill {
+   mount without JavaScript.
+
+   Selector is `.fact > .fact-fill`, not just `.fact-fill`: at equal
+   specificity `.fact > *` below (position: relative) would win by source
+   order and silently turn this back into a normal in-flow block, collapsing
+   it to zero height and pushing the value text down instead of layering
+   behind it. The child combinator makes this one unconditionally win
+   regardless of where either rule sits in the file. */
+.fact > .fact-fill {
 	position: absolute;
 	inset: 0;
 	transform-origin: left;
@@ -439,7 +446,7 @@ a.fact:active {
 }
 
 @starting-style {
-	.fact-fill {
+	.fact > .fact-fill {
 		transform: scaleX(0);
 	}
 }
@@ -450,6 +457,15 @@ a.fact:active {
 }
 
 .fact-value {
+	/* It's a <p> — without this it keeps the UA stylesheet's default 1em
+	   top+bottom margin, which at this font-size is 44px each. .fact's own
+	   overflow: hidden turns that into ~88px of dead space inside the band
+	   instead of letting it collapse away, since a block-formatting context
+	   contains a child's margins rather than passing them through. Every
+	   other .fact-* text element already resets margin explicitly — this
+	   one was the one left at the browser default, invisible until a real
+	   .fact-fill call site (Nocturne v3) finally made the gap obvious. */
+	margin: 0;
 	font-size: var(--text-3xl);
 	font-weight: 800;
 	line-height: 1;
@@ -518,6 +534,28 @@ a.fact:active {
 	color: var(--color-text-muted);
 }
 
+/* Nocturne v3: tiles/bands rise and fade in on mount instead of just
+   appearing, staggered via a per-item --i set by the caller ({#each ... as
+   x, i}). Excludes .fact--milestone, which already runs its own glow+pop
+   entrance (wff-milestone-land) — stacking this on top would make a record
+   read as noisier, the opposite of what the one-glow-in-the-app rule is
+   for. Capped at 5 items so a long grid doesn't crawl in. */
+.fact-tile:not(.fact-tile--milestone),
+.fact:not(.fact--milestone) {
+	transition:
+		opacity var(--dur-base) var(--ease-out-soft),
+		transform var(--dur-base) var(--ease-out-soft);
+	transition-delay: calc(min(var(--i, 0), 5) * 50ms);
+}
+
+@starting-style {
+	.fact-tile:not(.fact-tile--milestone),
+	.fact:not(.fact--milestone) {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+}
+
 /* The jargon-explainer variant (IF, TSB, "Trainingsniveau") — a value alone
    means nothing to a hobbyist without training background; a position on
    the app's own zone ramp does. Track reuses --zone-* verbatim so it reads
@@ -546,6 +584,17 @@ a.fact:active {
 	border-radius: 2px;
 	box-shadow: 0 0 0 2px var(--fill-base);
 	transition: left var(--dur-slow) var(--ease-out-soft);
+}
+
+/* Nocturne v3: the marker slides in from "ruhig" to its real position on
+   mount, in step with the elevation strip / chart above it (both --dur-slow).
+   `left`, not `transform: translateX()` — a percentage there resolves
+   against the marker's own 3px width, not the track, so it would need a
+   JS-computed pixel value for a 3px element. Not worth it. */
+@starting-style {
+	.fact-scale-marker {
+		left: 0;
+	}
 }
 
 .fact-scale-ends {
@@ -655,5 +704,11 @@ a.fact:active {
 		animation-duration: 1ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 1ms !important;
+		/* Nocturne v3: staggered reveals (fact tiles, hero stats, StoryCards
+		   rows) set a per-item transition/animation-delay — without zeroing
+		   it too, reduced-motion turns each stagger into "invisible for N ms,
+		   then pop", which is worse than no animation at all. */
+		animation-delay: 0ms !important;
+		transition-delay: 0ms !important;
 	}
 }

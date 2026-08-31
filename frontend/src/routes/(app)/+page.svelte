@@ -18,7 +18,6 @@
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
-	import BikePictogram from '$lib/components/BikePictogram.svelte';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -32,8 +31,17 @@
 	let errorMessage = $state('');
 	let progress: Progress | null = $state(null);
 	let activities: ActivitySummary[] = $state([]);
-	let metricKey: ProgressMetricKey = $state('avg_speed_kmh');
-	let metric = $derived(progressMetrics.find((m) => m.key === metricKey)!);
+
+	// The merged "Wirst du besser?" section (Nocturne v3, direction B): one
+	// pill row picks which of six figures the chart below shows — the four
+	// weekly Week fields, plus the two figures ("Puls-Effizienz", "Leistung")
+	// that used to be their own separate panels with their own empty charts.
+	// Folding them together means every pill always has a chart frame to
+	// land in, instead of three sections where two are usually a heading, a
+	// paragraph and a placeholder.
+	type PillKey = ProgressMetricKey | 'endurance' | 'power';
+	let activePill: PillKey = $state('avg_speed_kmh');
+	let activeProgressMetric = $derived(progressMetrics.find((m) => m.key === activePill));
 
 	// The four "auf einen Blick" figures around the pictogram (#657). Lifetime
 	// km and the streak load with `progress`, slightly after the rest of the
@@ -120,7 +128,7 @@
 			// (#616); failing to read it just means the default stands.
 			getSettings()
 				.then((settings) => {
-					metricKey = metricKeyFor(settings.primary_metric);
+					activePill = metricKeyFor(settings.primary_metric);
 					configuredFtpWatts = settings.ftp_watts;
 				})
 				.catch(() => {});
@@ -155,6 +163,24 @@
 					: 'var(--chart-tsb)'
 	);
 
+	// Frische (TSB) as a position on the zone ramp (Nocturne v3, direction B
+	// §1.4/D4) — the raw signed number means nothing to a hobbyist without
+	// training background, same reasoning the ride-detail IF Skala-Band was
+	// built for. −30…+25 is the range the app's own training-status backend
+	// treats as the normal band (trainingstatus.go), clamped at the edges
+	// rather than cut off.
+	let tsbShare = $derived(latestTSB === null ? 0 : Math.max(0, Math.min(1, (latestTSB + 30) / 55)));
+	let tsbLabel = $derived(
+		latestTSB === null ? '–' : `${latestTSB > 0 ? '+' : ''}${Math.round(latestTSB)}`
+	);
+
+	// gauge.label bakes in "Trainingsniveau: " itself (#611) — fine for the
+	// old tile, which had no label of its own, but redundant now that this
+	// sits in a Fact Band with its own external "Trainingsniveau" label
+	// (Nocturne v3): stripped down to just the category name so the value
+	// isn't "Trainingsniveau: Einstieg" wrapping under its own heading twice.
+	let gaugeCategory = $derived.by(() => status?.gauge?.label?.split(': ').pop() ?? '–');
+
 	const severityIcon: Record<Insight['severity'], string> = {
 		success: '✓',
 		warning: '⚠',
@@ -181,44 +207,21 @@
 		actionLabel="FTP/LTHR im Profil hinterlegen"
 	/>
 {:else if viewState === 'ready'}
-	<!-- The pictogram is the page's visual centerpiece (#657): everything else
-	     below is detail and evidence for what these four figures already say. -->
-	<section class="glance" aria-label="Auf einen Blick">
-		<BikePictogram size={120} />
-		<div class="glance-stats">
-			<div class="fact-tile">
-				<p class="fact-tile-value">
-					{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
-					<span class="fact-tile-unit">km</span>
-				</p>
-				<p class="fact-tile-label">Insgesamt gefahren</p>
-			</div>
-			<div class="fact-tile">
-				<p class="fact-tile-value fact-tile-value-text">
-					{lastRide ? formatLastRide(lastRide) : '–'}
-				</p>
-				<p class="fact-tile-label">Letzte Fahrt</p>
-			</div>
-			<div class="fact-tile">
-				<!-- gauge.label already carries its own category name, e.g.
-				     "Trainingsniveau: Gelegenheitsfahrer" (#611) — no separate
-				     static label needed here, unlike the other three tiles. -->
-				<p class="fact-tile-value fact-tile-value-text">
-					{status?.gauge?.label ?? 'Trainingsniveau'}
-				</p>
-				{#if status?.gauge?.caption}
-					<p class="fact-tile-label fact-tile-caption">{status.gauge.caption}</p>
-				{/if}
-			</div>
-			<div class="fact-tile">
-				<p class="fact-tile-value">
-					{progress ? progress.current_streak_weeks : '–'}
-					<span class="fact-tile-unit">Wochen</span>
-				</p>
-				<p class="fact-tile-label">Aktuelle Streak</p>
-			</div>
-		</div>
-	</section>
+	<!-- The dashboard's own shape as its header graphic (Nocturne v3, direction
+	     B) — the same treatment the ride-detail page gives a ride's elevation,
+	     replacing a decorative bicycle with the one chart that answers "what
+	     is this page even about" before any number does. -->
+	<div class="bleed">
+		<LineChart
+			xValues={dayTimestamps}
+			series={[{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }]}
+			xFormat={formatDay}
+			yFormat={(y) => y.toFixed(1)}
+			ariaLabel="Fitness-Verlauf"
+			height={64}
+			bare
+		/>
+	</div>
 
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->
@@ -228,7 +231,78 @@
 		meterColor="var(--chart-ctl)"
 		showGauge={false}
 	/>
-	<StoryCards statements={status?.statements ?? []} label="Dein aktueller Trainingsstand" />
+
+	<!-- Frische (TSB) as a position, not just a signed number (D4) — the one
+	     figure in the hero above a hobbyist can't read cold. -->
+	<p class="fact-label">Frische (TSB)</p>
+	<div class="fact-scale" style="--fact-share: {tsbShare}">
+		<div class="fact-scale-marker"></div>
+	</div>
+	<p class="fact-scale-ends"><span>ausgelaugt</span><span>{tsbLabel}</span><span>frisch</span></p>
+
+	<StoryCards
+		statements={status?.statements ?? []}
+		label="Dein aktueller Trainingsstand"
+		context={{
+			form: {
+				xValues: dayTimestamps,
+				series: [{ name: 'Frische', color: tsbColor, values: series.map((d) => d.tsb) }],
+				xFormat: formatDay,
+				yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1)),
+				caption: 'Verlauf der letzten Wochen'
+			},
+			trend: {
+				xValues: dayTimestamps,
+				series: [{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }],
+				xFormat: formatDay,
+				yFormat: (y) => y.toFixed(1),
+				caption: 'Verlauf der letzten Wochen'
+			}
+		}}
+	/>
+
+	<!-- auf einen Blick (#657): numbers only now (D5) — the training level
+	     left this grid for its own filled band below, so every tile here is a
+	     figure, not a mix of figures and two-line text blobs. -->
+	<section class="glance" aria-label="Auf einen Blick">
+		<div class="fact-tile" style="--i: 0">
+			<p class="fact-tile-value">
+				{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
+				<span class="fact-tile-unit">km</span>
+			</p>
+			<p class="fact-tile-label">Insgesamt gefahren</p>
+		</div>
+		<div class="fact-tile" style="--i: 1">
+			<p class="fact-tile-value">
+				{progress ? progress.current_streak_weeks : '–'}
+				<span class="fact-tile-unit">Wochen</span>
+			</p>
+			<p class="fact-tile-label">Aktuelle Streak</p>
+		</div>
+		{#if lastRide}
+			<a
+				class="fact-tile fact-tile-link"
+				style="--i: 2"
+				href={resolve('/(app)/rides/[id]', { id: String(lastRide.id) })}
+			>
+				<p class="fact-tile-value fact-tile-value-text">{formatLastRide(lastRide)}</p>
+				<p class="fact-tile-label">Letzte Fahrt</p>
+			</a>
+		{/if}
+	</section>
+
+	<!-- Trainingsniveau leaves the tile grid for a full filled band (Nocturne
+	     v3) — status.gauge.percent is computed server-side and used to render
+	     nowhere on this page before now (D4). Label above, meaning below: the
+	     hard AA rule for anything with a .fact-fill (see app.css). -->
+	<p class="fact-label">Trainingsniveau</p>
+	<div class="fact">
+		<div class="fact-fill" style="--fact-share: {(status?.gauge?.percent ?? 0) / 100}"></div>
+		<p class="fact-value">{gaugeCategory}</p>
+	</div>
+	{#if status?.gauge?.caption}
+		<p class="fact-meaning">{status.gauge.caption}</p>
+	{/if}
 
 	<p class="year-review-link">
 		<a href={resolve('/(app)/rueckblick')}>Dein Jahresrückblick ansehen →</a>
@@ -282,7 +356,7 @@
 		</p>
 		<div class="insights">
 			{#each insights as insight, i (i)}
-				<div class="insight insight-{insight.severity}">
+				<div class="insight insight-{insight.severity}" style="--i: {i}">
 					<span class="insight-icon">{severityIcon[insight.severity]}</span>
 					<div>
 						{#if insight.action}<p class="insight-action">{insight.action}</p>{/if}
@@ -292,43 +366,6 @@
 			{/each}
 		</div>
 	</section>
-
-	{#if progress && progress.weeks.length > 0}
-		<section class="panel">
-			<h2>Wirst du besser?</h2>
-			<p class="panel-sub">
-				Woche für Woche statt Fahrt für Fahrt — eine einzelne Ausfahrt sagt zu wenig, weil Wind und
-				Strecke sie zu stark bestimmen.
-			</p>
-			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
-				{#each progressMetrics as m (m.key)}
-					<button
-						type="button"
-						class="btn {metricKey === m.key ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={metricKey === m.key}
-						onclick={() => (metricKey = m.key)}
-					>
-						{m.label}
-					</button>
-				{/each}
-			</div>
-			<LineChart
-				xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
-				series={[
-					{
-						name: metric.label,
-						color: metric.color,
-						values: progress.weeks.map((w) => w[metric.key])
-					}
-				]}
-				xFormat={formatDay}
-				yFormat={metric.format}
-				ariaLabel="Wochenverlauf {metric.label}"
-				height={200}
-			/>
-		</section>
-		<StoryCards statements={progress.statements} label="Fortschritt über die Wochen" />
-	{/if}
 
 	<!-- Panel only when there are bars to draw: without a threshold pulse the
 	     heading would introduce an empty box, and the hint card below says the
@@ -351,80 +388,138 @@
 		<StoryCards statements={progress.zones.statements} label="Deine Verteilung" />
 	{/if}
 
-	{#if progress && progress.endurance.statements.length > 0}
-		<section class="panel">
-			<h2>Arbeitet dein Herz effizienter?</h2>
-			<p class="panel-sub">
-				{#if progress.endurance.from_power}
-					Wie viel Leistung du je 100 Herzschläge bekommst. Steigt die Linie, leistet dein Herz für
-					dieselben Watt weniger Arbeit — das ist Ausdauer, die sich aufbaut.
-				{:else}
-					Wie viel Tempo du je 100 Herzschläge bekommst. Steigt die Linie, leistet dein Herz für
-					dasselbe Tempo weniger Arbeit — das ist Ausdauer, die sich aufbaut.
-				{/if}
-				Hier zählen nur Fahrten, die untereinander vergleichbar sind: ruhig, mindestens eine halbe Stunde,
-				mit Puls und von ähnlicher Länge. Eine kurze Runde mit Rückenwind würde die Linie sonst nach oben
-				ziehen, ohne dass sich etwas verbessert hat.
-			</p>
-			{#if progress.endurance.weeks.length >= 2}
-				<LineChart
-					xValues={progress.endurance.weeks.map((w) => new Date(w.start).getTime())}
-					series={[
-						{
-							name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
-							color: 'var(--chart-heart-rate)',
-							values: progress.endurance.weeks.map((w) => w.value)
-						}
-					]}
-					xFormat={formatDay}
-					yFormat={(v: number) =>
-						progress?.endurance.from_power ? String(Math.round(v)) : v.toFixed(1)}
-					ariaLabel="Wochenverlauf {progress.endurance.unit}"
-					height={200}
-				/>
-				<p class="chart-unit">{progress.endurance.unit}</p>
-			{/if}
-		</section>
-		<StoryCards statements={progress.endurance.statements} label="Ausdauer über die Wochen" />
-	{/if}
-
+	<!-- Merged (Nocturne v3, direction B): what were three sections — a
+	     weekly-metric panel, "Arbeitet dein Herz effizienter?" and "Wird
+	     deine Leistung besser?" — are one chart frame and one pill row now.
+	     The old version rendered heading + paragraph + placeholder twice
+	     whenever endurance or power data was thin; folding them together
+	     means every pill always lands in a frame that already has a chart or
+	     an honest one-line empty state, never a lonely explanation. -->
 	{#if progress}
 		<section class="panel">
-			<h2>Wird deine Leistung besser?</h2>
-			<p class="panel-sub">
-				Deine beste Leistung für eine feste Dauer, Fahrt für Fahrt — schwankt naturgemäß mit
-				Tagesform und Bedingungen, aber ein Anstieg über mehrere Wochen ist echter Fortschritt.
-			</p>
-			<div class="duration-switch" role="group" aria-label="Dauer wählen">
-				{#each powerCurveDurations as d (d.seconds)}
+			<h2>Wirst du besser?</h2>
+			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
+				{#each progressMetrics as m (m.key)}
 					<button
 						type="button"
-						class="btn {powerCurveDuration === d.seconds ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={powerCurveDuration === d.seconds}
-						onclick={() => (powerCurveDuration = d.seconds)}
+						class="btn {activePill === m.key ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={activePill === m.key}
+						onclick={() => (activePill = m.key)}
 					>
-						{d.label}
+						{m.label}
 					</button>
 				{/each}
-			</div>
-			{#if powerCurveHistory.length > 0}
-				<LineChart
-					xValues={powerCurveTimestamps}
-					series={powerCurveSeries}
-					xFormat={formatDay}
-					yFormat={(y) => `${Math.round(y)} W`}
-					ariaLabel="Verlauf der besten Leistung"
-					height={200}
-				/>
-				{#if powerCurveDuration === 1200 && configuredFtpWatts !== null}
-					<p class="ftp-reference">Deine hinterlegte FTP: {configuredFtpWatts} W</p>
+				{#if progress.endurance.statements.length > 0}
+					<button
+						type="button"
+						class="btn {activePill === 'endurance' ? 'btn-primary' : 'btn-secondary'}"
+						aria-pressed={activePill === 'endurance'}
+						onclick={() => (activePill = 'endurance')}
+					>
+						Puls-Effizienz
+					</button>
 				{/if}
-			{:else}
-				<p class="empty">
-					Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
-				</p>
+				<button
+					type="button"
+					class="btn {activePill === 'power' ? 'btn-primary' : 'btn-secondary'}"
+					aria-pressed={activePill === 'power'}
+					onclick={() => (activePill = 'power')}
+				>
+					Leistung
+				</button>
+			</div>
+
+			{#if activePill === 'power'}
+				<div class="duration-switch" role="group" aria-label="Dauer wählen">
+					{#each powerCurveDurations as d (d.seconds)}
+						<button
+							type="button"
+							class="btn {powerCurveDuration === d.seconds ? 'btn-primary' : 'btn-secondary'}"
+							aria-pressed={powerCurveDuration === d.seconds}
+							onclick={() => (powerCurveDuration = d.seconds)}
+						>
+							{d.label}
+						</button>
+					{/each}
+				</div>
 			{/if}
+
+			<div class="bleed">
+				{#if activeProgressMetric}
+					<LineChart
+						xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
+						series={[
+							{
+								name: activeProgressMetric.label,
+								color: activeProgressMetric.color,
+								values: progress.weeks.map((w) => w[activeProgressMetric!.key])
+							}
+						]}
+						xFormat={formatDay}
+						yFormat={activeProgressMetric.format}
+						ariaLabel="Wochenverlauf {activeProgressMetric.label}"
+						height={220}
+					/>
+				{:else if activePill === 'endurance'}
+					{#if progress.endurance.weeks.length >= 2}
+						<LineChart
+							xValues={progress.endurance.weeks.map((w) => new Date(w.start).getTime())}
+							series={[
+								{
+									name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
+									color: 'var(--chart-heart-rate)',
+									values: progress.endurance.weeks.map((w) => w.value)
+								}
+							]}
+							xFormat={formatDay}
+							yFormat={(v: number) =>
+								progress?.endurance.from_power ? String(Math.round(v)) : v.toFixed(1)}
+							ariaLabel="Wochenverlauf {progress.endurance.unit}"
+							height={220}
+						/>
+					{:else}
+						<p class="empty">Noch nicht genug vergleichbare Fahrten für diesen Verlauf.</p>
+					{/if}
+				{:else if activePill === 'power'}
+					{#if powerCurveHistory.length > 0}
+						<LineChart
+							xValues={powerCurveTimestamps}
+							series={powerCurveSeries}
+							xFormat={formatDay}
+							yFormat={(y) => `${Math.round(y)} W`}
+							ariaLabel="Verlauf der besten Leistung"
+							height={220}
+						/>
+					{:else}
+						<p class="empty">
+							Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
+						</p>
+					{/if}
+				{/if}
+			</div>
+
+			<p class="panel-caption">
+				{#if activeProgressMetric}
+					Woche für Woche statt Fahrt für Fahrt — einzelne Ausfahrten sagen zu wenig.
+				{:else if activePill === 'endurance'}
+					{progress.endurance.from_power
+						? 'Steigt die Linie, leistet dein Herz für dieselben Watt weniger Arbeit.'
+						: 'Steigt die Linie, leistet dein Herz für dasselbe Tempo weniger Arbeit.'}
+					({progress.endurance.unit})
+				{:else if activePill === 'power'}
+					Deine beste Leistung für diese Dauer, Fahrt für Fahrt.
+					{#if powerCurveDuration === 1200 && configuredFtpWatts !== null}
+						· Deine hinterlegte FTP: {configuredFtpWatts} W
+					{/if}
+				{/if}
+			</p>
 		</section>
+
+		{#if activeProgressMetric}
+			<StoryCards statements={progress.statements} label="Fortschritt über die Wochen" />
+		{:else if activePill === 'endurance'}
+			<StoryCards statements={progress.endurance.statements} label="Ausdauer über die Wochen" />
+		{/if}
 	{/if}
 
 	<p class="glossary-hint">
@@ -434,35 +529,31 @@
 {/if}
 
 <style>
-	/* Bare — the bike sits on the page, the four figures are Fact Tiles in
-	   their own right (Nocturne v2) instead of a card wrapping all of it. */
+	/* Numbers only now (Nocturne v3, D5) — the bike and the training-level
+	   text tile both left this grid, so it's a plain 2-col Fact Tile grid
+	   directly, no wrapping flex column needed any more. */
 	.glance {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1.25rem;
-		margin-bottom: 3rem;
-	}
-
-	.glance-stats {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
 		gap: 0.5rem;
-		width: 100%;
 		max-width: 26rem;
+		margin-bottom: 3rem;
+	}
+
+	.fact-tile-link {
+		display: block;
+		color: inherit;
+		text-decoration: none;
+		transition: transform var(--dur-fast) ease-out;
+	}
+
+	.fact-tile-link:active {
+		transform: scale(0.985);
 	}
 
 	.fact-tile-value-text {
 		font-size: var(--text-lg);
 		font-variant-numeric: normal;
-	}
-
-	/* A full sentence (the gauge's caption) reads as shouting in the other
-	   tiles' all-caps label style — sentence case instead. */
-	.fact-tile-caption {
-		text-transform: none;
-		letter-spacing: normal;
-		font-size: var(--text-xs);
 	}
 
 	.year-review-link {
@@ -487,14 +578,10 @@
 		max-width: 60ch;
 	}
 
-	.chart-unit {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.25rem 0 0;
-		text-align: right;
-	}
-
-	.ftp-reference {
+	/* One line under the merged section's chart, its content swapping with
+	   the active pill (Nocturne v3) — replaces what used to be a full
+	   .panel-sub paragraph *before* the chart on three separate panels. */
+	.panel-caption {
 		color: var(--color-text-muted);
 		font-size: var(--text-sm);
 		margin: 0.5rem 0 0;
@@ -531,6 +618,17 @@
 		border-radius: var(--radius-sm);
 		padding: 0.75rem 1rem;
 		background: color-mix(in srgb, var(--color-info) var(--wash-strength), var(--wash-base));
+		/* Opacity only, no translate (Nocturne v3) — these are the page's only
+		   paragraphs that matter; sliding prose is the most template-looking
+		   effect available, so it stays to a plain fade. */
+		transition: opacity var(--dur-base) var(--ease-out-soft);
+		transition-delay: calc(min(var(--i, 0), 5) * 60ms);
+	}
+
+	@starting-style {
+		.insight {
+			opacity: 0;
+		}
 	}
 
 	/* The instruction carries the weight; the reason explains it underneath. */
