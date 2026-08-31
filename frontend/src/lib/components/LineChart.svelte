@@ -30,7 +30,9 @@
 		yFormat,
 		ariaLabel,
 		maxWidth = 800,
-		height = 220
+		height = 220,
+		baseline,
+		bare = false
 	}: {
 		xValues: number[];
 		series: Series[];
@@ -39,6 +41,14 @@
 		ariaLabel: string;
 		maxWidth?: number;
 		height?: number;
+		// A reference line ("Frische über null ist erholt", a rider's own FTP)
+		// drawn once at this y-value — dashed so it reads as a reference, never
+		// as a fourth series (Nocturne v2).
+		baseline?: number;
+		// Suppresses axes/legend/tooltip/padding for a small full-bleed strip
+		// (the ride-detail header's elevation profile) where the shape alone is
+		// the point, not the exact numbers (Nocturne v2).
+		bare?: boolean;
 	} = $props();
 
 	const instanceId = nextInstanceId();
@@ -52,9 +62,9 @@
 
 	// A phone can't fit five date labels without them colliding.
 	let narrow = $derived(width < 480);
-	const padRight = 12;
-	const padTop = 12;
-	let padBottom = $derived(narrow ? 24 : 28);
+	let padRight = $derived(bare ? 0 : 12);
+	let padTop = $derived(bare ? 2 : 12);
+	let padBottom = $derived(bare ? 2 : narrow ? 24 : 28);
 
 	function niceTicks(min: number, max: number, count: number): number[] {
 		if (min === max) return [min];
@@ -89,6 +99,7 @@
 	// count (~6.2px per glyph at 11px) rather than measured, which would mean
 	// a DOM round-trip for a value that only needs to be roughly right.
 	let padLeft = $derived.by(() => {
+		if (bare) return 0;
 		const widest = yTicks.reduce((max, tick) => Math.max(max, yFormat(tick).length), 0);
 		return Math.max(narrow ? 34 : 38, Math.ceil(widest * 6.2) + 12);
 	});
@@ -116,12 +127,12 @@
 			const pts = xValues
 				.map((x, i) => (s.values[i] === null ? null : { x: scaleX(x), y: scaleY(s.values[i]!) }))
 				.filter((p): p is { x: number; y: number } => p !== null);
-			const baseline = height - padBottom;
+			const areaBase = height - padBottom;
 			const area =
 				pts.length > 1
-					? `M ${pts[0].x},${baseline} ` +
+					? `M ${pts[0].x},${areaBase} ` +
 						pts.map((p) => `L ${p.x},${p.y}`).join(' ') +
-						` L ${pts[pts.length - 1].x},${baseline} Z`
+						` L ${pts[pts.length - 1].x},${areaBase} Z`
 					: '';
 			return {
 				...s,
@@ -161,8 +172,8 @@
 	let hoverX = $derived(hoverIndex !== null ? scaleX(xValues[hoverIndex]) : null);
 </script>
 
-<div class="chart-card">
-	{#if series.length > 1}
+<div class="chart-card" class:bare>
+	{#if !bare && series.length > 1}
 		<ul class="legend">
 			{#each series as s (s.name)}
 				<li title={s.description}>
@@ -195,22 +206,35 @@
 					<stop offset="100%" style="stop-color: var(--color-text-muted); stop-opacity: 0" />
 				</linearGradient>
 			</defs>
-			{#each yTicks as tick (tick)}
-				<text x={padLeft - 8} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
-					>{yFormat(tick)}</text
-				>
-			{/each}
-			{#each xTicks as tick, i (tick)}
-				<!-- The outermost ticks sit on the plot edges, so a centred label
-			     runs off the SVG and gets clipped mid-word ("25 mii"). Anchor
-			     them inwards instead. -->
-				<text
-					x={scaleX(tick)}
-					y={height - 8}
-					text-anchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
-					>{xFormat(tick)}</text
-				>
-			{/each}
+			{#if !bare}
+				{#each yTicks as tick (tick)}
+					<text x={padLeft - 8} y={scaleY(tick)} text-anchor="end" dominant-baseline="middle"
+						>{yFormat(tick)}</text
+					>
+				{/each}
+				{#each xTicks as tick, i (tick)}
+					<!-- The outermost ticks sit on the plot edges, so a centred label
+				     runs off the SVG and gets clipped mid-word ("25 mii"). Anchor
+				     them inwards instead. -->
+					<text
+						x={scaleX(tick)}
+						y={height - 8}
+						text-anchor={i === 0 ? 'start' : i === xTicks.length - 1 ? 'end' : 'middle'}
+						>{xFormat(tick)}</text
+					>
+				{/each}
+			{/if}
+			{#if baseline !== undefined}
+				<line
+					x1={padLeft}
+					x2={width - padRight}
+					y1={scaleY(baseline)}
+					y2={scaleY(baseline)}
+					stroke="var(--color-border)"
+					stroke-width="1"
+					stroke-dasharray="2 4"
+				/>
+			{/if}
 			{#if hoverX !== null}
 				<rect
 					x={hoverX - 14}
@@ -220,19 +244,26 @@
 					fill="url(#chart-hover-band-{instanceId})"
 				/>
 			{/if}
-			{#each lines as line (line.name)}
-				{#if line.area}
-					<path d={line.area} fill="url(#{line.gradientId})" stroke="none" />
-				{/if}
-				<polyline
-					points={line.polyline}
-					fill="none"
-					stroke={line.color}
-					stroke-width="2"
-					stroke-linejoin="round"
-					stroke-linecap="round"
-				/>
-			{/each}
+			<!-- Draws itself in on mount (Nocturne v2) — clip-path rather than the
+			     usual stroke-dasharray/getTotalLength trick, since it animates the
+			     area fill and the line together with one rule and no per-path JS
+			     measurement. Purely CSS, so prefers-reduced-motion's blanket
+			     transition-duration override is enough to disable it. -->
+			<g class="chart-ink">
+				{#each lines as line (line.name)}
+					{#if line.area}
+						<path d={line.area} fill="url(#{line.gradientId})" stroke="none" />
+					{/if}
+					<polyline
+						points={line.polyline}
+						fill="none"
+						stroke={line.color}
+						stroke-width="2"
+						stroke-linejoin="round"
+						stroke-linecap="round"
+					/>
+				{/each}
+			</g>
 			{#if hoverX !== null && hoverIndex !== null}
 				{#each series as s (s.name)}
 					{@const v = s.values[hoverIndex]}
@@ -243,7 +274,7 @@
 			{/if}
 		</svg>
 	</div>
-	{#if hoverIndex !== null}
+	{#if !bare && hoverIndex !== null}
 		<div class="tooltip">
 			<strong>{xFormat(xValues[hoverIndex])}</strong>
 			{#each series as s (s.name)}
@@ -267,12 +298,34 @@
 		max-width: 800px;
 	}
 
+	/* No background/ring/padding (Nocturne v2) — with .panel also going bare,
+	   a chart sitting in its own bordered box on top of that was a card
+	   inside a card. The chart is legible directly on the page; touch-action
+	   and the tooltip's own glass background still separate it from content
+	   scrolling underneath. */
 	.chart-card {
 		position: relative;
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-md);
-		padding: 1rem;
+	}
+
+	.chart-card.bare {
+		line-height: 0;
+	}
+
+	/* transform rather than clip-path: percentages in clip-path's inset()
+	   resolve against an ambiguous reference box on a bare SVG <g>, but a
+	   unitless scaleX is exact everywhere and CSS transforms on SVG have
+	   been reliable for years. transform-box: view-box anchors the 0%
+	   origin to the chart's own viewBox rather than the page. */
+	.chart-ink {
+		transform-box: view-box;
+		transform-origin: left;
+		transition: transform var(--dur-slow) var(--ease-out-soft);
+	}
+
+	@starting-style {
+		.chart-ink {
+			transform: scaleX(0);
+		}
 	}
 
 	svg {

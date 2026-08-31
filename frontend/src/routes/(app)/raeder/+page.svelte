@@ -130,9 +130,9 @@
 					<div class="bike-header">
 						<strong>{bike.name}</strong>
 						{#if bike.active}
-							<span class="badge">Aktiv</span>
+							<span class="chip" style="--chip-color: var(--color-success)">Aktiv</span>
 						{:else if bike.retired_at}
-							<span class="badge badge-muted">Stillgelegt</span>
+							<span class="chip" style="--chip-color: var(--color-text-muted)">Stillgelegt</span>
 						{/if}
 					</div>
 					<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
@@ -325,17 +325,6 @@
 		align-items: center;
 		gap: 0.75rem;
 		margin-bottom: 0.375rem;
-	}
-
-	.badge {
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-success);
-	}
-
-	.badge-muted {
-		color: var(--color-text-muted);
 	}
 
 	.stat {

@@ -184,38 +184,38 @@
 	<!-- The pictogram is the page's visual centerpiece (#657): everything else
 	     below is detail and evidence for what these four figures already say. -->
 	<section class="glance" aria-label="Auf einen Blick">
-		<div class="glance-bike">
-			<BikePictogram size={140} />
-		</div>
+		<BikePictogram size={120} />
 		<div class="glance-stats">
-			<div class="glance-stat">
-				<p class="glance-value">
+			<div class="fact-tile">
+				<p class="fact-tile-value">
 					{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
-					<span class="glance-unit">km</span>
+					<span class="fact-tile-unit">km</span>
 				</p>
-				<p class="glance-label">Insgesamt gefahren</p>
+				<p class="fact-tile-label">Insgesamt gefahren</p>
 			</div>
-			<div class="glance-stat">
-				<p class="glance-value glance-value-text">
+			<div class="fact-tile">
+				<p class="fact-tile-value fact-tile-value-text">
 					{lastRide ? formatLastRide(lastRide) : '–'}
 				</p>
-				<p class="glance-label">Letzte Fahrt</p>
+				<p class="fact-tile-label">Letzte Fahrt</p>
 			</div>
-			<div class="glance-stat">
+			<div class="fact-tile">
 				<!-- gauge.label already carries its own category name, e.g.
 				     "Trainingsniveau: Gelegenheitsfahrer" (#611) — no separate
 				     static label needed here, unlike the other three tiles. -->
-				<p class="glance-value glance-value-text">{status?.gauge?.label ?? 'Trainingsniveau'}</p>
+				<p class="fact-tile-value fact-tile-value-text">
+					{status?.gauge?.label ?? 'Trainingsniveau'}
+				</p>
 				{#if status?.gauge?.caption}
-					<p class="glance-caption">{status.gauge.caption}</p>
+					<p class="fact-tile-label fact-tile-caption">{status.gauge.caption}</p>
 				{/if}
 			</div>
-			<div class="glance-stat">
-				<p class="glance-value">
+			<div class="fact-tile">
+				<p class="fact-tile-value">
 					{progress ? progress.current_streak_weeks : '–'}
-					<span class="glance-unit">Wochen</span>
+					<span class="fact-tile-unit">Wochen</span>
 				</p>
-				<p class="glance-label">Aktuelle Streak</p>
+				<p class="fact-tile-label">Aktuelle Streak</p>
 			</div>
 		</div>
 	</section>
@@ -240,35 +240,39 @@
 			Fitness wächst langsam über Wochen, Müdigkeit steigt und fällt mit den letzten Tagen. Wo die
 			Frische-Linie über null liegt, bist du erholt.
 		</p>
-		<LineChart
-			xValues={dayTimestamps}
-			series={[
-				{
-					name: 'Fitness',
-					color: 'var(--chart-ctl)',
-					values: series.map((d) => d.ctl),
-					description:
-						'Fachbegriff CTL: dein Trainingsumfang der letzten 6 Wochen. Steigt langsam, fällt langsam — das ist deine Grundlage.'
-				},
-				{
-					name: 'Müdigkeit',
-					color: 'var(--chart-atl)',
-					values: series.map((d) => d.atl),
-					description:
-						'Fachbegriff ATL: die Belastung der letzten Woche. Reagiert schnell auf einzelne harte Fahrten.'
-				},
-				{
-					name: 'Frische',
-					color: tsbColor,
-					values: series.map((d) => d.tsb),
-					description:
-						'Fachbegriff TSB: Fitness minus Müdigkeit. Über null bist du erholt, unter null steckst du in einer Belastungsphase.'
-				}
-			]}
-			xFormat={formatDay}
-			yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1))}
-			ariaLabel="Verlauf von Fitness, Müdigkeit und Frische"
-		/>
+		<div class="bleed">
+			<LineChart
+				xValues={dayTimestamps}
+				series={[
+					{
+						name: 'Fitness',
+						color: 'var(--chart-ctl)',
+						values: series.map((d) => d.ctl),
+						description:
+							'Fachbegriff CTL: dein Trainingsumfang der letzten 6 Wochen. Steigt langsam, fällt langsam — das ist deine Grundlage.'
+					},
+					{
+						name: 'Müdigkeit',
+						color: 'var(--chart-atl)',
+						values: series.map((d) => d.atl),
+						description:
+							'Fachbegriff ATL: die Belastung der letzten Woche. Reagiert schnell auf einzelne harte Fahrten.'
+					},
+					{
+						name: 'Frische',
+						color: tsbColor,
+						values: series.map((d) => d.tsb),
+						description:
+							'Fachbegriff TSB: Fitness minus Müdigkeit. Über null bist du erholt, unter null steckst du in einer Belastungsphase.'
+					}
+				]}
+				xFormat={formatDay}
+				yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1))}
+				ariaLabel="Verlauf von Fitness, Müdigkeit und Frische"
+				height={260}
+				baseline={0}
+			/>
+		</div>
 	</section>
 
 	<section class="panel">
@@ -430,70 +434,35 @@
 {/if}
 
 <style>
+	/* Bare — the bike sits on the page, the four figures are Fact Tiles in
+	   their own right (Nocturne v2) instead of a card wrapping all of it. */
 	.glance {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 1.25rem;
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		padding: 1.75rem 1.25rem;
-		margin-bottom: 1.5rem;
-		box-shadow: var(--shadow-md);
-	}
-
-	.glance-bike {
-		display: flex;
-		justify-content: center;
+		margin-bottom: 3rem;
 	}
 
 	.glance-stats {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
-		gap: 1.25rem 1rem;
+		gap: 0.5rem;
 		width: 100%;
 		max-width: 26rem;
 	}
 
-	.glance-stat {
-		text-align: center;
-	}
-
-	.glance-value {
-		margin: 0;
-		font-size: var(--text-2xl);
-		font-weight: 800;
-		font-variant-numeric: tabular-nums;
-	}
-
-	/* A date+distance or a level name needs to read as text, not a number —
-	   the shared figure size still ties it visually to the other three. */
-	.glance-value-text {
+	.fact-tile-value-text {
 		font-size: var(--text-lg);
 		font-variant-numeric: normal;
 	}
 
-	.glance-unit {
-		font-size: var(--text-sm);
-		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-left: 0.2rem;
-	}
-
-	.glance-label {
-		margin: 0.25rem 0 0;
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
-	}
-
 	/* A full sentence (the gauge's caption) reads as shouting in the other
 	   tiles' all-caps label style — sentence case instead. */
-	.glance-caption {
-		margin: 0.25rem 0 0;
+	.fact-tile-caption {
+		text-transform: none;
+		letter-spacing: normal;
 		font-size: var(--text-xs);
-		color: var(--color-text-muted);
 	}
 
 	.year-review-link {
@@ -501,12 +470,10 @@
 		font-size: var(--text-sm);
 	}
 
+	/* Bare section — heading, sub, content, separated by real space instead
+	   of a bordered/shadowed box (Nocturne v2). */
 	.panel {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		padding: 1.25rem;
-		box-shadow: var(--shadow-md);
-		margin-bottom: 1.5rem;
+		margin-bottom: 3rem;
 	}
 
 	.panel h2 {

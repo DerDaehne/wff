@@ -121,24 +121,35 @@
 		margin-bottom: 1.5rem;
 	}
 
+	/* Flat fact-band fill instead of a bordered/shadowed card (Nocturne v2) —
+	   --fact-color feeds off the same --chip-color each .statement-* rule
+	   below already sets, so the band and its chip stay the same hue without
+	   a second colour map to keep in sync. */
 	.statement-row {
+		--fact-color: var(--chip-color, var(--color-brand));
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 		width: 100%;
 		border: none;
-		border-radius: var(--radius-md);
+		border-radius: var(--radius-sm);
 		padding: 0.75rem 1rem;
-		box-shadow: var(--shadow-sm);
-		background: var(--color-surface);
+		background: color-mix(in srgb, var(--fact-color) var(--fill-strength), var(--fill-base));
 		font: inherit;
 		color: var(--color-text);
 		text-align: left;
 		cursor: pointer;
+		transition: transform var(--dur-fast) ease-out;
 	}
 
-	.statement-row:hover {
-		box-shadow: var(--shadow-md);
+	.statement-row:active {
+		transform: scale(0.985);
+	}
+
+	.statement-milestone.statement-row {
+		--fact-color: var(--color-achievement);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent);
+		animation: wff-milestone-land var(--dur-slow) var(--ease-overshoot) 1 both;
 	}
 
 	/* Chip above, summary below, both full-width — trying to fit chip +

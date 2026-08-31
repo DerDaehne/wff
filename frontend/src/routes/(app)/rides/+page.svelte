@@ -171,6 +171,25 @@
 								<span class="sr-only">Diese Fahrt ist per Link geteilt</span>
 							{/if}
 						</span>
+						<!-- Fahrt-Charakter auf einen Blick (#633), promoted right under the
+						     date (Nocturne v2) — a Grundlagenfahrt and an Intervalleinheit are
+						     distinguishable at a glance, before a single number is read. -->
+						{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
+							<div
+								class="zone-bar"
+								role="img"
+								aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
+									? ' (geschätzt aus beobachtetem Maximalpuls)'
+									: ''}"
+							>
+								{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
+									<span
+										class="zone-segment"
+										style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
+									></span>
+								{/each}
+							</div>
+						{/if}
 						<!-- Same order as the ride's own hero: the list and the detail view
 						     must not disagree about what matters. "TSS 101" became a
 						     labelled figure — the abbreviation said nothing to anyone who
@@ -184,24 +203,6 @@
 							{/each}
 						</span>
 					</a>
-					<!-- Fahrt-Charakter auf einen Blick (#633): ruhige Grundlagenfahrt vs.
-					     harte Intervalleinheit sind so unterscheidbar, ohne reinzuklicken. -->
-					{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
-						<div
-							class="zone-bar"
-							role="img"
-							aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
-								? ' (geschätzt aus beobachtetem Maximalpuls)'
-								: ''}"
-						>
-							{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
-								<span
-									class="zone-segment"
-									style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
-								></span>
-							{/each}
-						</div>
-					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -286,24 +287,24 @@
 	.rides {
 		list-style: none;
 		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.625rem;
 		margin-bottom: 1.5rem;
 	}
 
+	/* No card (Nocturne v2) — a hairline divider between rows (same device
+	   /raeder already uses for its own flat list) instead of a shadowed box
+	   around each one; :active gives the only feedback a flat row needs on
+	   tap. */
 	.rides li {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-sm);
-		transition:
-			box-shadow 0.15s ease,
-			transform 0.15s ease;
+		border-top: 1px solid var(--color-border);
+		transition: transform var(--dur-fast) ease-out;
 	}
 
-	.rides li:hover {
-		box-shadow: var(--shadow-md);
-		transform: translateY(-1px);
+	.rides li:first-child {
+		border-top: none;
+	}
+
+	.rides li:active {
+		transform: scale(0.99);
 	}
 
 	/* Date above figures, always — never side-by-side wrapping onto a second
@@ -314,15 +315,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		padding: 1rem 1.25rem;
+		padding: 0.5rem 0;
 		color: inherit;
 		text-decoration: none;
 	}
 
+	/* Promoted right under the date — the row's own zone-coloured identity,
+	   not an afterthought at the bottom of a card that no longer exists. */
 	.zone-bar {
 		display: flex;
-		height: 0.3rem;
-		margin: 0 1.25rem 0.875rem;
+		height: 0.375rem;
 		border-radius: var(--radius-pill);
 		overflow: hidden;
 		background: var(--color-border);

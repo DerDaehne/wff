@@ -57,13 +57,22 @@
 </header>
 
 <style>
+	/* Full-bleed, square-cornered (Nocturne v2) — its own distinct
+	   --color-hero-bg tint is what separates it from the page now, not a
+	   rounded card floating on top of one. */
 	.hero {
 		background: var(--color-hero-bg);
 		color: var(--color-hero-text);
-		border-radius: var(--radius-lg);
-		padding: 1.75rem;
-		margin-bottom: 1.5rem;
-		box-shadow: var(--shadow-md);
+		padding: 1.75rem 1rem;
+		margin: 0 -1rem 1.5rem;
+	}
+
+	@media (min-width: 768px) {
+		.hero {
+			margin-inline: 0;
+			border-radius: var(--radius-lg);
+			padding: 1.75rem;
+		}
 	}
 
 	.hero-date {

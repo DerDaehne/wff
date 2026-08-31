@@ -23,6 +23,10 @@
 }
 
 :root {
+	/* Uppercase fact labels only (Nocturne v2) — anything below this is
+	   illegible on a phone; the ride-detail grid used to hard-code 9.5px,
+	   which was the actual complaint. */
+	--text-2xs: 11px;
 	--text-xs: 12px;
 	--text-sm: 14px;
 	--text-base: 16px;
@@ -34,16 +38,28 @@
 	--text-4xl: 64px;
 
 	--font-sans: 'Manrope', system-ui, sans-serif;
-	/* System stack, no @font-face — used for a handful of mono numeric labels
-	   (ride-detail's data-dense grid, Nocturne reskin) where the Manrope
-	   digits would otherwise sit at a different rhythm than the surrounding
-	   monospace-looking tabular numbers. */
-	--font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 
 	--radius-sm: 10px;
 	--radius-md: 16px;
 	--radius-lg: 24px;
 	--radius-pill: 999px;
+
+	/* Nocturne v2 (design review 2026-08-31, note design-wff-nocturne-v2):
+	   "flächige Farben" — a fact's own tinted fill instead of a bordered card
+	   around it. --fill-strength/--fill-strength-strong mix a semantic colour
+	   straight into the PAGE background (--fill-base), not into a card the
+	   way --wash-strength already does for chips — that pair stays for chips
+	   and .insight, this one is additive. Dark needs more of it to read at
+	   all, same reasoning --wash-strength already documents. */
+	--fill-base: var(--color-bg);
+	--fill-strength: 12%;
+	--fill-strength-strong: 24%;
+
+	--dur-fast: 180ms;
+	--dur-base: 260ms;
+	--dur-slow: 700ms;
+	--ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-overshoot: cubic-bezier(0.34, 1.4, 0.64, 1);
 
 	/* Series colours stay bound to their metric across the whole app —
 	   recognition matters more than local harmony. Kept from #145, lifted in
@@ -82,12 +98,25 @@
 	--color-hero-muted: #8fd3ca;
 	--color-border: #e2e8f0;
 	--color-text: #0f172a;
-	--color-text-muted: #5a6a7d;
+	/* Was #5a6a7d — raised for Nocturne v2's flat fact-band fills, whose base
+	   tint (a semantic colour mixed straight into the page background) is
+	   lighter than the surfaces this token was originally measured against.
+	   #5a6a7d only clears 4.36:1 on that tint (fails AA); #526376 clears
+	   4.86:1 there and improves every existing pairing too (5.11→5.69 on
+	   --color-bg, 5.54→6.17 on --color-surface) — a strict improvement, not a
+	   trade-off. Measured, not eyeballed: see design-wff-nocturne-v2. */
+	--color-text-muted: #526376;
 	--color-success: #15803d;
 	--color-warning: #b45309;
 	--color-danger: #dc2626;
 	--color-info: #1d4ed8;
 	--color-track: #0f766e;
+	/* The app's own brand accent pushed brighter, not a fifth hue family —
+	   every obvious celebration colour (amber/green/coral/blue) is already a
+	   chart series. Used only for records (RideStatement kind: 'milestone')
+	   and their glow — the one place in the app a glow appears at all, which
+	   is what keeps it meaning something. 5.72:1 on --color-bg. */
+	--color-achievement: #b81079;
 
 	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
 	--shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
@@ -124,7 +153,12 @@
 		--color-bg: #161826;
 		--color-surface: #232532;
 		--color-surface-raised: #2b2e3d;
-		--color-hero-bg: #232532;
+		/* Was #232532 — identical to --color-surface, which is exactly why the
+		   dashboard hero used to have no visible top against the page below
+		   it. One step brighter so it reads as its own block again (Nocturne
+		   v2). 10.53:1 for --color-hero-text, 6.19:1 for --color-hero-muted —
+		   both improve slightly over the old value. */
+		--color-hero-bg: #322f4c;
 		--color-hero-text: #e9e9ed;
 		--color-hero-muted: #b5abfc;
 		--color-border: #3f424d;
@@ -135,6 +169,13 @@
 		--color-danger: oklch(0.66 0.13 25);
 		--color-info: oklch(0.72 0.07 230);
 		--color-track: #9184d9;
+		--color-achievement: #f86ab5;
+
+		/* Dark needs a stronger mix than light to read as a distinct fill at
+		   all — same reasoning as --wash-strength below, just for the newer
+		   page-level fill pair. */
+		--fill-strength: 14%;
+		--fill-strength-strong: 26%;
 
 		/* Nocturne's cards are a flat hairline ring (0 0 0 1px), never a blurred
 		   drop-shadow — no elevation hierarchy between sm/md/lg, which is
@@ -327,6 +368,259 @@ a {
 	);
 }
 
+/* Cancels .content's side padding so a fact band / chart can run full-bleed
+   instead of sitting in a box inside a box (Nocturne v2). */
+.bleed {
+	margin-inline: -1rem;
+	width: calc(100% + 2rem);
+}
+
+@media (min-width: 768px) {
+	.bleed {
+		margin-inline: 0;
+		width: 100%;
+	}
+}
+
+/* Fact Band / Fact Tile / Skala-Band (Nocturne v2, design-wff-nocturne-v2) —
+   the unit that replaces a bordered "card" for a single measurement: no
+   ring, no shadow, a flat fill of the fact's own colour instead. A number
+   with a scale (--fact-share, 0–1) draws that scale as its own background,
+   so the container IS the chart; a number without one just sits on the flat
+   tint. --fact-color defaults to the brand so a plain `.fact` still looks
+   intentional without a caller having to set it.
+
+   Hard rule, not a suggestion: --color-text-muted only clears AA on the
+   BASE tint, not on the stronger fill (see the measured note on
+   --color-text-muted above) — so a fact's label and any muted meaning text
+   belong outside the band, on the page background, never printed on top of
+   the fill itself. */
+.fact {
+	position: relative;
+	overflow: hidden;
+	border-radius: var(--radius-sm);
+	padding: 0.875rem 1rem;
+	background: color-mix(in srgb, var(--fact-color, var(--color-brand)) var(--fill-strength), var(--fill-base));
+	color: var(--color-text);
+	text-align: left;
+}
+
+button.fact,
+a.fact {
+	display: block;
+	width: 100%;
+	border: none;
+	font: inherit;
+	color: inherit;
+	text-decoration: none;
+	cursor: pointer;
+	transition: transform var(--dur-fast) ease-out;
+}
+
+button.fact:active,
+a.fact:active {
+	transform: scale(0.985);
+}
+
+/* The fill IS the value — transform, not width, so it composites instead of
+   triggering layout, and so @starting-style below can animate it in on
+   mount without JavaScript. */
+.fact-fill {
+	position: absolute;
+	inset: 0;
+	transform-origin: left;
+	transform: scaleX(var(--fact-share, 0));
+	background: color-mix(
+		in srgb,
+		var(--fact-color, var(--color-brand)) var(--fill-strength-strong),
+		var(--fill-base)
+	);
+	transition: transform var(--dur-slow) var(--ease-out-soft);
+}
+
+@starting-style {
+	.fact-fill {
+		transform: scaleX(0);
+	}
+}
+
+.fact > * {
+	position: relative;
+	z-index: 1;
+}
+
+.fact-value {
+	font-size: var(--text-3xl);
+	font-weight: 800;
+	line-height: 1;
+	letter-spacing: -0.03em;
+	font-variant-numeric: tabular-nums;
+}
+
+.fact-unit {
+	font-size: var(--text-sm);
+	font-weight: 700;
+	margin-left: 0.3rem;
+}
+
+.fact-name {
+	font-size: var(--text-base);
+	font-weight: 500;
+	margin-left: 0.625rem;
+}
+
+/* The label above and the meaning line below a .fact both live on the page,
+   never inside the band — see the AA note on .fact above. */
+.fact-label {
+	margin: 0 0 0.375rem;
+	font-size: var(--text-2xs);
+	font-weight: 700;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+
+.fact-meaning {
+	margin: 0.5rem 0 0;
+	font-size: var(--text-sm);
+	color: var(--color-text-muted);
+}
+
+/* Grid variant: same paint, smaller number, no fill unless the caller adds
+   one — most tiles (a plain distance, a duration) have no natural scale. */
+.fact-tile {
+	border-radius: var(--radius-sm);
+	padding: 0.75rem 0.875rem;
+	background: color-mix(in srgb, var(--fact-color, var(--color-brand)) var(--fill-strength), var(--fill-base));
+}
+
+.fact-tile-value {
+	margin: 0;
+	font-size: var(--text-2xl);
+	font-weight: 800;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+	letter-spacing: -0.02em;
+}
+
+.fact-tile-unit {
+	font-size: var(--text-sm);
+	font-weight: 700;
+	color: var(--color-text-muted);
+	margin-left: 0.2rem;
+}
+
+.fact-tile-label {
+	margin: 0.2rem 0 0;
+	font-size: var(--text-2xs);
+	letter-spacing: 0.05em;
+	text-transform: uppercase;
+	color: var(--color-text-muted);
+}
+
+/* The jargon-explainer variant (IF, TSB, "Trainingsniveau") — a value alone
+   means nothing to a hobbyist without training background; a position on
+   the app's own zone ramp does. Track reuses --zone-* verbatim so it reads
+   the same everywhere the zones already appear. */
+.fact-scale {
+	position: relative;
+	height: 10px;
+	border-radius: var(--radius-pill);
+	background: linear-gradient(
+		90deg,
+		var(--zone-recovery),
+		var(--zone-endurance),
+		var(--zone-tempo),
+		var(--zone-threshold),
+		var(--zone-vo2)
+	);
+}
+
+.fact-scale-marker {
+	position: absolute;
+	top: -3px;
+	bottom: -3px;
+	width: 3px;
+	left: calc(var(--fact-share, 0) * 100%);
+	background: var(--color-text);
+	border-radius: 2px;
+	box-shadow: 0 0 0 2px var(--fill-base);
+	transition: left var(--dur-slow) var(--ease-out-soft);
+}
+
+.fact-scale-ends {
+	display: flex;
+	justify-content: space-between;
+	margin: 0.375rem 0 0;
+	font-size: var(--text-xs);
+	color: var(--color-text-muted);
+}
+
+/* Two intensities (Nocturne v2): a milestone is a record — an event, rare
+   enough to earn the app's only glow. A positive trend gets the same
+   colour language minus the glow, so "rare" stays legible instead of
+   inflating into wallpaper. Both measured for AA — see
+   design-wff-nocturne-v2. */
+.fact--milestone,
+.fact-tile--milestone {
+	--fact-color: var(--color-achievement);
+}
+
+.fact--milestone .fact-value,
+.fact-tile--milestone .fact-tile-value {
+	color: var(--color-achievement);
+}
+
+.fact--milestone {
+	animation: wff-milestone-land var(--dur-slow) var(--ease-overshoot) 1 both;
+}
+
+.fact--milestone .fact-value {
+	display: inline-block;
+	animation: wff-milestone-pop var(--dur-slow) var(--ease-overshoot) 1 both;
+}
+
+@keyframes wff-milestone-land {
+	0% {
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
+			0 0 0 0 transparent;
+	}
+	55% {
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
+			0 8px 40px -6px color-mix(in srgb, var(--color-achievement) 80%, transparent);
+	}
+	100% {
+		box-shadow:
+			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
+			0 8px 28px -10px color-mix(in srgb, var(--color-achievement) 70%, transparent);
+	}
+}
+
+@keyframes wff-milestone-pop {
+	from {
+		transform: scale(0.94);
+	}
+	to {
+		transform: scale(1);
+	}
+}
+
+.fact--improve,
+.fact-tile--improve {
+	--fact-color: var(--color-success);
+}
+
+.fact--improve .fact-value,
+.fact-tile--improve .fact-tile-value {
+	color: var(--color-success);
+}
+
+.fact--improve {
+	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success) 70%, transparent);
+}
+
 .chip {
 	display: inline-flex;
 	align-items: center;
@@ -346,4 +640,20 @@ a {
 	   reached 4.24:1 on the glossary. Mixing in more text colour is what buys
 	   AA for every chip in both schemes. */
 	color: color-mix(in srgb, var(--chip-color, var(--color-brand)) 45%, var(--color-text));
+}
+
+/* Motion is only allowed when it shows a value's magnitude, a state change
+   the rider caused, or a once-per-event moment (Nocturne v2) — fill bars,
+   chart draw-ins, the milestone glow, button press feedback. This blanket
+   is the actual accessibility floor for all of it: 1ms rather than 0/none
+   so animation-fill-mode: both still lands every one of those on its
+   correct end state instead of stuck at frame zero. */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 1ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 1ms !important;
+	}
 }

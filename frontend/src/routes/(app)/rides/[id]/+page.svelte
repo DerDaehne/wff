@@ -19,6 +19,7 @@
 		type Sample,
 		type WeatherSummary,
 		type RideStory,
+		type RideStat,
 		type Lap
 	} from '$lib/rides';
 	import { getShareStatus, createShare, revokeShare, type ShareStatus } from '$lib/share';
@@ -206,6 +207,21 @@
 	}
 
 	let hasElevation = $derived(hasAnyValue(samples.map((s) => s.altitude_meters)));
+
+	// Belastung (TSS) and Intensität (IF) are the two figures on this page a
+	// hobbyist can't read cold — promoted out of the grid into their own
+	// bands instead of sitting as one more tile among distance and speed
+	// (Nocturne v2). Matched by label since detail_stats is a flat,
+	// backend-ordered list with no machine key on the frontend (#735).
+	let detailStats: RideStat[] = $derived.by(() => story?.detail_stats ?? []);
+	let tssStat: RideStat | null = $derived(detailStats.find((s) => s.label === 'Belastung') ?? null);
+	let ifStat: RideStat | null = $derived(
+		detailStats.find((s) => s.label.startsWith('Intensität')) ?? null
+	);
+	let gridStats: RideStat[] = $derived(detailStats.filter((s) => s !== tssStat && s !== ifStat));
+	// IF already lives on a real 0–~1.2 scale (1.0 = riding exactly at
+	// threshold) — a genuine position to mark, not a fabricated percentage.
+	let ifShare = $derived(ifStat ? Math.max(0, Math.min(1, parseFloat(ifStat.value.replace(',', '.')))) : 0);
 	let hasPower = $derived(hasAnyValue(samples.map((s) => s.power_watts)));
 	let hasHeartRate = $derived(hasAnyValue(samples.map((s) => s.heart_rate)));
 	// Prefer power (more directly trainable) when both are present.
@@ -533,12 +549,45 @@
 			</p>
 		</div>
 
-		{#if story?.detail_stats && story.detail_stats.length > 0}
+		<!-- The ride's shape as its own header (Nocturne v2) — the Übersicht tab
+		     otherwise has zero graphics, and a hobbyist reads an elevation
+		     profile faster than any number on the page. -->
+		{#if hasElevation}
+			<div class="bleed elevation-strip">
+				<LineChart
+					xValues={elapsedMinutes}
+					series={[
+						{ name: 'Höhe', color: 'var(--chart-elevation)', values: samples.map((s) => s.altitude_meters) }
+					]}
+					xFormat={formatElapsed}
+					yFormat={(y) => `${Math.round(y)} m`}
+					ariaLabel="Höhenprofil"
+					height={64}
+					bare
+				/>
+			</div>
+		{/if}
+
+		{#if tssStat}
+			<div class="fact">
+				<p class="fact-value">{tssStat.value}{#if tssStat.unit}<span class="fact-unit">{tssStat.unit}</span>{/if}<span class="fact-name">{tssStat.label}</span></p>
+			</div>
+		{/if}
+
+		{#if ifStat}
+			<p class="fact-label">{ifStat.label}</p>
+			<div class="fact-scale" style="--fact-share: {ifShare}">
+				<div class="fact-scale-marker"></div>
+			</div>
+			<p class="fact-scale-ends"><span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span></p>
+		{/if}
+
+		{#if gridStats.length > 0}
 			<div class="stat-grid">
-				{#each story.detail_stats as stat (stat.label)}
-					<div class="stat-cell">
-						<p class="stat-cell-value">{stat.value}</p>
-						<p class="stat-cell-label">{stat.unit ? `${stat.unit} ` : ''}{stat.label}</p>
+				{#each gridStats as stat (stat.label)}
+					<div class="fact-tile">
+						<p class="fact-tile-value">{stat.value}</p>
+						<p class="fact-tile-label">{stat.unit ? `${stat.unit} ` : ''}{stat.label}</p>
 					</div>
 				{/each}
 			</div>
@@ -846,50 +895,41 @@
 		font-size: var(--text-xl);
 	}
 
-	/* Mono, not Manrope, for the date/time stamp — a small nod to the
-	   Nocturne mock's numeric styling without pulling in a second font. */
+	/* Tabular Manrope, not a monospace stack — the mono date was the clearest
+	   remaining "industrial control panel" tell on the page (Nocturne v2);
+	   tabular-nums gives the same alignment without a second typeface. */
 	.ride-date-mono {
 		margin: 0;
 		flex-shrink: 0;
-		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
 		font-size: var(--text-xs);
 		color: var(--color-text-muted);
 		text-align: right;
 	}
 
-	.stat-grid {
-		display: grid;
-		grid-template-columns: repeat(4, 1fr);
-		gap: 1px;
-		border-radius: var(--radius-sm);
-		overflow: hidden;
+	.elevation-strip {
+		margin-bottom: 1.25rem;
+	}
+
+	.fact,
+	.fact-scale {
+		margin-bottom: 1.25rem;
+	}
+
+	.fact-scale-ends {
 		margin-bottom: 1.5rem;
 	}
 
-	.stat-cell {
-		background: var(--color-surface);
-		padding: 0.75rem 0.625rem;
+	.stat-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.stat-cell-value {
-		margin: 0;
-		font-size: var(--text-lg);
-		font-weight: 700;
-		font-variant-numeric: tabular-nums;
-		letter-spacing: -0.01em;
-	}
-
-	.stat-cell-label {
-		margin: 0.2rem 0 0;
-		font-size: 9.5px;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		color: var(--color-text-muted);
-	}
-
-	@media (max-width: 420px) {
+	@media (min-width: 600px) {
 		.stat-grid {
-			grid-template-columns: repeat(3, 1fr);
+			grid-template-columns: repeat(4, 1fr);
 		}
 	}
 
