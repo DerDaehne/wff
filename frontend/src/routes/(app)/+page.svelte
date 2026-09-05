@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { getTrainingLoad, type DayLoad, type Insight } from '$lib/trainingload';
-	import { listActivities, type ActivitySummary, type RideStory } from '$lib/rides';
+	import { listActivities, formatDecimal, type ActivitySummary, type RideStory } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import {
 		getProgress,
@@ -55,7 +55,7 @@
 			month: '2-digit'
 		});
 		if (a.distance_meters == null) return date;
-		return `${date} · ${(a.distance_meters / 1000).toFixed(1)} km`;
+		return `${date} · ${formatDecimal(a.distance_meters / 1000, 1)} km`;
 	}
 
 	// Power-curve trend (#593): "is my power at this duration going up",
@@ -216,7 +216,7 @@
 			xValues={dayTimestamps}
 			series={[{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }]}
 			xFormat={formatDay}
-			yFormat={(y) => y.toFixed(1)}
+			yFormat={(y) => formatDecimal(y, 1)}
 			ariaLabel="Fitness-Verlauf"
 			height={64}
 			bare
@@ -248,14 +248,14 @@
 				xValues: dayTimestamps,
 				series: [{ name: 'Frische', color: tsbColor, values: series.map((d) => d.tsb) }],
 				xFormat: formatDay,
-				yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1)),
+				yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
 				caption: 'Verlauf der letzten Wochen'
 			},
 			trend: {
 				xValues: dayTimestamps,
 				series: [{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }],
 				xFormat: formatDay,
-				yFormat: (y) => y.toFixed(1),
+				yFormat: (y) => formatDecimal(y, 1),
 				caption: 'Verlauf der letzten Wochen'
 			}
 		}}
@@ -341,7 +341,7 @@
 					}
 				]}
 				xFormat={formatDay}
-				yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : y.toFixed(1))}
+				yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1))}
 				ariaLabel="Verlauf von Fitness, Müdigkeit und Frische"
 				height={260}
 				baseline={0}
@@ -473,7 +473,7 @@
 							]}
 							xFormat={formatDay}
 							yFormat={(v: number) =>
-								progress?.endurance.from_power ? String(Math.round(v)) : v.toFixed(1)}
+								progress?.endurance.from_power ? String(Math.round(v)) : formatDecimal(v, 1)}
 							ariaLabel="Wochenverlauf {progress.endurance.unit}"
 							height={220}
 						/>

@@ -226,3 +226,50 @@ func TestRideStoryMetricsAreStructured(t *testing.T) {
 		t.Errorf("load.Metrics = %+v, want one Stat{Value: \"79\", Label: \"Belastung (TSS)\"}", load.Metrics)
 	}
 }
+
+// The climb and wind statements used to describe everything in prose and
+// leave the bottom sheet's tile grid with nothing to show but the fallback
+// Metric string — the numbers were already computed, just never split out.
+func TestClimbStatementMetricsIncludeDistanceGradeAndDuration(t *testing.T) {
+	f := RideFacts{Course: &CourseStats{
+		BestClimb: &Climb{DistanceMeters: 4200, GainMeters: 180, GradePct: 6.4, Seconds: 900, VAM: 720},
+	}}
+	stmt, ok := climbStatement(f)
+	if !ok {
+		t.Fatal("climbStatement = false, want a statement")
+	}
+	want := []Stat{
+		{Value: "4,2", Unit: "km", Label: "Distanz"},
+		{Value: "6,4", Unit: "%", Label: "Steigung"},
+		{Value: "15", Unit: "min", Label: "Dauer"},
+		{Value: "720", Unit: "hm/h", Label: "Kletterrate"},
+		{Value: "180", Unit: "Höhenmeter"},
+	}
+	if len(stmt.Metrics) != len(want) {
+		t.Fatalf("climb.Metrics = %+v, want %d entries", stmt.Metrics, len(want))
+	}
+	for i, w := range want {
+		if stmt.Metrics[i] != w {
+			t.Errorf("climb.Metrics[%d] = %+v, want %+v", i, stmt.Metrics[i], w)
+		}
+	}
+}
+
+func TestWindShareStatementMetricsMatchTheProseNumbers(t *testing.T) {
+	stmt := windShareStatement(CourseStats{
+		MeanWindSpeedMps: 4.2, WindFromDeg: 270, HeadwindShare: 0.55, TailwindShare: 0.30,
+	})
+	want := []Stat{
+		{Value: "4,2", Unit: "m/s", Label: "⌀ Wind aus Westen"},
+		{Value: "55", Unit: "%", Label: "Gegenwind"},
+		{Value: "30", Unit: "%", Label: "Rückenwind"},
+	}
+	if len(stmt.Metrics) != len(want) {
+		t.Fatalf("wind.Metrics = %+v, want %d entries", stmt.Metrics, len(want))
+	}
+	for i, w := range want {
+		if stmt.Metrics[i] != w {
+			t.Errorf("wind.Metrics[%d] = %+v, want %+v", i, stmt.Metrics[i], w)
+		}
+	}
+}

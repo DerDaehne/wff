@@ -13,6 +13,7 @@
 		bulkAssignBike,
 		formatDistance,
 		formatDuration,
+		formatDecimal,
 		type ActivitySummary
 	} from '$lib/rides';
 	import { ApiError } from '$lib/api';
@@ -226,7 +227,7 @@
 										<td>{formatDuration(bike.moving_seconds)}</td>
 										<td>{Math.round(bike.elevation_gain_meters)} m</td>
 										<td
-											>{bike.avg_speed_kmh > 0 ? `${bike.avg_speed_kmh.toFixed(1)} km/h` : '–'}</td
+											>{bike.avg_speed_kmh > 0 ? `${formatDecimal(bike.avg_speed_kmh, 1)} km/h` : '–'}</td
 										>
 									</tr>
 								{/each}

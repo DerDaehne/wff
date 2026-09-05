@@ -18,10 +18,10 @@ import (
 // worse HR-based number instead.
 func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 	var userID int64
-	var elapsedSeconds int
+	var movingSeconds int
 	if err := pool.QueryRow(ctx,
-		`SELECT user_id, elapsed_seconds FROM activities WHERE id = $1`, activityID,
-	).Scan(&userID, &elapsedSeconds); err != nil {
+		`SELECT user_id, moving_seconds FROM activities WHERE id = $1`, activityID,
+	).Scan(&userID, &movingSeconds); err != nil {
 		return err
 	}
 
@@ -48,7 +48,7 @@ func Activity(ctx context.Context, pool *pgxpool.Pool, activityID int64) error {
 		if ftpWatts == nil {
 			return nil
 		}
-		metrics := ComputePowerMetrics(powerWatts, elapsedSeconds, *ftpWatts)
+		metrics := ComputePowerMetrics(powerWatts, movingSeconds, *ftpWatts)
 		if metrics == nil {
 			return nil
 		}

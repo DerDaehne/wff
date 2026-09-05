@@ -93,7 +93,7 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	if err := rows.Err(); err != nil {
 		return Progress{}, err
 	}
-	progress.CurrentStreakWeeks = currentStreakWeeks(progress.Weeks)
+	progress.CurrentStreakWeeks = currentStreakWeeks(progress.Weeks, time.Now())
 
 	if err := pool.QueryRow(ctx,
 		`SELECT coalesce(sum(distance_meters), 0) FROM activities WHERE user_id = $1`,
@@ -127,6 +127,16 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 	return progress, nil
 }
 
+// mondayOfWeek is the ISO week start (Monday, 00:00 UTC) containing t —
+// matching the database's own `date_trunc('week', started_at)`, so a week
+// computed here and one computed there always agree on where a week begins.
+func mondayOfWeek(t time.Time) time.Time {
+	t = t.UTC()
+	daysSinceMonday := (int(t.Weekday()) + 6) % 7 // Sunday=0 in Go, ISO wants Monday=0
+	d := t.AddDate(0, 0, -daysSinceMonday)
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
+}
+
 // currentStreakWeeks counts consecutive calendar weeks with at least one
 // ride, walking backward from the most recent week present. Weeks are only
 // in the slice at all when they had a ride (the query's GROUP BY drops
@@ -137,8 +147,20 @@ func WeeklyProgress(ctx context.Context, pool *pgxpool.Pool, userID int64) (Prog
 // someone training daily, not the 3-5 h/week hobbyist WFF is built for
 // (#600) — one ride most weeks is already the realistic, motivating pattern
 // to reward.
-func currentStreakWeeks(weeks []Week) int {
+//
+// now decides whether the streak found in the data is still open. Without
+// this, a rider whose last ride was 2 months ago (but still inside the
+// progressWeeks window) kept seeing their old streak forever — the data was
+// real, but "current" never got checked against the calendar. A streak
+// survives through the week it was set in and the one right after (so it
+// doesn't vanish the instant a new week starts before today's ride), and
+// ends once a full week has passed with nothing logged.
+func currentStreakWeeks(weeks []Week, now time.Time) int {
 	if len(weeks) == 0 {
+		return 0
+	}
+	last := weeks[len(weeks)-1].Start
+	if gap := mondayOfWeek(now).Sub(last); gap < 0 || gap > 7*24*time.Hour {
 		return 0
 	}
 	streak := 1

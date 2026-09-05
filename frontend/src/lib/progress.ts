@@ -1,5 +1,5 @@
 import { apiFetch } from './api';
-import type { RideStatement } from './rides';
+import { formatDecimal, type RideStatement } from './rides';
 import type { ZoneDistribution } from './zones';
 
 /** One calendar week of riding, aggregated. Weeks rather than rides because a
@@ -53,7 +53,12 @@ export async function getProgress(): Promise<Progress> {
 		zones: {
 			zones: data.zones?.zones ?? [],
 			total_seconds: data.zones?.total_seconds ?? 0,
-			statements: data.zones?.statements ?? []
+			statements: data.zones?.statements ?? [],
+			// Dropped here before now: the ride list and ride detail both warn
+			// when their zones are estimated from an observed max rather than a
+			// real threshold pulse, but this 4-week distribution silently didn't
+			// carry the same flag even though the backend already sends it.
+			assumed: data.zones?.assumed ?? false
 		},
 		endurance: {
 			weeks: data.endurance?.weeks ?? [],
@@ -75,7 +80,7 @@ export const progressMetrics = [
 		setting: 'speed',
 		label: 'Tempo',
 		color: 'var(--chart-speed)',
-		format: (v: number) => `${v.toFixed(1)} km/h`
+		format: (v: number) => `${formatDecimal(v, 1)} km/h`
 	},
 	{
 		key: 'distance_meters' as const,
@@ -89,7 +94,7 @@ export const progressMetrics = [
 		setting: 'duration',
 		label: 'Fahrzeit',
 		color: 'var(--chart-power)',
-		format: (v: number) => `${(v / 3600).toFixed(1)} h`
+		format: (v: number) => `${formatDecimal(v / 3600, 1)} h`
 	},
 	{
 		key: 'elevation_gain_meters' as const,

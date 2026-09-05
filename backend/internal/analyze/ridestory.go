@@ -621,7 +621,14 @@ func climbStatement(f RideFacts) (Statement, bool) {
 		decimal(c.DistanceMeters/1000, 1), decimal(c.GradePct, 1), int(c.VAM+0.5))
 
 	metric := fmt.Sprintf("%d hm/h · %d Höhenmeter · %s", int(c.VAM+0.5), int(c.GainMeters+0.5), duration(int(c.Seconds)))
+	// The sentence above already names distance, grade and duration — giving
+	// them their own tiles too means the bottom sheet shows the climb as
+	// numbers a rider can scan, not just prose they have to re-read (#651).
+	climbValue, climbUnit := durationParts(int(c.Seconds))
 	metrics := []Stat{
+		{Value: decimal(c.DistanceMeters/1000, 1), Unit: "km", Label: "Distanz"},
+		{Value: decimal(c.GradePct, 1), Unit: "%", Label: "Steigung"},
+		{Value: climbValue, Unit: climbUnit, Label: "Dauer"},
 		{Value: fmt.Sprintf("%d", int(c.VAM+0.5)), Unit: "hm/h", Label: "Kletterrate"},
 		{Value: fmt.Sprintf("%d", int(c.GainMeters+0.5)), Unit: "Höhenmeter"},
 	}
@@ -759,6 +766,14 @@ func windShareStatement(c CourseStats) Statement {
 		Text: text,
 		Metric: fmt.Sprintf("⌀ %s m/s Wind aus %s · %d %% gegen, %d %% mit",
 			decimal(c.MeanWindSpeedMps, 1), compassName(c.WindFromDeg), head, tail),
+		// This was the one context statement still falling back to the raw
+		// Metric string in the bottom sheet instead of typeset tiles — the
+		// numbers were already computed, just never split out (#651).
+		Metrics: []Stat{
+			{Value: decimal(c.MeanWindSpeedMps, 1), Unit: "m/s", Label: "⌀ Wind aus " + compassName(c.WindFromDeg)},
+			{Value: fmt.Sprintf("%d", head), Unit: "%", Label: "Gegenwind"},
+			{Value: fmt.Sprintf("%d", tail), Unit: "%", Label: "Rückenwind"},
+		},
 		Kind: "context",
 	}
 }

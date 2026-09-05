@@ -183,9 +183,18 @@ export async function getActivityStory(id: number): Promise<RideStory> {
 	return res.json();
 }
 
+/** German-locale decimal formatting (comma, not dot) — every number the
+ *  backend sends is already formatted this way (internal/analyze's own
+ *  `decimal()`); a frontend-computed figure has to match it, or the same
+ *  value reads as "1.5" in one place and "1,5" in another for the same
+ *  ride. */
+export function formatDecimal(value: number, digits: number): string {
+	return value.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
 export function formatDistance(meters: number | null): string {
 	if (meters === null) return '–';
-	return `${(meters / 1000).toFixed(1)} km`;
+	return `${formatDecimal(meters / 1000, 1)} km`;
 }
 
 export function formatDuration(seconds: number): string {

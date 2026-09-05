@@ -26,6 +26,33 @@ func TestPlausibleAcceptsARealEffortAndRejectsALazyDay(t *testing.T) {
 	}
 }
 
+// A spike — an optical strap glitching on a bump, a dropped connection —
+// used to sail through as "the hardest ride yet" with no upper bound at all,
+// permanently poisoning the assumed LTHR derived from it (#736).
+func TestPlausibleRejectsASpike(t *testing.T) {
+	year := 1990 // Tanaka max at 36 is 182.8; 110% of that is ~201.
+	ride := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+
+	spike := ObservedMaxHR{Bpm: 220, RiddenAt: ride}
+	if spike.plausible(&year) {
+		t.Error("220 bpm at 36 was accepted — that is 20% over the age-predicted maximum")
+	}
+
+	// A genuine outlier just past prediction is still accepted — the ceiling
+	// catches instrument noise, not a hard effort from a fit rider.
+	justAbove := ObservedMaxHR{Bpm: 195, RiddenAt: ride}
+	if !justAbove.plausible(&year) {
+		t.Error("195 bpm at 36 (107% of predicted) was rejected — that's a plausible hard effort")
+	}
+
+	// No birth year means no age-predicted ceiling either, but instrument
+	// noise is still instrument noise — the absolute floor still applies.
+	implausibleAnyway := ObservedMaxHR{Bpm: 245, RiddenAt: ride}
+	if implausibleAnyway.plausible(nil) {
+		t.Error("245 bpm with no birth year was accepted — no recorded human max approaches this")
+	}
+}
+
 func TestAssumedLTHRRefusesAnImplausibleMaximum(t *testing.T) {
 	year := 1990
 	ride := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)

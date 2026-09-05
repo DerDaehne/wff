@@ -44,7 +44,40 @@
 			jargon: 'IF, Intensity Factor',
 			color: 'var(--chart-power)',
 			text: `Wie hart eine Fahrt im Verhältnis zu deiner eigenen Schwelle war. 100 % heißt: so hart, wie
-				du es ungefähr eine Stunde durchhältst. Unter 75 % ist Grundlagentempo, über 95 % Wettkampf.`
+				du es ungefähr eine Stunde durchhältst. Aus Leistung gerechnet ist unter 75 % Grundlagentempo,
+				über 95 % Wettkampf. Aus dem Puls geschätzt liegt die Skala höher — ein ruhiges Tempo schlägt
+				schon bei etwa 40 % des Schwellenpulses, ein Grundlagentempo also eher bei 80 bis 90 %. Die App
+				sagt bei jeder Fahrt dazu, welche der beiden Rechnungen benutzt wurde.`
+		},
+		{
+			term: 'Trainingsniveau',
+			jargon: null,
+			color: 'var(--chart-ctl)',
+			text: `Ordnet deine Fitness (CTL) in eine von fünf Stufen ein, von "Einstieg" bis
+				"Wettkampfniveau" — die Grenzen folgen den Trainingsumfängen, die für diese Stufen üblich
+				sind, gerundet auf Zahlen, die man sich merken kann. Es ist keine Bewertung, nur eine
+				Größenordnung: eine 41 sagt für sich genommen nichts, "Gelegenheitsfahrer" schon eher etwas.`
+		},
+		{
+			term: 'Abfall 2. Hälfte',
+			jargon: 'Decoupling',
+			color: 'var(--chart-heart-rate)',
+			text: `Wie viel mehr Puls dieselbe Leistung (oder dasselbe Tempo) in der zweiten Hälfte einer
+				Fahrt gekostet hat als in der ersten. Niedriger ist besser — ein kleiner Abfall heißt, das Herz
+				hat die Anstrengung bis zum Schluss gleich gut weggesteckt. Nur bei ruhigen, gleichmäßigen
+				Fahrten aussagekräftig; bei einer Intervalleinheit sagt die Zahl nichts, weil sie Belastung
+				und Erholung mittelt statt sie zu trennen.`
+		},
+		{
+			term: 'Beobachteter Maximalpuls',
+			jargon: null,
+			color: 'var(--chart-heart-rate)',
+			text: `Der höchste Puls, der bisher auf einer deiner Fahrten aufgezeichnet wurde — keine Messung
+				aus einem echten Ausbelastungstest, nur die härteste Sache, die bisher passiert ist. Ohne
+				eingetragenen Schwellenpuls nutzt die App diesen Wert ersatzweise, um grob abzuschätzen, wo
+				deine Pulszonen liegen — solange er wie ein echter harter Effort aussieht. Ein einzelner
+				unplausibler Ausreißer (ein Sensor-Aussetzer, ein Ruckler am Handgelenk) wird dabei
+				aussortiert und nicht übernommen.`
 		},
 		{
 			term: 'Schwellenleistung',

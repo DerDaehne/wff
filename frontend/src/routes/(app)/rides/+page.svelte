@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { listActivities, formatDistance, formatDuration, type ActivitySummary } from '$lib/rides';
+	import {
+		listActivities,
+		formatDistance,
+		formatDuration,
+		formatDecimal,
+		type ActivitySummary
+	} from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import { getSettings } from '$lib/profile';
 	import EmptyState from '$lib/components/EmptyState.svelte';
@@ -41,7 +47,7 @@
 		if (ride.moving_seconds > 0 && ride.distance_meters !== null) {
 			figures.push({
 				metric: 'speed',
-				value: `${((ride.distance_meters / ride.moving_seconds) * 3.6).toFixed(1)} km/h`,
+				value: `${formatDecimal((ride.distance_meters / ride.moving_seconds) * 3.6, 1)} km/h`,
 				label: '⌀ Tempo'
 			});
 		}

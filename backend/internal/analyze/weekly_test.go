@@ -133,14 +133,15 @@ func TestBlockSpeedIsDistanceOverTime(t *testing.T) {
 // neighbouring entries ends the streak.
 func TestCurrentStreakWeeks(t *testing.T) {
 	t.Run("no weeks at all", func(t *testing.T) {
-		if got := currentStreakWeeks(nil); got != 0 {
+		if got := currentStreakWeeks(nil, time.Now()); got != 0 {
 			t.Errorf("currentStreakWeeks(nil) = %d, want 0", got)
 		}
 	})
 
 	t.Run("unbroken run counts every week", func(t *testing.T) {
 		w := weeks(5, func(int) float64 { return 50 }, func(int) float64 { return 25 })
-		if got := currentStreakWeeks(w); got != 5 {
+		now := w[len(w)-1].Start // "today" falls in the most recent week
+		if got := currentStreakWeeks(w, now); got != 5 {
 			t.Errorf("currentStreakWeeks = %d, want 5", got)
 		}
 	})
@@ -153,8 +154,59 @@ func TestCurrentStreakWeeks(t *testing.T) {
 			{Start: start.AddDate(0, 0, 7*5)}, // week 5
 			{Start: start.AddDate(0, 0, 7*6)}, // week 6: most recent
 		}
-		if got := currentStreakWeeks(w); got != 3 {
+		now := start.AddDate(0, 0, 7*6)
+		if got := currentStreakWeeks(w, now); got != 3 {
 			t.Errorf("currentStreakWeeks = %d, want 3 (only the last unbroken run)", got)
 		}
 	})
+
+	// #655 regression: the streak used to be read straight off the data with
+	// no check against the calendar at all, so a rider who stopped weeks ago
+	// (but whose last active week was still inside the progressWeeks window)
+	// kept seeing their old streak forever.
+	t.Run("a streak that's over doesn't keep counting", func(t *testing.T) {
+		w := weeks(5, func(int) float64 { return 50 }, func(int) float64 { return 25 })
+		lastActive := w[len(w)-1].Start
+		t.Run("still within the grace week", func(t *testing.T) {
+			now := lastActive.AddDate(0, 0, 7) // one week later, same as the grace boundary
+			if got := currentStreakWeeks(w, now); got != 5 {
+				t.Errorf("currentStreakWeeks = %d, want 5 (streak survives the week right after)", got)
+			}
+		})
+		t.Run("a full week with nothing logged ends it", func(t *testing.T) {
+			// lastActive+7..+13 is still the grace week (W1) — the streak only
+			// actually breaks once that whole week has gone by with no ride,
+			// i.e. once "now" reaches the week after it (+14).
+			now := lastActive.AddDate(0, 0, 14)
+			if got := currentStreakWeeks(w, now); got != 0 {
+				t.Errorf("currentStreakWeeks = %d, want 0 (a whole week has passed with no ride)", got)
+			}
+		})
+		t.Run("two months later it's definitely over", func(t *testing.T) {
+			now := lastActive.AddDate(0, 0, 56)
+			if got := currentStreakWeeks(w, now); got != 0 {
+				t.Errorf("currentStreakWeeks = %d, want 0 (long gone stale)", got)
+			}
+		})
+	})
+}
+
+func TestMondayOfWeek(t *testing.T) {
+	// A Thursday should truncate back to the Monday of the same ISO week.
+	thursday := time.Date(2026, 1, 8, 15, 30, 0, 0, time.UTC)
+	want := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
+	if got := mondayOfWeek(thursday); !got.Equal(want) {
+		t.Errorf("mondayOfWeek(%v) = %v, want %v", thursday, got, want)
+	}
+	// A Sunday belongs to the ISO week that started the Monday before it, not
+	// the one about to start — Go's Weekday() calls Sunday 0, which is
+	// exactly the off-by-one this function exists to avoid.
+	sunday := time.Date(2026, 1, 11, 8, 0, 0, 0, time.UTC)
+	if got := mondayOfWeek(sunday); !got.Equal(want) {
+		t.Errorf("mondayOfWeek(%v) = %v, want %v", sunday, got, want)
+	}
+	// Already a Monday at midnight: identity.
+	if got := mondayOfWeek(want); !got.Equal(want) {
+		t.Errorf("mondayOfWeek(%v) = %v, want %v (identity)", want, got, want)
+	}
 }

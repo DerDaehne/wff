@@ -24,6 +24,20 @@ const (
 	// maximum, the rider has simply never gone hard enough for the value to
 	// stand in for a real threshold test.
 	observedMaxPlausibleShare = 0.80
+	// observedMaxCeilingShare — above this share of the age-predicted
+	// maximum, the reading is more likely a sensor artefact (an optical strap
+	// glitching on a bump, a dropped connection) than a real effort. A
+	// genuine outlier this far past prediction is rare; treating it as noise
+	// costs far less than the alternative, where one bad reading becomes the
+	// permanent "hardest ever" and quietly inflates every zone boundary and
+	// every HR-based IF/TSS built on it from then on.
+	observedMaxCeilingShare = 1.10
+	// absoluteMaxPlausibleBpm is the fallback ceiling for a rider with no
+	// birth year configured, so there's nothing to predict a maximum from —
+	// plausible() otherwise accepts anything in that case. No recorded human
+	// heart rate has approached this; it exists purely to catch instrument
+	// noise, not to second-guess a real outlier effort.
+	absoluteMaxPlausibleBpm = 230
 	// assumedLTHRShareOfMax is the commonly used rule of thumb for where
 	// threshold heart rate sits relative to maximum. Looser than a real
 	// 20-minute test, but the only way to offer zones before one has ever
@@ -61,15 +75,21 @@ func ObservedMax(ctx context.Context, pool *pgxpool.Pool, userID int64) (*Observ
 
 // plausible reports whether the observed value is a believable stand-in for
 // a real maximal-effort test at the age the rider had when it was recorded —
-// not just the hardest ride so far, but hard enough to mean something.
-// Without a birth year there is nothing to check against, so nothing gets
-// ruled out either.
+// not just the hardest ride so far, but hard enough to mean something, and
+// not so far past what's physiologically likely that it's probably a sensor
+// glitch instead. Without a birth year there is no age-based band to check
+// against, so only the absolute ceiling applies.
 func (m ObservedMaxHR) plausible(birthYear *int) bool {
+	if m.Bpm > absoluteMaxPlausibleBpm {
+		return false
+	}
 	age, ok := ageAt(m.RiddenAt, birthYear)
 	if !ok {
 		return true
 	}
-	return float64(m.Bpm) >= observedMaxPlausibleShare*ageMaxHeartRate(age)
+	predicted := ageMaxHeartRate(age)
+	return float64(m.Bpm) >= observedMaxPlausibleShare*predicted &&
+		float64(m.Bpm) <= observedMaxCeilingShare*predicted
 }
 
 // AssumedLTHR derives a stand-in threshold heart rate from the observed

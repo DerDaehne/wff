@@ -53,13 +53,23 @@ func NormalizedPower(powerWatts []float64) float64 {
 // compute from (no power samples or no FTP configured) — never a bogus
 // number, never an error for what is a perfectly normal state (see
 // arch-wff-analyze on the FTP-optional contract).
-func ComputePowerMetrics(powerWatts []float64, elapsedSeconds int, ftpWatts int) *PowerMetrics {
-	if len(powerWatts) == 0 || ftpWatts <= 0 || elapsedSeconds <= 0 {
+//
+// durationSeconds must be the duration the power samples actually cover
+// (moving/recording time), not the ride's wall-clock elapsed time. A device
+// with auto-pause enabled stops writing samples during a stop, so NP is
+// already computed over moving time only — multiplying it by the longer
+// elapsed time (which includes those stops) would overstate TSS by exactly
+// elapsed/moving for every ride with a red light or a café stop in it. The
+// heart-rate path (ComputeHRMetrics) gets this right by construction, since
+// its time comes from the gaps between samples rather than a stored elapsed
+// figure — this parameter keeps the power path on the same footing.
+func ComputePowerMetrics(powerWatts []float64, durationSeconds int, ftpWatts int) *PowerMetrics {
+	if len(powerWatts) == 0 || ftpWatts <= 0 || durationSeconds <= 0 {
 		return nil
 	}
 	np := NormalizedPower(powerWatts)
 	ftp := float64(ftpWatts)
 	ifactor := np / ftp
-	tss := float64(elapsedSeconds) * np * ifactor / (ftp * 3600) * 100
+	tss := float64(durationSeconds) * np * ifactor / (ftp * 3600) * 100
 	return &PowerMetrics{NormalizedPowerWatts: np, IntensityFactor: ifactor, TSS: tss}
 }

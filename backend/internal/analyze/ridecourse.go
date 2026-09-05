@@ -132,6 +132,7 @@ func Course(samples []CourseSample, winds []WindBucket) CourseStats {
 
 	windByHour := map[time.Time]WindBucket{}
 	var windSpeedSum, windDirSinSum, windDirCosSum float64
+	var windSampleCount int
 	for _, w := range winds {
 		windByHour[w.Hour.UTC().Truncate(time.Hour)] = w
 		if w.SpeedMps != nil && w.DirectionDeg != nil {
@@ -141,6 +142,7 @@ func Course(samples []CourseSample, winds []WindBucket) CourseStats {
 			rad := *w.DirectionDeg * math.Pi / 180
 			windDirSinSum += math.Sin(rad)
 			windDirCosSum += math.Cos(rad)
+			windSampleCount++
 		}
 	}
 
@@ -179,8 +181,13 @@ func Course(samples []CourseSample, winds []WindBucket) CourseStats {
 			stats.HeadwindShare = headwindDistance / stats.DistanceMeters
 			stats.TailwindShare = tailwindDistance / stats.DistanceMeters
 			stats.CrosswindShare = crosswindDistance / stats.DistanceMeters
-			if n := len(winds); n > 0 {
-				stats.MeanWindSpeedMps = windSpeedSum / float64(n)
+			// windSampleCount, not len(winds): a hemisphere's worth of buckets
+			// the weather API didn't cover (nil speed/direction) were already
+			// excluded from windSpeedSum above — dividing by the full bucket
+			// count instead of the buckets that actually contributed silently
+			// understated the average whenever enrichment was incomplete.
+			if windSampleCount > 0 {
+				stats.MeanWindSpeedMps = windSpeedSum / float64(windSampleCount)
 				stats.WindFromDeg = math.Mod(math.Atan2(windDirSinSum, windDirCosSum)*180/math.Pi+360, 360)
 			}
 		}

@@ -16,6 +16,7 @@
 		updateActivityBike,
 		formatDistance,
 		formatDuration,
+		formatDecimal,
 		type Sample,
 		type WeatherSummary,
 		type RideStory,
@@ -187,7 +188,7 @@
 
 	function formatSpeed(mps: number | null): string {
 		if (mps === null) return '–';
-		return `${(mps * 3.6).toFixed(1)} km/h`;
+		return `${formatDecimal(mps * 3.6, 1)} km/h`;
 	}
 
 	// formatDuration (rides.ts) only shows whole minutes, fine for a ride but

@@ -7,6 +7,7 @@
 		getActivityWeather,
 		formatDistance,
 		formatDuration,
+		formatDecimal,
 		type ActivitySummary,
 		type WeatherSummary
 	} from '$lib/rides';
@@ -35,14 +36,14 @@
 
 	function avgSpeedKmh(ride: ActivitySummary): string {
 		if (ride.moving_seconds === 0 || ride.distance_meters === null) return '–';
-		return `${((ride.distance_meters / ride.moving_seconds) * 3.6).toFixed(1)} km/h`;
+		return `${formatDecimal((ride.distance_meters / ride.moving_seconds) * 3.6, 1)} km/h`;
 	}
 
 	function windLabel(weather: WeatherSummary | null): string {
 		if (!weather || weather.buckets_enriched === 0) return 'Keine Winddaten';
 		if (weather.avg_headwind_mps === null) return 'Keine Winddaten';
 		const kind = weather.avg_headwind_mps >= 0 ? 'Gegenwind' : 'Rückenwind';
-		return `⌀ ${Math.abs(weather.avg_headwind_mps).toFixed(1)} m/s ${kind}`;
+		return `⌀ ${formatDecimal(Math.abs(weather.avg_headwind_mps), 1)} m/s ${kind}`;
 	}
 
 	onMount(async () => {

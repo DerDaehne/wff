@@ -48,7 +48,11 @@ func Insights(series []DayLoad) []Insight {
 	}
 
 	latest := series[len(series)-1]
-	weekAgo := series[len(series)-minHistoryDaysForInsights]
+	// 7 days back from the latest entry, not minHistoryDaysForInsights
+	// entries back from the start of the slice — those aren't the same thing
+	// (index len-7 is 6 days before index len-1), and the text below says
+	// "in einer Woche" and quotes a percentage built on it.
+	weekAgo := series[max(0, len(series)-1-7)]
 
 	var insights []Insight
 

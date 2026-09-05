@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
 	import { getCompare, type CompareResponse } from '$lib/compare';
+	import { formatDecimal } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 
@@ -23,7 +24,7 @@
 	function formatDelta(delta: number | null): string {
 		if (delta === null) return 'Noch keine Grundlage';
 		const sign = delta > 0 ? '+' : '';
-		return `${sign}${delta.toFixed(1)}`;
+		return `${sign}${formatDecimal(delta, 1)}`;
 	}
 </script>
 

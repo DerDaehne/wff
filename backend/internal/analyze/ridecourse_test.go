@@ -83,6 +83,25 @@ func TestCourseWindClassification(t *testing.T) {
 	}
 }
 
+// A ride that spans hours the weather API failed to enrich (nil speed/
+// direction, a gap in coverage) must not have its wind average diluted by
+// those empty buckets — only the hours that actually have a reading count
+// toward the mean.
+func TestCourseMeanWindSpeedIgnoresUnenrichedHours(t *testing.T) {
+	east := track(48.1372, 11.5755, 0, 0.00015, 60, 500, 0, rideStart)
+	winds := wind(6, 90, rideStart)
+	winds = append(winds,
+		WindBucket{Hour: rideStart.Add(3 * time.Hour).Truncate(time.Hour)},
+		WindBucket{Hour: rideStart.Add(5 * time.Hour).Truncate(time.Hour)},
+	)
+
+	stats := Course(east, winds)
+	if !almostEqual(stats.MeanWindSpeedMps, 6, 1e-9) {
+		t.Errorf("MeanWindSpeedMps = %.2f, want 6 (the one enriched hour, not diluted by the two empty ones)",
+			stats.MeanWindSpeedMps)
+	}
+}
+
 func TestCourseTerrain(t *testing.T) {
 	// ~1.7 km climbing 100 m => ~6 % average grade.
 	climb := track(48.1372, 11.5755, 0.00015, 0, 100, 500, 1.0, rideStart)
