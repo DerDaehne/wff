@@ -218,6 +218,22 @@
 	box-sizing: border-box;
 }
 
+/* Scrollbar hidden everywhere (page, the laps/compare tables' own
+   overflow-x, the bottom sheet) for a cleaner, more native-app look —
+   deliberate, not an accessibility regression: scrolling itself is
+   untouched (wheel/touch/keyboard all still work), only the track's own
+   chrome is gone, the same trade-off iOS and most native apps already
+   make by default. */
+* {
+	scrollbar-width: none; /* Firefox */
+}
+
+*::-webkit-scrollbar {
+	display: none; /* Chromium, Safari */
+	width: 0;
+	height: 0;
+}
+
 body {
 	margin: 0;
 	/* A decorative gradient here (tried in #645) tiled visibly on tall pages
