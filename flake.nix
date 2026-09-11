@@ -26,7 +26,7 @@
             pname = "wff-backend";
             version = "0.1.0";
             src = ./backend;
-            vendorHash = "sha256-XsHVjCASBzBMRy/cbpHuC5Vj9nfauadFgS/HGHw71FQ=";
+            vendorHash = "sha256-1SRYl/NUz3gPFAuQHvuo4HTXn29ejdSZPM24b+XD2rg=";
 
             # internal/webui/dist ships a placeholder (so the module always
             # compiles on its own) — overwrite it with the real static build
@@ -46,7 +46,7 @@
             pnpmDeps = pkgs.fetchPnpmDeps {
               inherit (finalAttrs) pname version src;
               fetcherVersion = 4;
-              hash = "sha256-9P+wZqzUwULtSQqfIq+CMUOvWswHJlUTGtdR10ENJB4=";
+              hash = "sha256-6UwjDZNMqUKC2uceVMAT4uKX7w4LviGLgNJ32Xrbepk=";
             };
 
             nativeBuildInputs = [ pkgs.nodejs_22 pkgs.pnpm pkgs.pnpmConfigHook ];
