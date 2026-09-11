@@ -20,6 +20,7 @@ type Handlers struct {
 	wa            *webauthn.WebAuthn
 	registrations *ceremonyStore[registrationCeremony]
 	logins        *ceremonyStore[loginCeremony]
+	addPasskeys   *ceremonyStore[addPasskeyCeremony]
 }
 
 func NewHandlers(pool *pgxpool.Pool, wa *webauthn.WebAuthn) *Handlers {
@@ -28,6 +29,7 @@ func NewHandlers(pool *pgxpool.Pool, wa *webauthn.WebAuthn) *Handlers {
 		wa:            wa,
 		registrations: newCeremonyStore[registrationCeremony](),
 		logins:        newCeremonyStore[loginCeremony](),
+		addPasskeys:   newCeremonyStore[addPasskeyCeremony](),
 	}
 }
 
@@ -48,6 +50,12 @@ func (h *Handlers) Register(mux *http.ServeMux) {
 	// (#702). Session only, same reasoning as device tokens above: a device
 	// token is scoped to uploads and must not be able to mint account access.
 	mux.Handle("POST /api/invites", RequireAuth(h.pool)(http.HandlerFunc(h.createInvite)))
+	// Passkey management (add/list/delete) — session only, same reasoning as
+	// device tokens and invites above.
+	mux.Handle("GET /api/passkeys", RequireAuth(h.pool)(http.HandlerFunc(h.listPasskeys)))
+	mux.Handle("POST /api/passkeys/begin", RequireAuth(h.pool)(http.HandlerFunc(h.beginAddPasskey)))
+	mux.Handle("POST /api/passkeys/finish", RequireAuth(h.pool)(http.HandlerFunc(h.finishAddPasskey)))
+	mux.Handle("DELETE /api/passkeys/{id}", RequireAuth(h.pool)(http.HandlerFunc(h.deletePasskey)))
 }
 
 func (h *Handlers) beginRegistration(w http.ResponseWriter, r *http.Request) {
@@ -358,7 +366,10 @@ func setCeremonyCookie(w http.ResponseWriter, id string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     ceremonyCookieName,
 		Value:    id,
-		Path:     "/auth",
+		// Covers /auth (invite/login ceremonies) and /api (an existing user
+		// adding a passkey) — a single short-lived (5 min), single-use
+		// (ceremonyStore.take()) cookie shared by all three flows.
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   cookieSecure(),
 		SameSite: http.SameSiteStrictMode,
@@ -378,7 +389,7 @@ func clearCeremonyCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     ceremonyCookieName,
 		Value:    "",
-		Path:     "/auth",
+		Path:     "/",
 		HttpOnly: true,
 		Secure:   cookieSecure(),
 		SameSite: http.SameSiteStrictMode,

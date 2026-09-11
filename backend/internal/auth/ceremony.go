@@ -32,6 +32,21 @@ type loginCeremony struct {
 	credentials []webauthn.Credential
 }
 
+// addPasskeyCeremony is registrationCeremony's counterpart for an already
+// signed-in user adding a second (or third...) passkey — no invite involved,
+// the user row already exists. name is chosen up front (before the
+// authenticator ceremony even starts) so FinishRegistration's request body
+// can stay exactly the raw attestation response, same shape as every other
+// WebAuthn finish call in this file.
+type addPasskeyCeremony struct {
+	session     webauthn.SessionData
+	userID      int64
+	webAuthnID  []byte
+	username    string
+	displayName string
+	name        string
+}
+
 type ceremonyStore[T any] struct {
 	mu      sync.Mutex
 	entries map[string]ceremonyEntry[T]

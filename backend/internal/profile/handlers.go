@@ -72,7 +72,12 @@ var allowedMetrics = map[string]bool{
 // would be worse than no estimate at all.
 type settingsResponse struct {
 	settings
-	Estimates analyze.Estimates `json:"estimates"`
+	// Username/DisplayName are read-only here (settings has no field for
+	// them — there's no rename flow yet) — the profile page's identity
+	// header needs them and this is the endpoint it already calls.
+	Username    string            `json:"username"`
+	DisplayName string            `json:"display_name"`
+	Estimates   analyze.Estimates `json:"estimates"`
 	// Gaps say what the app still cannot tell this rider, and which ride would
 	// change that (#612).
 	Gaps []analyze.Gap `json:"gaps"`
@@ -85,10 +90,11 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 	userID, _ := auth.UserID(r.Context())
 
 	var s settings
+	var username, displayName string
 	if err := h.pool.QueryRow(r.Context(),
-		`SELECT ftp_watts, lthr_bpm, weight_kg, primary_metric, birth_year, sex, compare_opt_in
+		`SELECT username, display_name, ftp_watts, lthr_bpm, weight_kg, primary_metric, birth_year, sex, compare_opt_in
 		 FROM users WHERE id = $1`, userID,
-	).Scan(&s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric, &s.BirthYear, &s.Sex, &s.CompareOptIn); err != nil {
+	).Scan(&username, &displayName, &s.FTPWatts, &s.LTHRBpm, &s.WeightKg, &s.PrimaryMetric, &s.BirthYear, &s.Sex, &s.CompareOptIn); err != nil {
 		http.Error(w, "could not load settings", http.StatusInternalServerError)
 		return
 	}
@@ -110,7 +116,8 @@ func (h *Handlers) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, settingsResponse{
-		settings: s, Estimates: estimates, Gaps: gaps, ObservedMaxHR: observedMaxHR,
+		settings: s, Username: username, DisplayName: displayName,
+		Estimates: estimates, Gaps: gaps, ObservedMaxHR: observedMaxHR,
 	})
 }
 

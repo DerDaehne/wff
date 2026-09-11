@@ -50,6 +50,8 @@ export interface ObservedMaxHR {
 }
 
 export interface SettingsResponse extends Settings {
+	username: string;
+	display_name: string;
 	estimates: Estimates;
 	gaps: Gap[];
 	observed_max_hr: ObservedMaxHR | null;

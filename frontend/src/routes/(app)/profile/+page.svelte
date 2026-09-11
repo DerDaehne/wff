@@ -12,9 +12,13 @@
 	import { ApiError } from '$lib/api';
 	import { progressMetrics } from '$lib/progress';
 	import { createInvite } from '$lib/invites';
+	import { listPasskeys, addPasskey, deletePasskey, type Passkey } from '$lib/passkeys';
+	import { friendlyAuthError } from '$lib/webauthn';
 
 	let viewState: 'loading' | 'ready' | 'error' = $state('loading');
 	let errorMessage = $state('');
+	let username = $state('');
+	let displayName = $state('');
 	let ftpWatts: number | '' = $state('');
 	let lthrBpm: number | '' = $state('');
 	let weightKg: number | '' = $state('');
@@ -30,6 +34,8 @@
 	onMount(async () => {
 		try {
 			const settings = await getSettings();
+			username = settings.username;
+			displayName = settings.display_name;
 			ftpWatts = settings.ftp_watts ?? '';
 			lthrBpm = settings.lthr_bpm ?? '';
 			weightKg = settings.weight_kg ?? '';
@@ -46,7 +52,72 @@
 				err instanceof ApiError ? err.message : 'Einstellungen konnten nicht geladen werden.';
 			viewState = 'error';
 		}
+		loadPasskeys();
 	});
+
+	// Passkeys (#754 follow-up): manage additional passkeys — add, list,
+	// delete. Loaded independently of the settings form above so one failing
+	// doesn't block the other.
+	let passkeys: Passkey[] = $state([]);
+	let passkeysState: 'loading' | 'ready' | 'error' = $state('loading');
+	let newPasskeyName = $state('');
+	let addPasskeyBusy = $state(false);
+	let addPasskeyError = $state('');
+	let deletingPasskeyID: number | null = $state(null);
+	let deletePasskeyError = $state('');
+
+	async function loadPasskeys() {
+		try {
+			passkeys = await listPasskeys();
+			passkeysState = 'ready';
+		} catch {
+			passkeysState = 'error';
+		}
+	}
+
+	function passkeyDateLabel(iso: string): string {
+		return new Date(iso).toLocaleDateString('de-DE', {
+			day: '2-digit',
+			month: '2-digit',
+			year: 'numeric'
+		});
+	}
+
+	async function submitAddPasskey(e: SubmitEvent) {
+		e.preventDefault();
+		const name = newPasskeyName.trim();
+		if (!name) return;
+		addPasskeyBusy = true;
+		addPasskeyError = '';
+		try {
+			const created = await addPasskey(name);
+			passkeys = [...passkeys, created];
+			newPasskeyName = '';
+		} catch (err) {
+			addPasskeyError = friendlyAuthError(err);
+		} finally {
+			addPasskeyBusy = false;
+		}
+	}
+
+	async function removePasskey(id: number) {
+		deletingPasskeyID = id;
+		deletePasskeyError = '';
+		try {
+			await deletePasskey(id);
+			passkeys = passkeys.filter((p) => p.id !== id);
+		} catch (err) {
+			// 409 is the one error case a rider can actually cause here (trying
+			// to delete their last passkey) — worth a real translation; every
+			// other case is unexpected enough that the raw message is fine.
+			deletePasskeyError =
+				err instanceof ApiError && err.status === 409
+					? 'Das ist dein letzter Passkey — ohne ihn kämst du nicht mehr rein. Erst einen weiteren hinzufügen, dann diesen löschen.'
+					: friendlyAuthError(err);
+		} finally {
+			deletingPasskeyID = null;
+		}
+	}
 
 	// Einladung erstellen (#702): jede registrierte Person, keine Admin-Rolle.
 	let inviteUsername = $state('');
@@ -130,14 +201,25 @@
 	}
 </script>
 
-<h1>Profil</h1>
+{#if viewState === 'ready'}
+	<header class="profile-header">
+		<div class="avatar" aria-hidden="true">{displayName.charAt(0).toUpperCase()}</div>
+		<div>
+			<h1>{displayName}</h1>
+			<p class="username">@{username}</p>
+		</div>
+	</header>
+{:else}
+	<h1>Profil</h1>
+{/if}
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<div class="card">
+	<section class="card">
+		<h2>Trainingswerte</h2>
 		<p class="hint">
 			Diese beiden Werte sagen der App, wie hart eine Fahrt <em>für dich</em> war. Ohne mindestens einen
 			davon kann sie deine Trainingsbelastung nicht berechnen und die Startseite bleibt leer, auch wenn
@@ -291,7 +373,75 @@
 				<p class="error" role="alert">Einstellungen konnten nicht gespeichert werden.</p>
 			{/if}
 		</form>
-	</div>
+	</section>
+
+	<section class="card passkeys">
+		<h2>Passkeys</h2>
+		<p class="hint">
+			Der einzige Weg in dieses Konto — es gibt kein Passwort und keine E-Mail-Wiederherstellung.
+			Ein zweiter Passkey (etwa auf einem weiteren Gerät) ist deine Absicherung, falls das erste
+			verloren geht.
+		</p>
+
+		{#if passkeysState === 'loading'}
+			<p class="hint">Lädt…</p>
+		{:else if passkeysState === 'error'}
+			<p class="error" role="alert">Passkeys konnten nicht geladen werden.</p>
+		{:else}
+			<ul class="passkey-list">
+				{#each passkeys as passkey (passkey.id)}
+					<li class="passkey-row">
+						<div>
+							<p class="passkey-name">{passkey.name}</p>
+							<p class="passkey-meta">
+								Hinzugefügt am {passkeyDateLabel(passkey.created_at)}{#if passkey.last_used_at}
+									· zuletzt genutzt am {passkeyDateLabel(passkey.last_used_at)}{/if}
+							</p>
+						</div>
+						<button
+							class="btn btn-secondary btn-danger"
+							type="button"
+							disabled={deletingPasskeyID === passkey.id || passkeys.length <= 1}
+							title={passkeys.length <= 1
+								? 'Dein letzter Passkey — erst einen weiteren hinzufügen'
+								: undefined}
+							onclick={() => removePasskey(passkey.id)}
+						>
+							{deletingPasskeyID === passkey.id ? 'Löscht…' : 'Löschen'}
+						</button>
+					</li>
+				{/each}
+			</ul>
+			{#if deletePasskeyError}
+				<p class="error" role="alert">{deletePasskeyError}</p>
+			{/if}
+
+			<form class="passkey-add" onsubmit={submitAddPasskey}>
+				<div class="field">
+					<label for="passkey-name">Neuen Passkey hinzufügen</label>
+					<p class="field-hint">
+						Ein Name, an dem du ihn später wiedererkennst — z. B. „iPhone“ oder „YubiKey“.
+					</p>
+					<div class="passkey-add-row">
+						<input
+							id="passkey-name"
+							class="input"
+							type="text"
+							placeholder="z. B. iPhone"
+							bind:value={newPasskeyName}
+							required
+						/>
+						<button class="btn btn-secondary" type="submit" disabled={addPasskeyBusy}>
+							{addPasskeyBusy ? 'Wartet auf Gerät…' : 'Hinzufügen'}
+						</button>
+					</div>
+				</div>
+				{#if addPasskeyError}
+					<p class="error" role="alert">{addPasskeyError}</p>
+				{/if}
+			</form>
+		{/if}
+	</section>
 
 	{#if gaps.length > 0}
 		<section class="gaps">
@@ -310,7 +460,7 @@
 	{/if}
 
 	{#if compareOptIn}
-		<section class="export">
+		<section class="export card">
 			<h2>Trainingserfolg-Vergleich</h2>
 			<p class="hint">
 				Wie sich dein Trainingszustand im Vergleich zu anderen zugestimmten Nutzern entwickelt hat.
@@ -319,7 +469,7 @@
 		</section>
 	{/if}
 
-	<section class="export">
+	<section class="export card">
 		<h2>Deine Räder</h2>
 		<p class="hint">
 			Kilometerstand pro Rad und Erinnerung an den Kettenwechsel — neue Fahrten werden automatisch
@@ -328,7 +478,7 @@
 		<a class="btn btn-secondary" href={resolve('/(app)/raeder')}>Räder verwalten</a>
 	</section>
 
-	<section class="export">
+	<section class="export card">
 		<h2>Neue Person einladen</h2>
 		<p class="hint">
 			Jede registrierte Person kann weitere einladen — es gibt keine Admin-Rolle. Der Link ist 72
@@ -382,7 +532,7 @@
 		{/if}
 	</section>
 
-	<section class="export">
+	<section class="export card">
 		<h2>Deine Daten</h2>
 		<p class="hint">
 			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten
@@ -443,6 +593,101 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+
+	/* .export sections all carry both classes now (#754 follow-up) — .card
+	   for the box, .export for its own margin/layout — so this page reads as
+	   one consistent stack of panels instead of "boxed form up top, bare
+	   text-and-button rows below it". */
+	.card h2 {
+		margin: 0;
+	}
+
+	/* Passkeys card doesn't carry .export (it's not export-shaped: a list
+	   plus an inline add-form, not a single button), so its margin-top needs
+	   restating here to match the rhythm of every card below it. */
+	.passkeys {
+		margin-top: 2.5rem;
+	}
+
+	.profile-header {
+		max-width: 34rem;
+		margin: 0 auto 2rem;
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.profile-header h1 {
+		margin: 0;
+	}
+
+	.avatar {
+		flex-shrink: 0;
+		width: 3rem;
+		height: 3rem;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: color-mix(in srgb, var(--color-brand) 20%, transparent);
+		color: var(--color-brand);
+		font-weight: 700;
+		font-size: var(--text-lg, 18px);
+	}
+
+	.username {
+		margin: 0.125rem 0 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+
+	.passkey-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.passkey-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 0.75rem 1rem;
+		background: color-mix(in srgb, var(--color-text) 4%, transparent);
+		border-radius: var(--radius-sm);
+	}
+
+	.passkey-name {
+		margin: 0;
+		font-weight: 600;
+	}
+
+	.passkey-meta {
+		margin: 0.125rem 0 0;
+		color: var(--color-text-muted);
+		font-size: var(--text-sm);
+	}
+
+	.btn-danger {
+		background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+		color: var(--color-danger);
+	}
+
+	.btn-danger:not(:disabled):hover {
+		background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+	}
+
+	.passkey-add-row {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.passkey-add-row .input {
+		flex: 1;
 	}
 
 	.hint {
