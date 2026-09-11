@@ -7,6 +7,18 @@
 		     the phone's gesture bar no matter what the CSS asks for (#615). -->
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="text-scale" content="scale" />
+		<!-- Colours the Android status bar / iOS Safari toolbar to match the
+		     actual page background instead of a static brand colour — the
+		     manifest's theme_color (vite.config.ts) can't react to
+		     prefers-color-scheme, so without this the status bar stayed the old
+		     pre-Nocturne teal regardless of which scheme was actually showing.
+		     True transparency isn't offered by either platform (the bar always
+		     paints an opaque colour); matching --color-bg exactly is what makes
+		     it read as "gone" instead of as a colour of its own. Two tags, not
+		     one dynamic value: the browser itself picks the matching one before
+		     any CSS or JS runs, so there's no flash of the wrong colour. */
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f6f8" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#161826" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="hover">

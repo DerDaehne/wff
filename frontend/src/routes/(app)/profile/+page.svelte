@@ -393,9 +393,19 @@
 {/if}
 
 <style>
+	/* Every section on this page shares the same 34rem measure and centers
+	   the same way (including the h1 below) — visually identical to wrapping
+	   the whole page in one centered container, without having to restructure
+	   the template's several independent {#if}-gated sections to do it. */
+	h1,
 	.gaps,
 	.export {
 		max-width: 34rem;
+		margin-inline: auto;
+	}
+
+	.gaps,
+	.export {
 		margin-top: 2.5rem;
 		display: flex;
 		flex-direction: column;
@@ -429,6 +439,7 @@
 
 	.card {
 		max-width: 34rem;
+		margin-inline: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;

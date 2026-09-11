@@ -121,7 +121,11 @@
 	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
 	--shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
 	--shadow-lg: 0 14px 32px rgba(15, 23, 42, 0.16);
-	--surface-glass: rgba(255, 255, 255, 0.72);
+	/* Was 0.72 — legible over a plain card, not always over real scrolling
+	   content (a chart's own colours, a bright fact-tile fill). Raised so the
+	   glass reads as "frosted", not "half-there", while still letting colour
+	   and shape show through. */
+	--surface-glass: rgba(255, 255, 255, 0.85);
 	/* Strength of a semantic colour used as a card wash. Dark needs more of it
 	   to be visible at all, so it is a token rather than a literal per card. */
 	--wash-strength: 10%;
@@ -184,7 +188,8 @@
 		--shadow-sm: 0 0 0 1px var(--color-border);
 		--shadow-md: 0 0 0 1px var(--color-border);
 		--shadow-lg: 0 0 0 1px var(--color-border);
-		--surface-glass: rgba(22, 24, 38, 0.82);
+		/* Was 0.82 — same reasoning as the light value above. */
+		--surface-glass: rgba(22, 24, 38, 0.9);
 		--wash-strength: 18%;
 		--wash-base: var(--color-surface);
 

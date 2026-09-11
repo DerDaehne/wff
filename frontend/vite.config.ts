@@ -45,8 +45,14 @@ export default defineConfig({
 				start_url: '/',
 				scope: '/',
 				display: 'standalone',
-				theme_color: '#0f766e',
-				background_color: '#0f766e',
+				// The static fallback the OS reads once, at install/splash time,
+				// before any page (and its <meta theme-color> tags in app.html,
+				// which do react to prefers-color-scheme) has ever loaded — was
+				// still the pre-Nocturne teal brand colour. Matches the light
+				// scheme's --color-bg, since manifest values can't themselves
+				// vary by scheme.
+				theme_color: '#f4f6f8',
+				background_color: '#f4f6f8',
 				icons: [
 					{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
 					{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },

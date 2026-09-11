@@ -26,3 +26,15 @@
 		<p><a href={actionHref}>{actionLabel}</a></p>
 	{/if}
 </div>
+
+<style>
+	/* No width constraint at all used to mean every "nothing here yet"
+	   message — dashboard, rides, vergleich's opt-in prompt, all of them —
+	   ran edge to edge of .content on a wide desktop screen: one unbroken
+	   line of prose a thousand-plus pixels wide. 60ch matches the measure
+	   already used for prose elsewhere in the app (panel-sub, glossar's
+	   intro, ...). */
+	.empty-state p {
+		max-width: 60ch;
+	}
+</style>

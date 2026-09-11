@@ -9,7 +9,19 @@
 
 	let authState: 'checking' | 'authed' = $state('checking');
 
+	// Desktop-only (the mobile bottom bar has no collapse concept — see the
+	// .sidebar-toggle CSS, hidden below the sidebar breakpoint). Remembered
+	// per browser: a rider who collapses it on their desktop shouldn't have
+	// to redo that every visit.
+	const sidebarStorageKey = 'wff-sidebar-collapsed';
+	let sidebarCollapsed = $state(false);
+
 	onMount(async () => {
+		try {
+			sidebarCollapsed = localStorage.getItem(sidebarStorageKey) === '1';
+		} catch {
+			// Private browsing / storage disabled: default (expanded) stands.
+		}
 		const me = await whoAmI();
 		if (!me) {
 			await goto(resolve('/login'));
@@ -18,16 +30,27 @@
 		authState = 'authed';
 	});
 
+	function toggleSidebar() {
+		sidebarCollapsed = !sidebarCollapsed;
+		try {
+			localStorage.setItem(sidebarStorageKey, sidebarCollapsed ? '1' : '0');
+		} catch {
+			// Nothing to persist to — the toggle still works for this visit.
+		}
+	}
+
 	async function handleLogout() {
 		await logout();
 		await goto(resolve('/login'));
 	}
 
+	// short: what a collapsed sidebar shows instead of the full label — see
+	// the .nav-label-short/-full split below.
 	const navItems = [
-		{ href: resolve('/(app)'), label: 'Start' },
-		{ href: resolve('/(app)/rides'), label: 'Fahrten' },
-		{ href: resolve('/(app)/upload'), label: 'Upload' },
-		{ href: resolve('/(app)/profile'), label: 'Profil' }
+		{ href: resolve('/(app)'), label: 'Start', short: 'S' },
+		{ href: resolve('/(app)/rides'), label: 'Fahrten', short: 'F' },
+		{ href: resolve('/(app)/upload'), label: 'Upload', short: 'U' },
+		{ href: resolve('/(app)/profile'), label: 'Profil', short: 'P' }
 	];
 </script>
 
@@ -35,17 +58,39 @@
 	<p>Lädt…</p>
 {:else if authState === 'authed'}
 	<div class="app-shell">
-		<nav class="nav">
+		<nav class="nav" class:collapsed={sidebarCollapsed}>
+			<button
+				class="sidebar-toggle"
+				onclick={toggleSidebar}
+				aria-expanded={!sidebarCollapsed}
+				aria-label={sidebarCollapsed ? 'Navigation ausklappen' : 'Navigation einklappen'}
+			>
+				{sidebarCollapsed ? '»' : '«'}
+			</button>
 			<ul>
 				{#each navItems as item (item.href)}
 					<li>
-						<a href={item.href} aria-current={page.url.pathname === item.href ? 'page' : undefined}>
-							{item.label}
+						<a
+							href={item.href}
+							aria-current={page.url.pathname === item.href ? 'page' : undefined}
+							aria-label={item.label}
+							title={sidebarCollapsed ? item.label : undefined}
+						>
+							<span class="nav-label-full" aria-hidden="true">{item.label}</span>
+							<span class="nav-label-short" aria-hidden="true">{item.short}</span>
 						</a>
 					</li>
 				{/each}
 			</ul>
-			<button class="logout" onclick={handleLogout}>Abmelden</button>
+			<button
+				class="logout"
+				onclick={handleLogout}
+				aria-label="Abmelden"
+				title={sidebarCollapsed ? 'Abmelden' : undefined}
+			>
+				<span class="nav-label-full" aria-hidden="true">Abmelden</span>
+				<span class="nav-label-short" aria-hidden="true">Ab</span>
+			</button>
 		</nav>
 		<main class="content">
 			{@render children()}
@@ -82,8 +127,13 @@
 		   chips, chart colour) scrolling underneath gives the glass plenty to
 		   refract without a synthetic backdrop. */
 		background: var(--surface-glass);
-		backdrop-filter: blur(20px);
-		-webkit-backdrop-filter: blur(20px);
+		/* Was 20px — over a chart's own colours or a bright fact-tile fill,
+		   20px still let enough shape through to blur legibility rather than
+		   the content behind it. Stronger blur plus --surface-glass's own
+		   higher opacity (app.css) is what actually fixes that; either alone
+		   wasn't enough. */
+		backdrop-filter: blur(28px);
+		-webkit-backdrop-filter: blur(28px);
 		border-top: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
 		color: var(--color-text);
 		/* iOS's home indicator and Android's gesture bar both own a strip along
@@ -143,6 +193,19 @@
 		background: color-mix(in srgb, var(--color-text) 14%, transparent);
 	}
 
+	/* Both exist on mobile too (simplest to keep one markup for both layouts)
+	   but only the collapse toggle below ever switches between them — the
+	   bottom bar has no collapsed state, so -short stays unused there. */
+	.nav-label-short {
+		display: none;
+	}
+
+	/* No collapse concept on the bottom bar — hidden until the sidebar
+	   breakpoint below gives it something to do. */
+	.sidebar-toggle {
+		display: none;
+	}
+
 	/* Four nav items plus the logout button don't fit a ~390px phone at full
 	   padding — the button ran off the right edge. Tighten rather than wrap: a
 	   bottom bar that grows to two rows is worse than a snug one. */
@@ -180,6 +243,15 @@
 			   edge instead. */
 			border-top: none;
 			border-right: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+			/* Collapsible (Nocturne v3-style motion — respects the app-wide
+			   reduced-motion blanket in app.css automatically, since that just
+			   zeroes every transition-duration rather than needing an opt-out
+			   here). */
+			transition: width var(--dur-base, 260ms) var(--ease-out-soft, ease);
+		}
+
+		.nav.collapsed {
+			width: 4.5rem;
 		}
 
 		.nav ul {
@@ -189,6 +261,55 @@
 
 		.content {
 			padding-bottom: 1rem;
+			/* Mobile-first meant .content simply had no cap — harmless on a phone,
+			   but with a real sidebar layout now in play a wide desktop screen
+			   stretched paragraphs and grids across 1000px+ of unbroken width.
+			   Charts (LineChart's own max-width:800px) already stopped short of
+			   that on their own; this brings everything else in line without
+			   touching each page. Comfortably wider than any single page's own
+			   content ever needs, so nothing here changes below this cap. */
+			max-width: 64rem;
+			margin-inline: auto;
+		}
+
+		.sidebar-toggle {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			align-self: flex-end;
+			width: 2rem;
+			height: 2rem;
+			margin-bottom: 0.75rem;
+			border: none;
+			border-radius: var(--radius-pill, 999px);
+			background: color-mix(in srgb, var(--color-text) 8%, transparent);
+			color: var(--color-text);
+			font-size: var(--text-sm, 14px);
+			cursor: pointer;
+		}
+
+		.sidebar-toggle:hover {
+			background: color-mix(in srgb, var(--color-text) 14%, transparent);
+		}
+
+		/* Collapsed: the toggle centres itself (nothing to right-align against
+		   any more), and every nav item swaps its full label for the short one
+		   set in +layout.svelte's navItems. */
+		.nav.collapsed .sidebar-toggle {
+			align-self: center;
+		}
+
+		.nav.collapsed .nav-label-full {
+			display: none;
+		}
+
+		.nav.collapsed .nav-label-short {
+			display: inline;
+			font-weight: 700;
+		}
+
+		.nav.collapsed .logout {
+			padding: 0.4rem;
 		}
 	}
 </style>
