@@ -577,6 +577,29 @@ a.fact:active {
 	}
 }
 
+/* .reveal generalises the same rise-and-fade-in-on-mount mechanism for
+   anything outside the fact-tile/fact family — page-level cards, nav items,
+   list rows. Same contract: caller sets --i (its position in a top-to-bottom
+   or {#each} order) for the stagger, capped at 6 steps so a longer stack
+   still finishes settling in under half a second instead of visibly
+   crawling in one by one. Not applied globally to e.g. .card, because not
+   every card-shaped thing is a top-level page section (a card can live
+   inside another card, inside a sheet, ...) — opt in explicitly where the
+   staggered top-to-bottom entrance actually reads as one sequence. */
+.reveal {
+	transition:
+		opacity var(--dur-base) var(--ease-out-soft),
+		transform var(--dur-base) var(--ease-out-soft);
+	transition-delay: calc(min(var(--i, 0), 6) * 70ms);
+}
+
+@starting-style {
+	.reveal {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+}
+
 /* The jargon-explainer variant (IF, TSB, "Trainingsniveau") — a value alone
    means nothing to a hobbyist without training background; a position on
    the app's own zone ramp does. Track reuses --zone-* verbatim so it reads

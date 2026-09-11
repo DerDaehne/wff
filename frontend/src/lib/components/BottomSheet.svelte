@@ -73,7 +73,7 @@
 		aria-labelledby="bottom-sheet-title"
 		tabindex="-1"
 		onkeydown={onKeydown}
-		transition:fly={{ y: '100%', duration: 300, easing: cubicOut }}
+		transition:fly={{ y: 48, duration: 320, easing: cubicOut }}
 	>
 		<div class="sheet-header">
 			<h2 id="bottom-sheet-title">{title}</h2>
@@ -95,22 +95,33 @@
 
 	/* Same translucent-blur surface as the nav bar (#645) and the chart
 	   tooltip — glass belongs on this kind of transient control layer, not
-	   pasted on as a new visual language. */
+	   pasted on as a new visual language.
+
+	   A floating card, not a drawer docked to the screen edge: capped width
+	   (never full-bleed, even on a wide phone) and centred via inset:0 +
+	   margin:auto rather than the edge-to-edge left/right/bottom:0 this used
+	   to have. inset:0 on its own would stretch to fill the viewport in both
+	   axes — width/height below override that, and margin:auto then splits
+	   the leftover space evenly, which is what actually centres it. Deliberately
+	   NOT transform: translate(-50%,-50%) for that centring: the fly
+	   transition below animates transform itself, and a static transform set
+	   in CSS would just get clobbered by Svelte's inline style during the
+	   transition. */
 	.sheet {
 		position: fixed;
-		left: 0;
-		right: 0;
-		bottom: 0;
+		inset: 0;
+		margin: auto;
 		z-index: 21;
-		max-height: 80vh;
+		width: min(92vw, 30rem);
+		height: fit-content;
+		max-height: min(80vh, 38rem);
 		overflow-y: auto;
 		background: var(--surface-glass);
 		backdrop-filter: blur(20px);
 		-webkit-backdrop-filter: blur(20px);
-		border-top-left-radius: var(--radius-lg);
-		border-top-right-radius: var(--radius-lg);
+		border-radius: var(--radius-lg);
 		box-shadow: var(--shadow-lg);
-		padding: 1.25rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom, 0px));
+		padding: 1.5rem 1.5rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
 	}
 
 	.sheet-header {
@@ -127,12 +138,12 @@
 	}
 
 	/* A chart inside the sheet body would otherwise start its own draw-in at
-	   the same instant the sheet itself starts sliding up (300ms) — content
+	   the same instant the sheet itself starts sliding up (320ms) — content
 	   moving while its container is also moving reads as jittery, not lively
 	   (Nocturne v3). Waiting until the sheet is most of the way open before
 	   the chart starts drawing keeps the two motions from competing. */
 	.sheet-body :global(.chart-ink) {
-		transition-delay: 260ms;
+		transition-delay: 280ms;
 	}
 
 	.close {

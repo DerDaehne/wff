@@ -308,7 +308,7 @@
 		<a href={resolve('/(app)/rueckblick')}>Dein Jahresrückblick ansehen →</a>
 	</p>
 
-	<section class="panel">
+	<section class="panel reveal" style="--i: 1">
 		<h2>Wie sich das entwickelt hat</h2>
 		<p class="panel-sub">
 			Fitness wächst langsam über Wochen, Müdigkeit steigt und fällt mit den letzten Tagen. Wo die
@@ -349,7 +349,7 @@
 		</div>
 	</section>
 
-	<section class="panel">
+	<section class="panel reveal" style="--i: 2">
 		<h2>Was du jetzt tun kannst</h2>
 		<p class="panel-sub">
 			Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
@@ -371,7 +371,7 @@
 	     heading would introduce an empty box, and the hint card below says the
 	     same thing without pretending there is a chart. -->
 	{#if progress && progress.zones.total_seconds > 0}
-		<section class="panel">
+		<section class="panel reveal" style="--i: 3">
 			<h2>Wie hart fährst du eigentlich?</h2>
 			<p class="panel-sub">
 				Die letzten vier Wochen, aufgeteilt nach Puls. Die Verteilung entscheidet mehr über den
@@ -396,7 +396,7 @@
 	     means every pill always lands in a frame that already has a chart or
 	     an honest one-line empty state, never a lonely explanation. -->
 	{#if progress}
-		<section class="panel">
+		<section class="panel reveal" style="--i: 4">
 			<h2>Wirst du besser?</h2>
 			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
 				{#each progressMetrics as m (m.key)}

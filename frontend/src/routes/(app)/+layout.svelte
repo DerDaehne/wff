@@ -68,8 +68,8 @@
 				{sidebarCollapsed ? '»' : '«'}
 			</button>
 			<ul>
-				{#each navItems as item (item.href)}
-					<li>
+				{#each navItems as item, i (item.href)}
+					<li class="reveal" style="--i: {i}">
 						<a
 							href={item.href}
 							aria-current={page.url.pathname === item.href ? 'page' : undefined}

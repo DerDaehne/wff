@@ -202,7 +202,7 @@
 </script>
 
 {#if viewState === 'ready'}
-	<header class="profile-header">
+	<header class="profile-header reveal" style="--i: 0">
 		<div class="avatar" aria-hidden="true">{displayName.charAt(0).toUpperCase()}</div>
 		<div>
 			<h1>{displayName}</h1>
@@ -218,7 +218,7 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<section class="card">
+	<section class="card reveal" style="--i: 1">
 		<h2>Trainingswerte</h2>
 		<p class="hint">
 			Diese beiden Werte sagen der App, wie hart eine Fahrt <em>für dich</em> war. Ohne mindestens einen
@@ -375,7 +375,7 @@
 		</form>
 	</section>
 
-	<section class="card passkeys">
+	<section class="card passkeys reveal" style="--i: 2">
 		<h2>Passkeys</h2>
 		<p class="hint">
 			Der einzige Weg in dieses Konto — es gibt kein Passwort und keine E-Mail-Wiederherstellung.
@@ -444,7 +444,7 @@
 	</section>
 
 	{#if gaps.length > 0}
-		<section class="gaps">
+		<section class="gaps reveal" style="--i: 3">
 			<h2>Was die App noch nicht über dich weiß</h2>
 			<p class="hint">
 				Kein Test-Modus, kein Knopf während der Fahrt — die Fahrt normal hochladen genügt, den Rest
@@ -460,7 +460,7 @@
 	{/if}
 
 	{#if compareOptIn}
-		<section class="export card">
+		<section class="export card reveal" style="--i: 4">
 			<h2>Trainingserfolg-Vergleich</h2>
 			<p class="hint">
 				Wie sich dein Trainingszustand im Vergleich zu anderen zugestimmten Nutzern entwickelt hat.
@@ -469,7 +469,7 @@
 		</section>
 	{/if}
 
-	<section class="export card">
+	<section class="export card reveal" style="--i: 5">
 		<h2>Deine Räder</h2>
 		<p class="hint">
 			Kilometerstand pro Rad und Erinnerung an den Kettenwechsel — neue Fahrten werden automatisch
@@ -478,7 +478,7 @@
 		<a class="btn btn-secondary" href={resolve('/(app)/raeder')}>Räder verwalten</a>
 	</section>
 
-	<section class="export card">
+	<section class="export card reveal" style="--i: 6">
 		<h2>Neue Person einladen</h2>
 		<p class="hint">
 			Jede registrierte Person kann weitere einladen — es gibt keine Admin-Rolle. Der Link ist 72
@@ -532,7 +532,7 @@
 		{/if}
 	</section>
 
-	<section class="export card">
+	<section class="export card reveal" style="--i: 7">
 		<h2>Deine Daten</h2>
 		<p class="hint">
 			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten
