@@ -1,2 +1,19 @@
 allowBuilds:
   esbuild: true
+
+# Deep transitive dev-only deps (workbox-build's own dependency chain, via
+# @vite-pwa/sveltekit) with published advisories that their own maintainers
+# haven't bumped past yet — none of these ship in the built app (all are
+# devDependencies-only), but overriding is cheap and clears the noise.
+# Scoped by existing-version range, not a blanket package-name override:
+# brace-expansion appears at two unrelated major versions in the tree and a
+# single override would force one consumer onto a major bump it never asked
+# for. cookie's target range is likewise capped below 1.0.0 — @sveltejs/kit
+# itself depends on cookie and imports its 0.x `parse`/`serialize` named
+# exports, which cookie's 1.x/2.x rewrite dropped; an unbounded ">=0.7.0"
+# resolved to 2.0.1 and broke the build.
+overrides:
+  cookie@<0.7.0: '>=0.7.0 <1.0.0'
+  brace-expansion@>=2.0.0 <3.0.0: '>=2.1.4'
+  brace-expansion@>=4.0.0 <5.0.0: '>=5.0.9'
+  fast-uri@<3.1.6: '>=3.1.6'
