@@ -211,7 +211,7 @@
 	     B) — the same treatment the ride-detail page gives a ride's elevation,
 	     replacing a decorative bicycle with the one chart that answers "what
 	     is this page even about" before any number does. -->
-	<div class="bleed">
+	<div class="bleed reveal" style="--i: 0">
 		<LineChart
 			xValues={dayTimestamps}
 			series={[{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }]}
@@ -225,46 +225,52 @@
 
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->
-	<StoryHero
-		story={status}
-		fallbackTitle="Dein Trainingsstand"
-		meterColor="var(--chart-ctl)"
-		showGauge={false}
-	/>
+	<div class="reveal" style="--i: 1">
+		<StoryHero
+			story={status}
+			fallbackTitle="Dein Trainingsstand"
+			meterColor="var(--chart-ctl)"
+			showGauge={false}
+		/>
+	</div>
 
 	<!-- Frische (TSB) as a position, not just a signed number (D4) — the one
 	     figure in the hero above a hobbyist can't read cold. -->
-	<p class="fact-label">Frische (TSB)</p>
-	<div class="fact-scale" style="--fact-share: {tsbShare}">
-		<div class="fact-scale-marker"></div>
+	<div class="reveal" style="--i: 2">
+		<p class="fact-label">Frische (TSB)</p>
+		<div class="fact-scale" style="--fact-share: {tsbShare}">
+			<div class="fact-scale-marker"></div>
+		</div>
+		<p class="fact-scale-ends"><span>ausgelaugt</span><span>{tsbLabel}</span><span>frisch</span></p>
 	</div>
-	<p class="fact-scale-ends"><span>ausgelaugt</span><span>{tsbLabel}</span><span>frisch</span></p>
 
-	<StoryCards
-		statements={status?.statements ?? []}
-		label="Dein aktueller Trainingsstand"
-		context={{
-			form: {
-				xValues: dayTimestamps,
-				series: [{ name: 'Frische', color: tsbColor, values: series.map((d) => d.tsb) }],
-				xFormat: formatDay,
-				yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
-				caption: 'Verlauf der letzten Wochen'
-			},
-			trend: {
-				xValues: dayTimestamps,
-				series: [{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }],
-				xFormat: formatDay,
-				yFormat: (y) => formatDecimal(y, 1),
-				caption: 'Verlauf der letzten Wochen'
-			}
-		}}
-	/>
+	<div class="reveal" style="--i: 3">
+		<StoryCards
+			statements={status?.statements ?? []}
+			label="Dein aktueller Trainingsstand"
+			context={{
+				form: {
+					xValues: dayTimestamps,
+					series: [{ name: 'Frische', color: tsbColor, values: series.map((d) => d.tsb) }],
+					xFormat: formatDay,
+					yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
+					caption: 'Verlauf der letzten Wochen'
+				},
+				trend: {
+					xValues: dayTimestamps,
+					series: [{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }],
+					xFormat: formatDay,
+					yFormat: (y) => formatDecimal(y, 1),
+					caption: 'Verlauf der letzten Wochen'
+				}
+			}}
+		/>
+	</div>
 
 	<!-- auf einen Blick (#657): numbers only now (D5) — the training level
 	     left this grid for its own filled band below, so every tile here is a
 	     figure, not a mix of figures and two-line text blobs. -->
-	<section class="glance" aria-label="Auf einen Blick">
+	<section class="glance reveal" aria-label="Auf einen Blick" style="--i: 4">
 		<div class="fact-tile" style="--i: 0">
 			<p class="fact-tile-value">
 				{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
@@ -295,20 +301,22 @@
 	     v3) — status.gauge.percent is computed server-side and used to render
 	     nowhere on this page before now (D4). Label above, meaning below: the
 	     hard AA rule for anything with a .fact-fill (see app.css). -->
-	<p class="fact-label">Trainingsniveau</p>
-	<div class="fact">
-		<div class="fact-fill" style="--fact-share: {(status?.gauge?.percent ?? 0) / 100}"></div>
-		<p class="fact-value">{gaugeCategory}</p>
+	<div class="reveal" style="--i: 5">
+		<p class="fact-label">Trainingsniveau</p>
+		<div class="fact">
+			<div class="fact-fill" style="--fact-share: {(status?.gauge?.percent ?? 0) / 100}"></div>
+			<p class="fact-value">{gaugeCategory}</p>
+		</div>
+		{#if status?.gauge?.caption}
+			<p class="fact-meaning">{status.gauge.caption}</p>
+		{/if}
 	</div>
-	{#if status?.gauge?.caption}
-		<p class="fact-meaning">{status.gauge.caption}</p>
-	{/if}
 
-	<p class="year-review-link">
+	<p class="year-review-link reveal" style="--i: 6">
 		<a href={resolve('/(app)/rueckblick')}>Dein Jahresrückblick ansehen →</a>
 	</p>
 
-	<section class="panel reveal" style="--i: 1">
+	<section class="panel reveal" style="--i: 7">
 		<h2>Wie sich das entwickelt hat</h2>
 		<p class="panel-sub">
 			Fitness wächst langsam über Wochen, Müdigkeit steigt und fällt mit den letzten Tagen. Wo die
@@ -349,7 +357,7 @@
 		</div>
 	</section>
 
-	<section class="panel reveal" style="--i: 2">
+	<section class="panel reveal" style="--i: 8">
 		<h2>Was du jetzt tun kannst</h2>
 		<p class="panel-sub">
 			Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
@@ -371,7 +379,7 @@
 	     heading would introduce an empty box, and the hint card below says the
 	     same thing without pretending there is a chart. -->
 	{#if progress && progress.zones.total_seconds > 0}
-		<section class="panel reveal" style="--i: 3">
+		<section class="panel reveal" style="--i: 9">
 			<h2>Wie hart fährst du eigentlich?</h2>
 			<p class="panel-sub">
 				Die letzten vier Wochen, aufgeteilt nach Puls. Die Verteilung entscheidet mehr über den
@@ -396,7 +404,7 @@
 	     means every pill always lands in a frame that already has a chart or
 	     an honest one-line empty state, never a lonely explanation. -->
 	{#if progress}
-		<section class="panel reveal" style="--i: 4">
+		<section class="panel reveal" style="--i: 10">
 			<h2>Wirst du besser?</h2>
 			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
 				{#each progressMetrics as m (m.key)}

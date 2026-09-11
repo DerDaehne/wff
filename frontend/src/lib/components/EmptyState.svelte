@@ -17,7 +17,7 @@
 	} = $props();
 </script>
 
-<div class="empty-state">
+<div class="empty-state reveal" style="--i: 0">
 	{#if heading}
 		<h1>{heading}</h1>
 	{/if}

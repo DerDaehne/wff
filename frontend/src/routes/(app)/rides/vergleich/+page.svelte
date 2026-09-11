@@ -80,14 +80,14 @@
 	});
 </script>
 
-<h1>Fahrten im Vergleich</h1>
+<h1 class="reveal" style="--i: 0">Fahrten im Vergleich</h1>
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else if rideA && rideB}
-	<div class="panel">
+	<div class="panel reveal" style="--i: 1">
 		<div class="compare-scroll">
 			<table class="compare">
 				<thead>

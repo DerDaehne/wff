@@ -122,16 +122,18 @@
 	];
 </script>
 
-<h1>Was die Begriffe bedeuten</h1>
-<p class="intro">
-	Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
-	Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was dahinter
-	steckt.
-</p>
+<div class="reveal" style="--i: 0">
+	<h1>Was die Begriffe bedeuten</h1>
+	<p class="intro">
+		Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
+		Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was dahinter
+		steckt.
+	</p>
+</div>
 
 <dl class="glossary">
-	{#each entries as entry (entry.term)}
-		<div class="entry" style="--chip-color: {entry.color}">
+	{#each entries as entry, i (entry.term)}
+		<div class="entry reveal" style="--chip-color: {entry.color}; --i: {i + 1}">
 			<dt>
 				{entry.term}
 				{#if entry.jargon}<span class="chip">{entry.jargon}</span>{/if}

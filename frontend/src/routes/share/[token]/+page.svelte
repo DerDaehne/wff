@@ -33,7 +33,7 @@
 </script>
 
 <div class="share-page">
-	<div class="card share-card">
+	<div class="card share-card reveal" style="--i: 0">
 		{#if viewState === 'loading'}
 			<p>Lädt…</p>
 		{:else if viewState === 'error'}

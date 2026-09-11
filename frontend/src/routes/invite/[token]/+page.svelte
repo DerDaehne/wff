@@ -21,7 +21,7 @@
 </script>
 
 <div class="auth-page">
-	<div class="card auth-card">
+	<div class="card auth-card reveal" style="--i: 0">
 		<h1>Willkommen bei WFF</h1>
 		<p>Richte einen Passkey ein, um dein Konto zu aktivieren.</p>
 

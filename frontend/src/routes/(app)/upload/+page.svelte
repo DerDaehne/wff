@@ -137,18 +137,21 @@
 </script>
 
 <div class="page-center">
-	<h1>Fahrt hochladen</h1>
-	<p class="lead">
-		Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
-		Einordnung macht die App danach von allein.
-	</p>
+	<div class="reveal" style="--i: 0">
+		<h1>Fahrt hochladen</h1>
+		<p class="lead">
+			Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
+			Einordnung macht die App danach von allein.
+		</p>
 
-	{#if sharedProblem}
-		<p class="shared-problem" role="alert">{sharedProblem}</p>
-	{/if}
+		{#if sharedProblem}
+			<p class="shared-problem" role="alert">{sharedProblem}</p>
+		{/if}
+	</div>
 
 	<div
-		class="dropzone"
+		class="dropzone reveal"
+		style="--i: 1"
 		class:dragover={dragOver}
 		ondrop={onDrop}
 		ondragover={onDragOver}
@@ -186,7 +189,7 @@
 		<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
 	{/if}
 
-	<details class="phone" ontoggle={loadTokens}>
+	<details class="phone reveal" style="--i: 2" ontoggle={loadTokens}>
 		<summary>Direkt vom Handy hochladen — ohne Umweg über den Rechner</summary>
 
 		<h2>Android</h2>

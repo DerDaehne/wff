@@ -22,7 +22,7 @@
 </script>
 
 <div class="auth-page">
-	<form class="card auth-card" onsubmit={login}>
+	<form class="card auth-card reveal" style="--i: 0" onsubmit={login}>
 		<h1>Anmelden</h1>
 		<label for="username">Benutzername</label>
 		<input

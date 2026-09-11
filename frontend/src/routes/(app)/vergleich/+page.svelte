@@ -29,7 +29,7 @@
 </script>
 
 <div class="page-center">
-	<h1>Trainingserfolg im Vergleich</h1>
+	<h1 class="reveal" style="--i: 0">Trainingserfolg im Vergleich</h1>
 
 	{#if viewState === 'loading'}
 		<p>Lädt…</p>
@@ -42,13 +42,13 @@
 			actionLabel="Im Profil zustimmen"
 		/>
 	{:else if result}
-		<p class="hint">
+		<p class="hint reveal" style="--i: 1">
 			Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
 			bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
 		</p>
 		<ul class="entries">
-			{#each result.entries as entry (entry.display_name)}
-				<li class="entry" class:you={entry.is_you}>
+			{#each result.entries as entry, i (entry.display_name)}
+				<li class="entry reveal" style="--i: {i + 2}" class:you={entry.is_you}>
 					<span class="name">{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>
 					<span
 						class="delta"

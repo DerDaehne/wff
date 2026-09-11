@@ -120,12 +120,13 @@
 	{:else if viewState === 'error'}
 		<p role="alert">{errorMessage}</p>
 	{:else}
-		<p class="hint">
-			Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
-			nichts auswählen.
-		</p>
+		<div class="reveal" style="--i: 0">
+			<p class="hint">
+				Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
+				nichts auswählen.
+			</p>
 
-		<ul class="bikes">
+			<ul class="bikes">
 			{#each bikeList as bike (bike.id)}
 				<li class="bike-row" class:retired={bike.retired_at}>
 					<div class="bike-header">
@@ -176,8 +177,9 @@
 				</li>
 			{/each}
 		</ul>
+		</div>
 
-		<form class="add-bike" onsubmit={addBike}>
+		<form class="add-bike reveal" style="--i: 1" onsubmit={addBike}>
 			<label for="new-bike-name">Neues Rad</label>
 			<div class="add-bike-row">
 				<input
@@ -197,7 +199,7 @@
 		     Gear, deliberately not a constructed "which bike is faster" score —
 		     speed depends too much on route and wind to attribute to the bike. -->
 		{#if bikeList.length > 0}
-			<section class="section">
+			<section class="section reveal" style="--i: 2">
 				<h2>Vergleich</h2>
 				{#if bikeList.length < 2}
 					<p class="hint">Lege ein zweites Rad an, um sie hier zu vergleichen.</p>
@@ -241,7 +243,7 @@
 		<!-- Backfill for the initial rollout (#729): rides from before this bike
 		     existed, or uploaded without an active bike set. -->
 		{#if unassigned.length > 0}
-			<section class="section">
+			<section class="section reveal" style="--i: 3">
 				<h2>Fahrten ohne Rad</h2>
 				<p class="hint">
 					{unassigned.length}

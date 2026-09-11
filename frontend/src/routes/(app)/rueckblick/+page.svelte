@@ -39,11 +39,13 @@
 </script>
 
 <div class="page-center">
-	<h1>Dein Jahr {year}</h1>
-	<p class="year-nav">
-		<a href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
-		<a href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
-	</p>
+	<div class="reveal" style="--i: 0">
+		<h1>Dein Jahr {year}</h1>
+		<p class="year-nav">
+			<a href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
+			<a href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
+		</p>
+	</div>
 
 	{#if viewState === 'loading'}
 		<p>Lädt…</p>
@@ -52,7 +54,7 @@
 	{:else if review && review.ride_count === 0}
 		<EmptyState message="Keine Fahrten im Jahr {year}." />
 	{:else if review}
-		<div class="sums">
+		<div class="sums reveal" style="--i: 1">
 			<div class="fact-tile sum" style="--i: 0">
 				<p class="fact-tile-value">{review.ride_count}</p>
 				<p class="fact-tile-label">{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</p>

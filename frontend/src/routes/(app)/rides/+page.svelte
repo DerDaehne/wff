@@ -108,7 +108,7 @@
 	}
 </script>
 
-<div class="header-row">
+<div class="header-row reveal" style="--i: 0">
 	<h1>Deine Fahrten</h1>
 	{#if viewState === 'ready'}
 		<button class="btn btn-secondary" type="button" onclick={toggleCompareMode}>
@@ -142,9 +142,10 @@
 		actionLabel="Erste Fahrt hochladen"
 	/>
 {:else}
-	{#each monthGroups as group (group.key)}
-		<h2 class="month-header">{group.label}</h2>
-		<ul class="rides">
+	{#each monthGroups as group, i (group.key)}
+		<div class="reveal" style="--i: {i + 1}">
+			<h2 class="month-header">{group.label}</h2>
+			<ul class="rides">
 			{#each group.rides as ride (ride.id)}
 				<li class:compare-row={compareMode}>
 					{#if compareMode}
@@ -211,7 +212,8 @@
 					</a>
 				</li>
 			{/each}
-		</ul>
+			</ul>
+		</div>
 	{/each}
 	<p class="glossary-hint">
 		Was „Belastung" genau bedeutet, steht im <a href={resolve('/(app)/glossar')}>Glossar</a>.

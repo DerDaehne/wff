@@ -543,7 +543,7 @@
 		     keeps StoryHero's sentence-first shape (#602) unchanged. Every figure
 		     the ride actually has data for (story.detail_stats), never a curated
 		     2-3 like the hero shows elsewhere. -->
-		<div class="ride-header">
+		<div class="ride-header reveal" style="--i: 0">
 			<h1 class="ride-title">{story?.title || 'Deine Fahrt'}</h1>
 			<p class="ride-date-mono">
 				{story?.subtitle}{conditions[0] ? ` · ${conditions[0]}` : ''}
@@ -554,7 +554,7 @@
 		     otherwise has zero graphics, and a hobbyist reads an elevation
 		     profile faster than any number on the page. -->
 		{#if hasElevation}
-			<div class="bleed elevation-strip">
+			<div class="bleed elevation-strip reveal" style="--i: 1">
 				<LineChart
 					xValues={elapsedMinutes}
 					series={[
@@ -570,21 +570,23 @@
 		{/if}
 
 		{#if tssStat}
-			<div class="fact">
+			<div class="fact reveal" style="--i: 2">
 				<p class="fact-value">{tssStat.value}{#if tssStat.unit}<span class="fact-unit">{tssStat.unit}</span>{/if}<span class="fact-name">{tssStat.label}</span></p>
 			</div>
 		{/if}
 
 		{#if ifStat}
-			<p class="fact-label">{ifStat.label}</p>
-			<div class="fact-scale" style="--fact-share: {ifShare}">
-				<div class="fact-scale-marker"></div>
+			<div class="reveal" style="--i: 3">
+				<p class="fact-label">{ifStat.label}</p>
+				<div class="fact-scale" style="--fact-share: {ifShare}">
+					<div class="fact-scale-marker"></div>
+				</div>
+				<p class="fact-scale-ends"><span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span></p>
 			</div>
-			<p class="fact-scale-ends"><span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span></p>
 		{/if}
 
 		{#if gridStats.length > 0}
-			<div class="stat-grid">
+			<div class="stat-grid reveal" style="--i: 4">
 				{#each gridStats as stat, i (stat.label)}
 					<div class="fact-tile" style="--i: {i}">
 						<p class="fact-tile-value">{stat.value}</p>
@@ -594,6 +596,7 @@
 			</div>
 		{/if}
 
+		<div class="reveal" style="--i: 5">
 		<StoryCards
 			statements={story?.statements ?? []}
 			label="Einordnung dieser Fahrt"
@@ -640,6 +643,7 @@
 					: {})
 			}}
 		/>
+		</div>
 
 		{#if shareStatus?.active}
 			<div class="share-banner">
@@ -708,7 +712,7 @@
 	</div>
 
 	<div hidden={activeTab !== 'karte'}>
-		<section class="panel">
+		<section class="panel reveal" style="--i: 0">
 			<h2>Wo du gefahren bist</h2>
 			{#if gpsCoords.length > 1}
 				<div class="color-switch" role="group" aria-label="Strecke einfärben nach">
@@ -768,7 +772,7 @@
 			{/if}
 		</section>
 
-		<section class="panel">
+		<section class="panel reveal" style="--i: 1">
 			<h2>Bergauf, bergab</h2>
 			<p class="panel-sub">Höhe über dem Meer im Verlauf der Fahrt</p>
 			{#if hasElevation}
@@ -794,7 +798,7 @@
 
 	<div hidden={activeTab !== 'analyse'}>
 		{#if story?.zones && story.zones.total_seconds > 0}
-			<section class="panel">
+			<section class="panel reveal" style="--i: 0">
 				<h2>Wo dein Puls lag</h2>
 				<p class="panel-sub">
 					Der Durchschnittspuls verrät nicht, ob du gleichmäßig unterwegs warst oder zwischendurch
@@ -804,7 +808,7 @@
 			</section>
 		{/if}
 
-		<section class="panel">
+		<section class="panel reveal" style="--i: 1">
 			{#if showPower}
 				<h2>Wie viel Kraft du aufs Pedal gebracht hast</h2>
 				<p class="panel-sub">Leistung in Watt — höher heißt kräftiger getreten</p>
@@ -849,7 +853,7 @@
 		</section>
 
 		{#if laps.length > 0}
-			<section class="panel">
+			<section class="panel reveal" style="--i: 2">
 				<h2>Zwischenzeiten</h2>
 				<p class="panel-sub">Runden, die dein Gerät selbst markiert hat</p>
 				<div class="laps-scroll">
