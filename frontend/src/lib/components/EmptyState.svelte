@@ -17,25 +17,28 @@
 	} = $props();
 </script>
 
-<div class="empty-state reveal" style="--i: 0">
+<!-- Rekta's empty state (.rk-empty): a sentence that says why, with the way
+     on, on a hairline instead of in a box. -->
+<div class="reveal" style="--i: 0">
 	{#if heading}
-		<h1>{heading}</h1>
+		<h1 class="rk-title">{heading}</h1>
 	{/if}
-	<p>{message}</p>
-	{#if actionHref && actionLabel}
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass an already resolved path -->
-		<p><a href={actionHref}>{actionLabel}</a></p>
-	{/if}
+	<div class="rk-empty">
+		<p>{message}</p>
+		{#if actionHref && actionLabel}
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass an already resolved path -->
+			<p><a href={actionHref}>{actionLabel}</a></p>
+		{/if}
+	</div>
 </div>
 
 <style>
-	/* No width constraint at all used to mean every "nothing here yet"
-	   message — dashboard, rides, vergleich's opt-in prompt, all of them —
-	   ran edge to edge of .content on a wide desktop screen: one unbroken
-	   line of prose a thousand-plus pixels wide. 60ch matches the measure
-	   already used for prose elsewhere in the app (panel-sub, glossar's
-	   intro, ...). */
-	.empty-state p {
+	h1 {
+		margin-bottom: var(--rk-space-m);
+	}
+
+	/* Prose keeps the measure used elsewhere in the app, never edge to edge. */
+	.rk-empty {
 		max-width: 60ch;
 	}
 </style>

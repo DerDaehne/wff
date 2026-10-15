@@ -14,10 +14,10 @@
 	import { getSettings } from '$lib/profile';
 	import { getPowerCurve, type PowerCurveHistoryPoint } from '$lib/powercurve';
 	import LineChart from '$lib/components/LineChart.svelte';
-	import StoryHero from '$lib/components/StoryHero.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import { pivotWidths } from '$lib/pivot';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -27,9 +27,9 @@
 		$state('loading');
 	let series: DayLoad[] = $state([]);
 	let insights: Insight[] = $state([]);
-	let status: RideStory | null = $state(null);
+	let status = $state<RideStory | null>(null);
 	let errorMessage = $state('');
-	let progress: Progress | null = $state(null);
+	let progress = $state<Progress | null>(null);
 	let activities: ActivitySummary[] = $state([]);
 
 	// The merged "Wirst du besser?" section (Nocturne v3, direction B): one
@@ -48,14 +48,12 @@
 	// page — the "–" placeholder covers that gap instead of a layout jump.
 	let lastRide = $derived(activities[0] ?? null);
 
-	function formatLastRide(a: ActivitySummary): string {
-		const date = new Date(a.started_at).toLocaleDateString('de-DE', {
+	function formatRideDay(a: ActivitySummary): string {
+		return new Date(a.started_at).toLocaleDateString('de-DE', {
 			weekday: 'short',
 			day: '2-digit',
 			month: '2-digit'
 		});
-		if (a.distance_meters == null) return date;
-		return `${date} · ${formatDecimal(a.distance_meters / 1000, 1)} km`;
 	}
 
 	// Power-curve trend (#593): "is my power at this duration going up",
@@ -159,9 +157,6 @@
 	// treats as the normal band (trainingstatus.go), clamped at the edges
 	// rather than cut off.
 	let tsbShare = $derived(latestTSB === null ? 0 : Math.max(0, Math.min(1, (latestTSB + 30) / 55)));
-	let tsbLabel = $derived(
-		latestTSB === null ? '–' : `${latestTSB > 0 ? '+' : ''}${Math.round(latestTSB)}`
-	);
 
 	// gauge.label bakes in "Trainingsniveau: " itself (#611) — fine for the
 	// old tile, which had no label of its own, but redundant now that this
@@ -170,11 +165,65 @@
 	// isn't "Trainingsniveau: Einstieg" wrapping under its own heading twice.
 	let gaugeCategory = $derived.by(() => status?.gauge?.label?.split(': ').pop() ?? '–');
 
-	const severityIcon: Record<Insight['severity'], string> = {
-		success: '✓',
-		warning: '⚠',
-		info: 'ℹ'
+	// An insight's severity is one of Rekta's statuses already; the tag says it
+	// in a word too, so the square's colour is never the only signal.
+	const severityWord: Record<Insight['severity'], string> = {
+		success: 'passt',
+		warning: 'achtung',
+		info: 'tipp'
 	};
+
+	// status.stats come in the order analyze/trainingstatus.go writes them:
+	// Fitness, Müdigkeit, Frische.
+	let fitness = $derived(status?.stats[0]);
+	let fatigue = $derived(status?.stats[1]);
+	let freshness = $derived(status?.stats[2]);
+
+	// Fitness over the weeks as the tile's sparkline (Rekta: a live tile carries
+	// its recent trend), in the 200 × 28 box Rekta draws sparklines in.
+	let ctlSpark = $derived.by(() => {
+		const v = series.map((d) => d.ctl);
+		if (v.length < 2) return '';
+		const lo = Math.min(...v);
+		const span = Math.max(...v) - lo || 1;
+		return v
+			.map((y, i) => `${(i / (v.length - 1)) * 200},${26 - ((y - lo) / span) * 24}`)
+			.join(' ');
+	});
+
+	// "Wirst du besser?" picks its figure from a facet pivot (Rekta: the facets
+	// of one thing), ← → Home End move between them.
+	let pills = $derived([
+		...progressMetrics.map((m) => ({ key: m.key as PillKey, label: m.label })),
+		...(progress && progress.endurance.statements.length > 0
+			? [{ key: 'endurance' as PillKey, label: 'Puls-Effizienz' }]
+			: []),
+		{ key: 'power' as PillKey, label: 'Leistung' }
+	]);
+
+	function choose(key: PillKey, tab: HTMLElement) {
+		activePill = key;
+		tab.focus();
+		tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+	}
+
+	function facetKeys(e: KeyboardEvent & { currentTarget: HTMLElement }) {
+		const tabs = [...e.currentTarget.children] as HTMLElement[];
+		const at = pills.findIndex((p) => p.key === activePill);
+		const next =
+			e.key === 'ArrowRight'
+				? Math.min(at + 1, pills.length - 1)
+				: e.key === 'ArrowLeft'
+					? Math.max(at - 1, 0)
+					: e.key === 'Home'
+						? 0
+						: e.key === 'End'
+							? pills.length - 1
+							: null;
+		if (next === null) return;
+		e.preventDefault();
+		choose(pills[next].key, tabs[next]);
+	}
 </script>
 
 {#if viewState === 'loading'}
@@ -196,173 +245,174 @@
 		actionLabel="FTP/LTHR im Profil hinterlegen"
 	/>
 {:else if viewState === 'ready'}
-	<!-- The dashboard's own shape as its header graphic (Nocturne v3, direction
-	     B) — the same treatment the ride-detail page gives a ride's elevation,
-	     replacing a decorative bicycle with the one chart that answers "what
-	     is this page even about" before any number does. -->
-	<div class="bleed reveal" style="--i: 0">
-		<LineChart
-			xValues={dayTimestamps}
-			series={[{ name: 'Fitness', values: series.map((d) => d.ctl) }]}
-			xFormat={formatDay}
-			yFormat={(y) => formatDecimal(y, 1)}
-			ariaLabel="Fitness-Verlauf"
-			height={64}
-			bare
-		/>
-	</div>
+	<!-- The answer first (#602): what the training says is the one title of
+	     this place; the tiles below are the figures behind it. -->
+	<header class="head reveal" style="--i: 0">
+		<p class="rk-kicker">Dein Trainingsstand</p>
+		<h1 class="rk-title">{status?.title || 'Dein Trainingsstand'}</h1>
+	</header>
 
-	<!-- The answer first: how you are and whether you're getting better. The
-	     chart below is the evidence, not the message (#602). -->
-	<div class="reveal" style="--i: 1">
-		<StoryHero story={status} fallbackTitle="Dein Trainingsstand" showGauge={false} />
-	</div>
-
-	<!-- Frische (TSB) as a position, not just a signed number (D4) — the one
-	     figure in the hero above a hobbyist can't read cold. -->
-	<div class="reveal" style="--i: 2">
-		<p class="fact-label">Frische (TSB)</p>
-		<div class="fact-scale" style="--fact-share: {tsbShare}">
-			<div class="fact-scale-marker"></div>
+	<!-- Rekta live tiles, sized by what they hold (#657 "auf einen Blick"). -->
+	<section class="rk-tiles glance" aria-label="Auf einen Blick">
+		{#if fitness}
+			<div class="rk-tile rk-w2" style="--rk-i: 0">
+				<span class="rk-stat"><b>{fitness.value}</b><span>{fitness.label}</span></span>
+				{#if ctlSpark}
+					<svg class="rk-spark" viewBox="0 0 200 28" aria-hidden="true">
+						<polyline pathLength="1" points={ctlSpark} />
+					</svg>
+				{/if}
+			</div>
+		{/if}
+		{#if fatigue}
+			<div class="rk-tile" style="--rk-i: 1">
+				<span class="rk-stat"><b>{fatigue.value}</b><span>{fatigue.label}</span></span>
+			</div>
+		{/if}
+		<div class="rk-tile" style="--rk-i: 2">
+			<span class="rk-stat">
+				<b
+					>{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}<small>km</small
+					></b
+				>
+				<span>insgesamt gefahren</span>
+			</span>
 		</div>
-		<p class="fact-scale-ends"><span>ausgelaugt</span><span>{tsbLabel}</span><span>frisch</span></p>
-	</div>
-
-	<div class="reveal" style="--i: 3">
-		<StoryCards
-			statements={status?.statements ?? []}
-			label="Dein aktueller Trainingsstand"
-			context={{
-				form: {
-					xValues: dayTimestamps,
-					series: [{ name: 'Frische', values: series.map((d) => d.tsb) }],
-					xFormat: formatDay,
-					yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
-					caption: 'Verlauf der letzten Wochen'
-				},
-				trend: {
-					xValues: dayTimestamps,
-					series: [{ name: 'Fitness', values: series.map((d) => d.ctl) }],
-					xFormat: formatDay,
-					yFormat: (y) => formatDecimal(y, 1),
-					caption: 'Verlauf der letzten Wochen'
-				}
-			}}
-		/>
-	</div>
-
-	<!-- auf einen Blick (#657): numbers only now (D5) — the training level
-	     left this grid for its own filled band below, so every tile here is a
-	     figure, not a mix of figures and two-line text blobs. -->
-	<section class="glance reveal" aria-label="Auf einen Blick" style="--i: 4">
-		<div class="fact-tile" style="--i: 0">
-			<p class="fact-tile-value">
-				{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}
-				<span class="fact-tile-unit">km</span>
-			</p>
-			<p class="fact-tile-label">Insgesamt gefahren</p>
-		</div>
-		<div class="fact-tile" style="--i: 1">
-			<p class="fact-tile-value">
-				{progress ? progress.current_streak_weeks : '–'}
-				<span class="fact-tile-unit">Wochen</span>
-			</p>
-			<p class="fact-tile-label">Aktuelle Streak</p>
+		{#if freshness}
+			<!-- Frische as a position, not just a signed number (D4): the one figure
+			     a hobbyist can't read cold. -->
+			<div class="rk-tile rk-w2" style="--rk-i: 3">
+				<span class="rk-stat"><b>{freshness.value}</b><span>{freshness.label}</span></span>
+				<div class="fact-scale" style="--fact-share: {tsbShare}">
+					<div class="fact-scale-marker"></div>
+				</div>
+				<p class="fact-scale-ends"><span>ausgelaugt</span><span>frisch</span></p>
+			</div>
+		{/if}
+		{#if status?.gauge}
+			<div class="rk-tile rk-w2" style="--rk-i: 4">
+				<span class="rk-stat"><b>{gaugeCategory}</b><span>Trainingsniveau</span></span>
+				<progress
+					class="rk-progress"
+					max="100"
+					value={status.gauge.percent}
+					aria-label="Trainingsniveau"
+				></progress>
+				{#if status.gauge.caption}<span class="rk-tile-msg">{status.gauge.caption}</span>{/if}
+			</div>
+		{/if}
+		<div class="rk-tile" style="--rk-i: 5">
+			<span class="rk-stat">
+				<b>{progress ? progress.current_streak_weeks : '–'}<small>Wochen</small></b>
+				<span>am Stück gefahren</span>
+			</span>
 		</div>
 		{#if lastRide}
 			<a
-				class="fact-tile fact-tile-link"
-				style="--i: 2"
+				class="rk-tile rk-w2"
+				style="--rk-i: 6"
 				href={resolve('/(app)/rides/[id]', { id: String(lastRide.id) })}
 			>
-				<p class="fact-tile-value fact-tile-value-text">{formatLastRide(lastRide)}</p>
-				<p class="fact-tile-label">Letzte Fahrt</p>
+				<span class="rk-kicker">letzte Fahrt</span>
+				<span class="rk-stat">
+					{#if lastRide.distance_meters != null}
+						<b>{formatDecimal(lastRide.distance_meters / 1000, 1)}<small>km</small></b>
+					{/if}
+					<span>{formatRideDay(lastRide)}</span>
+				</span>
 			</a>
 		{/if}
+		<a class="rk-tile" style="--rk-i: 7" href={resolve('/(app)/rueckblick')}>
+			<span class="rk-kicker">dein Jahr</span>
+			<span class="rk-stat"><b>{new Date().getFullYear()}</b><span>Jahresrückblick</span></span>
+		</a>
 	</section>
 
-	<!-- Trainingsniveau leaves the tile grid for a full filled band (Nocturne
-	     v3) — status.gauge.percent is computed server-side and used to render
-	     nowhere on this page before now (D4). Label above, meaning below: the
-	     hard AA rule for anything with a .fact-fill (see app.css). -->
-	<div class="reveal" style="--i: 5">
-		<p class="fact-label">Trainingsniveau</p>
-		<div class="fact">
-			<div class="fact-fill" style="--fact-share: {(status?.gauge?.percent ?? 0) / 100}"></div>
-			<p class="fact-value">{gaugeCategory}</p>
-		</div>
-		{#if status?.gauge?.caption}
-			<p class="fact-meaning">{status.gauge.caption}</p>
-		{/if}
-	</div>
+	<StoryCards
+		statements={status?.statements ?? []}
+		label="Dein aktueller Trainingsstand"
+		context={{
+			form: {
+				xValues: dayTimestamps,
+				series: [{ name: 'Frische', values: series.map((d) => d.tsb) }],
+				xFormat: formatDay,
+				yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
+				caption: 'Verlauf der letzten Wochen'
+			},
+			trend: {
+				xValues: dayTimestamps,
+				series: [{ name: 'Fitness', values: series.map((d) => d.ctl) }],
+				xFormat: formatDay,
+				yFormat: (y) => formatDecimal(y, 1),
+				caption: 'Verlauf der letzten Wochen'
+			}
+		}}
+	/>
 
-	<p class="year-review-link reveal" style="--i: 6">
-		<a href={resolve('/(app)/rueckblick')}>Dein Jahresrückblick ansehen →</a>
-	</p>
-
-	<section class="panel reveal" style="--i: 7">
-		<h2>Wie sich das entwickelt hat</h2>
-		<p class="panel-sub">
+	<section class="sec reveal" style="--i: 1">
+		<h2 class="rk-group">Wie sich das entwickelt hat</h2>
+		<p class="sub">
 			Fitness wächst langsam über Wochen, Müdigkeit steigt und fällt mit den letzten Tagen. Wo die
 			Frische-Linie über null liegt, bist du erholt.
 		</p>
-		<div class="bleed">
-			<LineChart
-				xValues={dayTimestamps}
-				series={[
-					{
-						name: 'Fitness',
-						values: series.map((d) => d.ctl),
-						description:
-							'Fachbegriff CTL: dein Trainingsumfang der letzten 6 Wochen. Steigt langsam, fällt langsam — das ist deine Grundlage.'
-					},
-					{
-						name: 'Müdigkeit',
-						values: series.map((d) => d.atl),
-						description:
-							'Fachbegriff ATL: die Belastung der letzten Woche. Reagiert schnell auf einzelne harte Fahrten.'
-					},
-					{
-						name: 'Frische',
-						values: series.map((d) => d.tsb),
-						description:
-							'Fachbegriff TSB: Fitness minus Müdigkeit. Über null bist du erholt, unter null steckst du in einer Belastungsphase.'
-					}
-				]}
-				xFormat={formatDay}
-				yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1))}
-				ariaLabel="Verlauf von Fitness, Müdigkeit und Frische"
-				height={260}
-				baseline={0}
-			/>
-		</div>
+		<LineChart
+			xValues={dayTimestamps}
+			series={[
+				{
+					name: 'Fitness',
+					values: series.map((d) => d.ctl),
+					description:
+						'Fachbegriff CTL: dein Trainingsumfang der letzten 6 Wochen. Steigt langsam, fällt langsam — das ist deine Grundlage.'
+				},
+				{
+					name: 'Müdigkeit',
+					values: series.map((d) => d.atl),
+					description:
+						'Fachbegriff ATL: die Belastung der letzten Woche. Reagiert schnell auf einzelne harte Fahrten.'
+				},
+				{
+					name: 'Frische',
+					values: series.map((d) => d.tsb),
+					description:
+						'Fachbegriff TSB: Fitness minus Müdigkeit. Über null bist du erholt, unter null steckst du in einer Belastungsphase.'
+				}
+			]}
+			xFormat={formatDay}
+			yFormat={(y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1))}
+			ariaLabel="Verlauf von Fitness, Müdigkeit und Frische"
+			height={260}
+			baseline={0}
+		/>
 	</section>
 
-	<section class="panel reveal" style="--i: 8">
-		<h2>Was du jetzt tun kannst</h2>
-		<p class="panel-sub">
-			Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
-		</p>
-		<div class="insights">
-			{#each insights as insight, i (i)}
-				<div class="insight insight-{insight.severity}" style="--i: {i}">
-					<span class="insight-icon">{severityIcon[insight.severity]}</span>
-					<div>
-						{#if insight.action}<p class="insight-action">{insight.action}</p>{/if}
-						<p class="insight-reason">{insight.reason}</p>
-					</div>
-				</div>
-			{/each}
-		</div>
-	</section>
+	{#if insights.length > 0}
+		<section class="sec reveal" style="--i: 2">
+			<h2 class="rk-group">Was du jetzt tun kannst</h2>
+			<p class="sub">
+				Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
+			</p>
+			<ul class="rk-rows insights">
+				{#each insights as insight, i (i)}
+					<li>
+						<div>
+							{#if insight.action}<p class="insight-action">{insight.action}</p>{/if}
+							<p class="rk-facts">{insight.reason}</p>
+						</div>
+						<span class="rk-tag" data-status={insight.severity}>
+							{severityWord[insight.severity]}
+						</span>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 
-	<!-- Panel only when there are bars to draw: without a threshold pulse the
-	     heading would introduce an empty box, and the hint card below says the
-	     same thing without pretending there is a chart. -->
+	<!-- Only when there is a distribution to show: without a threshold pulse
+	     the heading would introduce nothing, and the hint tile says why. -->
 	{#if progress && progress.zones.total_seconds > 0}
-		<section class="panel reveal" style="--i: 9">
-			<h2>Wie hart fährst du eigentlich?</h2>
-			<p class="panel-sub">
+		<section class="sec reveal" style="--i: 3">
+			<h2 class="rk-group">Wie hart fährst du eigentlich?</h2>
+			<p class="sub">
 				Die letzten vier Wochen, aufgeteilt nach Puls. Die Verteilung entscheidet mehr über den
 				Fortschritt als jede einzelne Fahrt — und der häufigste Fehler ist, ständig im mittleren
 				Bereich zu fahren.
@@ -377,63 +427,50 @@
 		<StoryCards statements={progress.zones.statements} label="Deine Verteilung" />
 	{/if}
 
-	<!-- Merged (Nocturne v3, direction B): what were three sections — a
-	     weekly-metric panel, "Arbeitet dein Herz effizienter?" and "Wird
-	     deine Leistung besser?" — are one chart frame and one pill row now.
-	     The old version rendered heading + paragraph + placeholder twice
-	     whenever endurance or power data was thin; folding them together
-	     means every pill always lands in a frame that already has a chart or
-	     an honest one-line empty state, never a lonely explanation. -->
+	<!-- One frame for every "am I getting better" figure (Nocturne v3): the
+	     facet pivot picks which one the chart shows. -->
 	{#if progress}
-		<section class="panel reveal" style="--i: 10">
-			<h2>Wirst du besser?</h2>
-			<div class="metric-switch" role="group" aria-label="Kennzahl wählen">
-				{#each progressMetrics as m (m.key)}
+		<section class="sec reveal" style="--i: 4">
+			<h2 class="rk-group">Wirst du besser?</h2>
+			<div
+				class="rk-pivot facets"
+				role="tablist"
+				aria-label="Kennzahl wählen"
+				tabindex="-1"
+				use:pivotWidths
+				onkeydown={facetKeys}
+			>
+				{#each pills as p (p.key)}
 					<button
 						type="button"
-						class="btn {activePill === m.key ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={activePill === m.key}
-						onclick={() => (activePill = m.key)}
+						role="tab"
+						aria-selected={activePill === p.key}
+						tabindex={activePill === p.key ? 0 : -1}
+						onclick={(e) => choose(p.key, e.currentTarget)}
 					>
-						{m.label}
+						{p.label}
 					</button>
 				{/each}
-				{#if progress.endurance.statements.length > 0}
-					<button
-						type="button"
-						class="btn {activePill === 'endurance' ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={activePill === 'endurance'}
-						onclick={() => (activePill = 'endurance')}
-					>
-						Puls-Effizienz
-					</button>
-				{/if}
-				<button
-					type="button"
-					class="btn {activePill === 'power' ? 'btn-primary' : 'btn-secondary'}"
-					aria-pressed={activePill === 'power'}
-					onclick={() => (activePill = 'power')}
-				>
-					Leistung
-				</button>
 			</div>
 
 			{#if activePill === 'power'}
-				<div class="duration-switch" role="group" aria-label="Dauer wählen">
+				<fieldset class="rk-segments durations">
+					<legend class="rk-sr">Dauer wählen</legend>
 					{#each powerCurveDurations as d (d.seconds)}
-						<button
-							type="button"
-							class="btn {powerCurveDuration === d.seconds ? 'btn-primary' : 'btn-secondary'}"
-							aria-pressed={powerCurveDuration === d.seconds}
-							onclick={() => (powerCurveDuration = d.seconds)}
-						>
+						<label>
+							<input
+								type="radio"
+								name="power-duration"
+								value={d.seconds}
+								bind:group={powerCurveDuration}
+							/>
 							{d.label}
-						</button>
+						</label>
 					{/each}
-				</div>
+				</fieldset>
 			{/if}
 
-			<div class="bleed">
+			<div role="tabpanel">
 				{#if activeProgressMetric}
 					<LineChart
 						xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
@@ -465,7 +502,7 @@
 							height={220}
 						/>
 					{:else}
-						<p class="empty">Noch nicht genug vergleichbare Fahrten für diesen Verlauf.</p>
+						<p class="rk-empty">Noch nicht genug vergleichbare Fahrten für diesen Verlauf.</p>
 					{/if}
 				{:else if activePill === 'power'}
 					{#if powerCurveHistory.length > 0}
@@ -478,14 +515,14 @@
 							height={220}
 						/>
 					{:else}
-						<p class="empty">
+						<p class="rk-empty">
 							Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
 						</p>
 					{/if}
 				{/if}
 			</div>
 
-			<p class="panel-caption">
+			<p class="rk-facts caption">
 				{#if activeProgressMetric}
 					Woche für Woche statt Fahrt für Fahrt — einzelne Ausfahrten sagen zu wenig.
 				{:else if activePill === 'endurance'}
@@ -509,137 +546,69 @@
 		{/if}
 	{/if}
 
-	<p class="glossary-hint">
+	<p class="rk-facts glossary-hint">
 		Fitness, Müdigkeit, Frische — was dahinter steckt, steht im
 		<a href={resolve('/(app)/glossar')}>Glossar</a>.
 	</p>
 {/if}
 
 <style>
-	/* Numbers only now (Nocturne v3, D5) — the bike and the training-level
-	   text tile both left this grid, so it's a plain 2-col Fact Tile grid
-	   directly, no wrapping flex column needed any more. */
+	.head {
+		margin-bottom: var(--rk-space-l);
+	}
+
+	.head .rk-title {
+		margin-top: var(--rk-space-xs);
+	}
+
 	.glance {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.5rem;
-		max-width: 26rem;
-		margin-bottom: 3rem;
+		margin-bottom: var(--rk-space-s);
 	}
 
-	.fact-tile-link {
-		display: block;
-		color: inherit;
-		text-decoration: none;
-		transition: transform var(--dur-fast) ease-out;
+	/* Frische's position on a tile: the track in the tile's own text colour,
+	   as Rekta draws progress on a tile. */
+	.glance .fact-scale {
+		height: 4px;
+		background: color-mix(in srgb, currentColor 20%, transparent);
 	}
 
-	.fact-tile-link:active {
-		transform: scale(0.985);
+	.glance .fact-scale-marker {
+		box-shadow: 0 0 0 2px var(--rk-surface);
 	}
 
-	.fact-tile-value-text {
-		font-size: var(--text-lg);
-		font-variant-numeric: normal;
-	}
-
-	.year-review-link {
-		margin: 0 0 1.5rem;
-		font-size: var(--text-sm);
-	}
-
-	/* Bare section — heading, sub, content, separated by real space instead
-	   of a bordered/shadowed box (Nocturne v2). */
-	.panel {
-		margin-bottom: 3rem;
-	}
-
-	.panel h2 {
+	.glance .fact-scale-ends {
 		margin: 0;
 	}
 
-	.panel-sub {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.25rem 0 1rem;
+	.sec {
+		margin-top: var(--rk-space-xl);
+	}
+
+	.sub {
 		max-width: 60ch;
+		margin: var(--rk-space-xs) 0 var(--rk-space-m);
+		color: var(--rk-text-contrast-high);
 	}
 
-	/* One line under the merged section's chart, its content swapping with
-	   the active pill (Nocturne v3) — replaces what used to be a full
-	   .panel-sub paragraph *before* the chart on three separate panels. */
-	.panel-caption {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.5rem 0 0;
+	.insights > li {
+		flex-wrap: nowrap;
+		align-items: flex-start;
 	}
 
-	.metric-switch,
-	.duration-switch {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-bottom: 1rem;
+	.insight-action {
+		font-weight: var(--rk-font-weight-semibold);
 	}
 
-	.empty {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+	.facets,
+	.durations {
+		margin-bottom: var(--rk-space-m);
+	}
+
+	.caption {
+		margin-top: var(--rk-space-s);
 	}
 
 	.glossary-hint {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-	}
-
-	.insights {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-	}
-
-	.insight {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.75rem;
-		border-radius: var(--radius-sm);
-		padding: 0.75rem 1rem;
-		background: color-mix(in srgb, var(--color-info) var(--wash-strength), var(--wash-base));
-		/* Opacity only, no translate (Nocturne v3) — these are the page's only
-		   paragraphs that matter; sliding prose is the most template-looking
-		   effect available, so it stays to a plain fade. */
-		transition: opacity var(--dur-base) var(--ease-out-soft);
-		transition-delay: calc(min(var(--i, 0), 5) * 60ms);
-	}
-
-	@starting-style {
-		.insight {
-			opacity: 0;
-		}
-	}
-
-	/* The instruction carries the weight; the reason explains it underneath. */
-	.insight-action {
-		font-weight: 700;
-		margin: 0 0 0.25rem;
-	}
-
-	.insight-reason {
-		margin: 0;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-	}
-
-	.insight-icon {
-		font-weight: 700;
-		flex-shrink: 0;
-	}
-
-	.insight-success {
-		background: color-mix(in srgb, var(--color-success) var(--wash-strength), var(--wash-base));
-	}
-
-	.insight-warning {
-		background: color-mix(in srgb, var(--color-warning) var(--wash-strength), var(--wash-base));
+		margin-top: var(--rk-space-xl);
 	}
 </style>

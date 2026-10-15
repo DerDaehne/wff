@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
+	import { pivotWidths } from '$lib/pivot';
 
 	let { children } = $props();
 
@@ -49,27 +50,19 @@
 	// "Back stays in the app": with no step taken inside the app yet (a cold
 	// entry on a deep link), back goes forward to the parent instead of leaving.
 	let depth = 0;
+	// Rekta's arrival build-in (behaviour.md, data-rk-arriving): tiles rise and
+	// sparklines draw only while the place carries it, so it goes again once
+	// the build-in is over and a re-render never replays it.
+	let arriving = $state(true);
 	afterNavigate(({ from, type, delta }) => {
 		if (type === 'popstate') depth += delta ?? 0;
 		else if (from) depth++;
+		arriving = true;
+		setTimeout(() => (arriving = false), 1000);
 	});
 	function back() {
 		if (depth > 0) history.back();
 		else if (parent) goto(parent.href);
-	}
-
-	// A scaled-down pivot title keeps its full layout width; Rekta's own script
-	// writes that width to --_rk-w so the end margin takes the gap back and every
-	// gap reads as space-l. WFF does not load rekta.js (ADR 002), so this does
-	// the same one thing. ponytail: an internal Rekta name; if Rekta renames it,
-	// the gaps just widen again. Public hook requested as Rekta feedback #1066.
-	function pivotWidths(nav: HTMLElement) {
-		const titles = [...nav.children] as HTMLElement[];
-		const ro = new ResizeObserver(() => {
-			for (const t of titles) t.style.setProperty('--_rk-w', `${t.offsetWidth}px`);
-		});
-		for (const t of titles) ro.observe(t);
-		return { destroy: () => ro.disconnect() };
 	}
 
 	const paletteEntries: PaletteEntry[] = [
@@ -91,7 +84,7 @@
 {#if authState === 'checking'}
 	<p>Lädt…</p>
 {:else if authState === 'authed'}
-	<main class="rk-place">
+	<main class="rk-place" data-rk-arriving={arriving ? '' : undefined}>
 		{#if isTop}
 			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte" use:pivotWidths>
 				{#each places as p (p.href)}

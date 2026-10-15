@@ -586,3 +586,24 @@ a.fact:active {
 		transition-delay: 0ms !important;
 	}
 }
+
+/* Rekta tiles in WFF. rekta.js would tilt a pressed tile towards the pointer
+   (data-rk-pressed); without it, a tile that opens something at least sinks
+   back by Rekta's own press scale. */
+:is(a, button).rk-tile:active {
+	transform: scale(var(--rk-tile-press-scale));
+	transition-duration: var(--rk-duration-press);
+}
+
+/* A unit beside a stat's figure, smaller than the figure. */
+.rk-stat b small {
+	margin-left: 0.2em;
+	font-size: var(--rk-font-size-s);
+	font-weight: var(--rk-font-weight-medium);
+}
+
+/* Rekta only measured primary text for AA on a status fill (Rekta issue #5),
+   so a kicker on a status tile takes the tile's own text colour. */
+.rk-tile[data-status] .rk-kicker {
+	color: inherit;
+}

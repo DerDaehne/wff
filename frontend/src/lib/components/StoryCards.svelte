@@ -30,7 +30,7 @@
 		context?: Partial<Record<RideStatement['kind'], SparkContext>>;
 	} = $props();
 
-	// Every statement leads with what it MEANS; the chip says which question it
+	// Every statement leads with what it MEANS; the kicker says which question it
 	// answers, so nobody has to infer that from the sentence itself.
 	const statementLabel: Record<RideStatement['kind'], string> = {
 		effort: 'Wie hart war es',
@@ -66,7 +66,7 @@
 	// The compact row's second line — every item's metric joined, so a
 	// "context" group (wind + hills + heat) still reads as one line. Groups
 	// that carry no metric at all (hint_profile/hint_history, and comparison)
-	// have nothing numeric to lead with — the chip alone is the row, full
+	// have nothing numeric to lead with — the question alone is the tile, full
 	// text is one tap away either way.
 	function summaryOf(group: (typeof groups)[number]): string | null {
 		const metrics = group.items.map((s) => s.metric).filter((m): m is string => !!m);
@@ -81,6 +81,23 @@
 		return group.items.flatMap((s) => s.metrics ?? []);
 	}
 
+	// Rekta tiles (ADR adr-002-wff-rekta-design §3, adr-003 §5): a tile is a
+	// button that opens the group's sheet. Its question is the kicker, its
+	// figures the stat; the meaning is said in words, never by a colour. A
+	// fill only where the card is a status — a missing prerequisite is a
+	// warning, a record is a success — and then the word says it too.
+	const statusOf: Partial<Record<RideStatement['kind'], { status: string; word: string }>> = {
+		milestone: { status: 'success', word: 'Rekord' },
+		hint_profile: { status: 'warning', word: 'fehlt' },
+		hint_history: { status: 'warning', word: 'fehlt' }
+	};
+
+	// A tile's size follows what it holds: two figures or a sentence need two
+	// columns, one figure fits one.
+	function wide(group: (typeof groups)[number]): boolean {
+		return metricsOf(group).length !== 1;
+	}
+
 	let activeGroup: (typeof groups)[number] | null = $state(null);
 
 	function closeDetail() {
@@ -88,38 +105,36 @@
 	}
 </script>
 
-{#snippet row(group: (typeof groups)[number], i: number)}
-	<button
-		type="button"
-		class="statement-row statement-{group.kind}"
-		style="--i: {i}"
-		onclick={() => (activeGroup = group)}
-	>
-		<span class="row-main">
-			<span class="chip statement-chip">{statementLabel[group.kind]}</span>
-			{#if metricsOf(group).length > 0}
-				<span class="row-values">
-					{#each metricsOf(group) as m, i (i)}
-						<span class="row-metric">
-							<strong class="row-metric-value"
-								>{m.value}{#if m.unit}<span class="row-metric-unit">{m.unit}</span>{/if}</strong
-							>
-							{#if m.label}<span class="row-metric-label">{m.label}</span>{/if}
-						</span>
-					{/each}
-				</span>
-			{:else if summaryOf(group)}
-				<span class="row-summary">{summaryOf(group)}</span>
-			{/if}
-		</span>
-		<span class="row-chevron" aria-hidden="true">›</span>
-	</button>
-{/snippet}
-
 {#if groups.length > 0}
-	<section class="story" aria-label={label}>
+	<section class="rk-tiles story" aria-label={label}>
 		{#each groups as group, i (i)}
-			{@render row(group, i)}
+			{@const status = statusOf[group.kind]}
+			{@const metrics = metricsOf(group)}
+			<button
+				type="button"
+				class="rk-tile"
+				class:rk-w2={wide(group)}
+				data-status={status?.status}
+				style="--rk-i: {i}"
+				onclick={() => (activeGroup = group)}
+			>
+				{#if status}<span class="rk-tile-word">{status.word}</span>{/if}
+				<span class="rk-kicker question">{statementLabel[group.kind]}</span>
+				{#if metrics.length > 0}
+					<span class="figures">
+						{#each metrics as m, j (j)}
+							<span class="rk-stat">
+								<b
+									>{m.value}{#if m.unit}<small>{m.unit}</small>{/if}</b
+								>
+								{#if m.label}<span>{m.label}</span>{/if}
+							</span>
+						{/each}
+					</span>
+				{:else if summaryOf(group)}
+					<span class="rk-tile-msg summary">{summaryOf(group)}</span>
+				{/if}
+			</button>
 		{/each}
 	</section>
 {/if}
@@ -130,19 +145,21 @@
 	{@const spark = context[group.kind]}
 	<BottomSheet open={true} title={statementLabel[group.kind]} onClose={closeDetail}>
 		{#if metrics.length > 0}
-			<div class="detail-stats">
+			<div class="rk-tiles detail-stats">
 				{#each metrics as m, i (i)}
-					<div class="fact-tile" style="--i: {4 + i}">
-						<p class="fact-tile-value">
-							{m.value}{#if m.unit}<span class="fact-tile-unit">{m.unit}</span>{/if}
-						</p>
-						<p class="fact-tile-label">{m.label}</p>
+					<div class="rk-tile" style="--rk-i: {i}">
+						<span class="rk-stat">
+							<b
+								>{m.value}{#if m.unit}<small>{m.unit}</small>{/if}</b
+							>
+							<span>{m.label}</span>
+						</span>
 					</div>
 				{/each}
 			</div>
 		{/if}
 		{#if spark}
-			<div class="bleed detail-chart">
+			<div class="detail-chart">
 				<LineChart
 					xValues={spark.xValues}
 					series={spark.series}
@@ -153,12 +170,12 @@
 					bare
 				/>
 			</div>
-			<p class="detail-caption">{spark.caption}</p>
+			<p class="rk-facts detail-caption">{spark.caption}</p>
 		{/if}
 		{#each group.items as statement, j (j)}
 			<p class="detail-text">{statement.text}</p>
 			{#if metrics.length === 0 && statement.metric}
-				<p class="detail-metric">{statement.metric}</p>
+				<p class="rk-facts detail-metric">{statement.metric}</p>
 			{/if}
 		{/each}
 		{#if group.kind === 'hint_profile'}
@@ -169,191 +186,50 @@
 
 <style>
 	.story {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
+		margin-bottom: var(--rk-space-l);
 	}
 
-	/* Flat fact-band fill instead of a bordered/shadowed card (Nocturne v2) —
-	   --fact-color feeds off the same --chip-color each .statement-* rule
-	   below already sets, so the band and its chip stay the same hue without
-	   a second colour map to keep in sync. */
-	.statement-row {
-		--fact-color: var(--chip-color, var(--color-brand));
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		width: 100%;
-		border: none;
-		border-radius: var(--radius-sm);
-		padding: 0.75rem 1rem;
-		background: color-mix(in srgb, var(--fact-color) var(--fill-strength), var(--fill-base));
-		font: inherit;
-		color: var(--color-text);
+	/* The question stays at the top of the tile, the figures at its foot. */
+	.question {
+		margin-bottom: auto;
 		text-align: left;
-		cursor: pointer;
-		transition: transform var(--dur-fast) ease-out;
 	}
 
-	.statement-row:active {
-		transform: scale(0.985);
-	}
-
-	/* Rows rise in on mount, staggered — same mechanism as the fact-tile
-	   grids (Nocturne v3). `translate` rather than `transform`, so this
-	   doesn't fight :active's `transform: scale()` above — the two
-	   properties composite independently instead of one overwriting the
-	   other. Excludes .statement-milestone: it already runs its own glow+pop
-	   entrance below, and stacking a second one would make a record read as
-	   noisier, the opposite of what the one-glow-in-the-app rule is for. */
-	.statement-row:not(.statement-milestone) {
-		transition:
-			transform var(--dur-fast) ease-out,
-			opacity var(--dur-base) var(--ease-out-soft),
-			translate var(--dur-base) var(--ease-out-soft);
-		transition-delay: 0s, calc(min(var(--i, 0), 5) * 60ms), calc(min(var(--i, 0), 5) * 60ms);
-	}
-
-	@starting-style {
-		.statement-row:not(.statement-milestone) {
-			opacity: 0;
-			translate: 0 8px;
-		}
-	}
-
-	.statement-milestone.statement-row {
-		--fact-color: var(--color-achievement);
-		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent);
-		animation: wff-milestone-land var(--dur-slow) var(--rk-ease-in) 1 both;
-	}
-
-	/* Chip above, summary below, both full-width — trying to fit chip +
-	   summary + chevron on one line left the summary a handful of characters
-	   before it had to cut off mid-word. Stacked, it gets the row's whole
-	   width and only wraps (still bounded, at two lines) for the rare long
-	   one. */
-	.row-main {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.375rem;
-	}
-
-	.statement-chip {
-		margin: 0;
-	}
-
-	.row-summary {
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		line-height: 1.35;
-	}
-
-	/* The number itself, not a sentence fragment about it (#651) — the whole
-	   point of a compact row is that the figure IS the summary. */
-	.row-values {
+	.figures {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: flex-end;
-		gap: 1.25rem;
+		gap: var(--rk-space-s) var(--rk-space-l);
 	}
 
-	.row-metric {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
+	/* The sentence of a group without figures, at most three lines in the
+	   tile; the whole of it is in the sheet. */
+	.summary {
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 
-	.row-metric-value {
-		font-size: var(--text-xl);
-		font-weight: 800;
-		line-height: 1.1;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.row-metric-unit {
-		font-size: var(--text-xs);
-		font-weight: 700;
-		color: var(--color-text-muted);
-		margin-left: 0.25rem;
-	}
-
-	.row-metric-label {
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
-	}
-
-	.row-chevron {
-		flex-shrink: 0;
-		color: var(--color-text-muted);
-		font-size: var(--text-lg);
-		line-height: 1;
-	}
-
-	/* The sheet's own figures, structured (#651) — the whole point of this
-	   pass: a popup used to say "0,70" once in prose and nowhere else,
-	   despite the backend already sending it as a proper Stat (Nocturne v3,
-	   design-wff-nocturne-v3 §2 P1). Falls back to detail-metric below when a
-	   group truly has no structured figures (a four-way zone split, the hint
-	   kinds). */
 	.detail-stats {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.5rem;
-		margin-bottom: 1rem;
-	}
-
-	.detail-chart {
-		margin-bottom: 0.25rem;
+		margin-bottom: var(--rk-space-m);
 	}
 
 	.detail-caption {
-		margin: 0 0 1rem;
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
+		margin-bottom: var(--rk-space-m);
 	}
 
-	.detail-text {
-		font-size: var(--text-base);
-		line-height: 1.5;
-		margin: 0;
+	.detail-text + .detail-text,
+	.detail-metric + .detail-text {
+		margin-top: var(--rk-space-m);
 	}
 
 	.detail-metric {
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
-		margin: 0.5rem 0 0;
-	}
-
-	.detail-metric + .detail-text {
-		margin-top: 0.875rem;
+		margin-top: var(--rk-space-s);
 	}
 
 	.detail-action {
 		display: inline-block;
-		margin-top: 0.75rem;
-		font-size: var(--text-sm);
-	}
-
-	/* The meaning lives in each card's question, not in a colour (ADR
-	   adr-003-wff-datenfarben-rekta): every kind takes the neutral default, and
-	   a status colour only where the card is a status. A missing prerequisite
-	   is a warning; the record keeps its interim success colour until
-	   #1059/#1060 rebuild these cards as Rekta tiles. */
-	.statement-milestone {
-		--chip-color: var(--color-success);
-	}
-
-	.statement-hint_profile,
-	.statement-hint_history {
-		--chip-color: var(--color-warning);
+		margin-top: var(--rk-space-m);
 	}
 </style>
