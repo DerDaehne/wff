@@ -683,6 +683,7 @@
 				<button class="link-button" type="button" onclick={share} disabled={shareBusy}>
 					Fahrt per Link teilen
 				</button>
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- server download endpoint, not an app route -->
 				· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
 			</p>
 		{/if}

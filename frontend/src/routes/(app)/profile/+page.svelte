@@ -538,6 +538,7 @@
 			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten
 			gibt es einen Download-Link direkt auf der jeweiligen Fahrt-Seite.
 		</p>
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- server download endpoint, not an app route -->
 		<a class="btn btn-secondary" href="/api/me/export">Alle Daten herunterladen</a>
 	</section>
 {/if}

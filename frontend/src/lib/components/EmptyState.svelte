@@ -23,6 +23,7 @@
 	{/if}
 	<p>{message}</p>
 	{#if actionHref && actionLabel}
+		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- callers pass an already resolved path -->
 		<p><a href={actionHref}>{actionLabel}</a></p>
 	{/if}
 </div>

@@ -74,6 +74,7 @@
 	}
 
 	function toggleSelected(id: number) {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local copy, assigned back whole
 		const next = new Set(selectedIds);
 		if (next.has(id)) next.delete(id);
 		else next.add(id);
