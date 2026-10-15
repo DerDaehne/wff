@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { afterNavigate, goto } from '$app/navigation';
+	import { afterNavigate, goto, onNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
 	import { pivotWidths } from '$lib/pivot';
+	import { keys, prefs, turn } from '$lib/rekta/rekta.js';
 
 	let { children } = $props();
 
@@ -50,20 +51,45 @@
 	// "Back stays in the app": with no step taken inside the app yet (a cold
 	// entry on a deep link), back goes forward to the parent instead of leaving.
 	let depth = 0;
-	// Rekta's arrival build-in (behaviour.md, data-rk-arriving): tiles rise and
-	// sparklines draw only while the place carries it, so it goes again once
-	// the build-in is over and a re-render never replays it.
-	let arriving = $state(true);
 	afterNavigate(({ from, type, delta }) => {
 		if (type === 'popstate') depth += delta ?? 0;
 		else if (from) depth++;
-		arriving = true;
-		setTimeout(() => (arriving = false), 1000);
 	});
 	function back() {
 		if (depth > 0) history.back();
 		else if (parent) goto(parent.href);
 	}
+
+	// Rekta's place change, the turnstile (ADR adr-004-wff-rekta-js): the place
+	// turns away, SvelteKit swaps the route, the new place turns in and its
+	// tiles build in. Back, or a top place earlier in the pivot's order, runs it
+	// the other way round. Only a new path is a new place: Rückblick's ?year=
+	// stays where it is.
+	let placeEl: HTMLElement | undefined = $state();
+	onNavigate((nav) => {
+		const el = placeEl;
+		const from = nav.from?.url.pathname;
+		const to = nav.to?.url.pathname;
+		if (!el || nav.willUnload || !from || !to || from === to) return;
+		const order = (path: string) => places.findIndex((p) => p.href === path);
+		const back =
+			nav.type === 'popstate'
+				? (nav.delta ?? 0) < 0
+				: order(from) >= 0 && order(to) >= 0 && order(to) < order(from);
+		const active = document.activeElement;
+		const pressed = active instanceof HTMLElement && el.contains(active) ? active : null;
+		return turn.leave(el, { back, pressed }).then(() => () => turn.enter(el, { back }));
+	});
+
+	// One back for everything (Rekta navigation.md): Escape goes back a place,
+	// once nothing inner (a sheet, the palette, a text field) wants it.
+	onMount(() =>
+		keys.on(10, (e) => {
+			if (e.key !== 'Escape' || !parent || !keys.escapeIsFree(e)) return false;
+			back();
+			return true;
+		})
+	);
 
 	const paletteEntries: PaletteEntry[] = [
 		...places.map((p) => ({ ...p, group: 'Orte' })),
@@ -77,14 +103,28 @@
 			href: resolve('/(app)/upload'),
 			keywords: 'upload fit'
 		},
-		{ label: 'Abmelden', group: 'Befehle', run: handleLogout, keywords: 'logout' }
+		{ label: 'Abmelden', group: 'Befehle', run: handleLogout, keywords: 'logout' },
+		// Rekta's own switches (prefs), remembered in this browser.
+		...[
+			['Darstellung: hell', 'theme', 'light'],
+			['Darstellung: dunkel', 'theme', 'dark'],
+			['Darstellung: wie das System', 'theme', 'system'],
+			['Bewegung: aus', 'motion', 'off'],
+			['Bewegung: an', 'motion', 'on'],
+			['Bewegung: wie das System', 'motion', 'system']
+		].map(([label, name, value]) => ({
+			label,
+			group: 'Einstellungen',
+			keywords: name === 'theme' ? 'theme farben modus' : 'animation motion',
+			run: () => prefs.set(name as 'theme' | 'motion', value)
+		}))
 	];
 </script>
 
 {#if authState === 'checking'}
 	<p>Lädt…</p>
 {:else if authState === 'authed'}
-	<main class="rk-place" data-rk-arriving={arriving ? '' : undefined}>
+	<main class="rk-place" bind:this={placeEl}>
 		{#if isTop}
 			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte" use:pivotWidths>
 				{#each places as p (p.href)}

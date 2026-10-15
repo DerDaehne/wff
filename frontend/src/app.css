@@ -1,5 +1,5 @@
 /* Design tokens: Rekta Design (ADR adr-002-wff-rekta-design, epic #1055).
-   lib/styles/rekta.tokens.css, rekta.fonts.css and rekta.css load before this
+   lib/rekta/rekta.tokens.css, rekta.fonts.css and rekta.css load before this
    file (routes/+layout.svelte) and own colour, type, spacing, radius, motion,
    light/dark (system, or data-theme on <html>), density and reduced motion.
    This file only aliases the names WFF components already read onto --rk-*,
@@ -585,14 +585,6 @@ a.fact:active {
 		animation-delay: 0ms !important;
 		transition-delay: 0ms !important;
 	}
-}
-
-/* Rekta tiles in WFF. rekta.js would tilt a pressed tile towards the pointer
-   (data-rk-pressed); without it, a tile that opens something at least sinks
-   back by Rekta's own press scale. */
-:is(a, button).rk-tile:active {
-	transform: scale(var(--rk-tile-press-scale));
-	transition-duration: var(--rk-duration-press);
 }
 
 /* A unit beside a stat's figure, smaller than the figure. */

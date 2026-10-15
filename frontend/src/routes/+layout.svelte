@@ -2,13 +2,22 @@
 	import favicon from '$lib/assets/favicon.svg';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import { onMount } from 'svelte';
-	// Rekta first, WFF aliases and data accents after (ADR adr-002-wff-rekta-design).
-	import '$lib/styles/rekta.tokens.css';
-	import '$lib/styles/rekta.fonts.css';
-	import '$lib/styles/rekta.css';
+	// Rekta first, WFF's aliases after (ADR adr-002-wff-rekta-design).
+	import '$lib/rekta/rekta.tokens.css';
+	import '$lib/rekta/rekta.fonts.css';
+	import '$lib/rekta/rekta.css';
 	import '../app.css';
+	import { start } from '$lib/rekta/rekta.js';
 
 	let { children } = $props();
+
+	// Rekta's behaviour for every page (ADR adr-004-wff-rekta-js): tiles tilt
+	// where they are pressed, tooltips, the first paint as an arrival, and the
+	// remembered theme/density/motion.
+	onMount(() => {
+		const rekta = start();
+		return () => rekta.destroy();
+	});
 
 	onMount(async () => {
 		if (pwaInfo) {

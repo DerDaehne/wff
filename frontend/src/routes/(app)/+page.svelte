@@ -17,7 +17,7 @@
 	import StoryCards, { statementLabel } from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
-	import { pivotWidths } from '$lib/pivot';
+	import { pivot } from '$lib/rekta/rekta.js';
 
 	// 'no-activities' (upload something) and 'no-training-load' (activities
 	// exist, but none has a computed TSS — almost always missing FTP/LTHR in
@@ -192,7 +192,7 @@
 	});
 
 	// "Wirst du besser?" picks its figure from a facet pivot (Rekta: the facets
-	// of one thing), ← → Home End move between them.
+	// of one thing).
 	let pills = $derived([
 		...progressMetrics.map((m) => ({ key: m.key as PillKey, label: m.label })),
 		...(progress && progress.endurance.statements.length > 0
@@ -201,28 +201,9 @@
 		{ key: 'power' as PillKey, label: 'Leistung' }
 	]);
 
-	function choose(key: PillKey, tab: HTMLElement) {
-		activePill = key;
-		tab.focus();
-		tab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-	}
-
-	function facetKeys(e: KeyboardEvent & { currentTarget: HTMLElement }) {
-		const tabs = [...e.currentTarget.children] as HTMLElement[];
-		const at = pills.findIndex((p) => p.key === activePill);
-		const next =
-			e.key === 'ArrowRight'
-				? Math.min(at + 1, pills.length - 1)
-				: e.key === 'ArrowLeft'
-					? Math.max(at - 1, 0)
-					: e.key === 'Home'
-						? 0
-						: e.key === 'End'
-							? pills.length - 1
-							: null;
-		if (next === null) return;
-		e.preventDefault();
-		choose(pills[next].key, tabs[next]);
+	function facetPivot(el: HTMLElement) {
+		const strip = pivot(el, { onSelect: (i) => (activePill = pills[i].key) });
+		return { destroy: strip.destroy };
 	}
 </script>
 
@@ -462,111 +443,106 @@
 	{#if progress}
 		<section class="sec reveal" style="--i: 4">
 			<h2 class="rk-group">Wirst du besser?</h2>
-			<div
-				class="rk-pivot facets"
-				role="tablist"
-				aria-label="Kennzahl wählen"
-				tabindex="-1"
-				use:pivotWidths
-				onkeydown={facetKeys}
-			>
+			<!-- Rekta's facet pivot (rekta.js pivot()): the strip glides by the
+			     facet's place in the order, its panel slides in, ← → Home End move. -->
+			<div class="rk-pivot facets" role="tablist" aria-label="Kennzahl wählen" use:facetPivot>
 				{#each pills as p (p.key)}
 					<button
 						type="button"
 						role="tab"
+						id="facet-{p.key}"
+						aria-controls="facet-panel-{p.key}"
 						aria-selected={activePill === p.key}
 						tabindex={activePill === p.key ? 0 : -1}
-						onclick={(e) => choose(p.key, e.currentTarget)}
 					>
 						{p.label}
 					</button>
 				{/each}
 			</div>
 
-			{#if activePill === 'power'}
-				<fieldset class="rk-segments durations">
-					<legend class="rk-sr">Dauer wählen</legend>
-					{#each powerCurveDurations as d (d.seconds)}
-						<label>
-							<input
-								type="radio"
-								name="power-duration"
-								value={d.seconds}
-								bind:group={powerCurveDuration}
+			{#each pills as p (p.key)}
+				<div
+					role="tabpanel"
+					id="facet-panel-{p.key}"
+					aria-labelledby="facet-{p.key}"
+					hidden={activePill !== p.key}
+				>
+					{#if p.key === 'endurance'}
+						{#if progress.endurance.weeks.length >= 2}
+							<LineChart
+								xValues={progress.endurance.weeks.map((w) => new Date(w.start).getTime())}
+								series={[
+									{
+										name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
+										values: progress.endurance.weeks.map((w) => w.value)
+									}
+								]}
+								xFormat={formatDay}
+								yFormat={(v: number) =>
+									progress?.endurance.from_power ? String(Math.round(v)) : formatDecimal(v, 1)}
+								ariaLabel="Wochenverlauf {progress.endurance.unit}"
+								height={220}
 							/>
-							{d.label}
-						</label>
-					{/each}
-				</fieldset>
-			{/if}
-
-			<div role="tabpanel">
-				{#if activeProgressMetric}
-					<LineChart
-						xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
-						series={[
-							{
-								name: activeProgressMetric.label,
-								values: progress.weeks.map((w) => w[activeProgressMetric!.key])
-							}
-						]}
-						xFormat={formatDay}
-						yFormat={activeProgressMetric.format}
-						ariaLabel="Wochenverlauf {activeProgressMetric.label}"
-						height={220}
-					/>
-				{:else if activePill === 'endurance'}
-					{#if progress.endurance.weeks.length >= 2}
+						{:else}
+							<p class="rk-empty">Noch nicht genug vergleichbare Fahrten für diesen Verlauf.</p>
+						{/if}
+						<p class="rk-facts caption">
+							{progress.endurance.from_power
+								? 'Steigt die Linie, leistet dein Herz für dieselben Watt weniger Arbeit.'
+								: 'Steigt die Linie, leistet dein Herz für dasselbe Tempo weniger Arbeit.'}
+							({progress.endurance.unit})
+						</p>
+					{:else if p.key === 'power'}
+						<fieldset class="rk-segments durations">
+							<legend class="rk-sr">Dauer wählen</legend>
+							{#each powerCurveDurations as d (d.seconds)}
+								<label>
+									<input
+										type="radio"
+										name="power-duration"
+										value={d.seconds}
+										bind:group={powerCurveDuration}
+									/>
+									{d.label}
+								</label>
+							{/each}
+						</fieldset>
+						{#if powerCurveHistory.length > 0}
+							<LineChart
+								xValues={powerCurveTimestamps}
+								series={powerCurveSeries}
+								xFormat={formatDay}
+								yFormat={(y) => `${Math.round(y)} W`}
+								ariaLabel="Verlauf der besten Leistung"
+								height={220}
+							/>
+						{:else}
+							<p class="rk-empty">
+								Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
+							</p>
+						{/if}
+						<p class="rk-facts caption">
+							Deine beste Leistung für diese Dauer, Fahrt für Fahrt.
+							{#if powerCurveDuration === 1200 && configuredFtpWatts !== null}
+								· Deine hinterlegte FTP: {configuredFtpWatts} W
+							{/if}
+						</p>
+					{:else}
+						{@const metric = progressMetrics.find((m) => m.key === p.key)!}
 						<LineChart
-							xValues={progress.endurance.weeks.map((w) => new Date(w.start).getTime())}
-							series={[
-								{
-									name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
-									values: progress.endurance.weeks.map((w) => w.value)
-								}
-							]}
+							xValues={progress.weeks.map((w) => new Date(w.start).getTime())}
+							series={[{ name: metric.label, values: progress.weeks.map((w) => w[metric.key]) }]}
 							xFormat={formatDay}
-							yFormat={(v: number) =>
-								progress?.endurance.from_power ? String(Math.round(v)) : formatDecimal(v, 1)}
-							ariaLabel="Wochenverlauf {progress.endurance.unit}"
+							yFormat={metric.format}
+							ariaLabel="Wochenverlauf {metric.label}"
 							height={220}
 						/>
-					{:else}
-						<p class="rk-empty">Noch nicht genug vergleichbare Fahrten für diesen Verlauf.</p>
-					{/if}
-				{:else if activePill === 'power'}
-					{#if powerCurveHistory.length > 0}
-						<LineChart
-							xValues={powerCurveTimestamps}
-							series={powerCurveSeries}
-							xFormat={formatDay}
-							yFormat={(y) => `${Math.round(y)} W`}
-							ariaLabel="Verlauf der besten Leistung"
-							height={220}
-						/>
-					{:else}
-						<p class="rk-empty">
-							Noch keine Fahrt mit Leistungsdaten, die lang genug für diese Dauer war.
+						<p class="rk-facts caption">
+							Woche für Woche statt Fahrt für Fahrt — einzelne Ausfahrten sagen zu wenig.
 						</p>
 					{/if}
-				{/if}
-			</div>
-
-			<p class="rk-facts caption">
-				{#if activeProgressMetric}
-					Woche für Woche statt Fahrt für Fahrt — einzelne Ausfahrten sagen zu wenig.
-				{:else if activePill === 'endurance'}
-					{progress.endurance.from_power
-						? 'Steigt die Linie, leistet dein Herz für dieselben Watt weniger Arbeit.'
-						: 'Steigt die Linie, leistet dein Herz für dasselbe Tempo weniger Arbeit.'}
-					({progress.endurance.unit})
-				{:else if activePill === 'power'}
-					Deine beste Leistung für diese Dauer, Fahrt für Fahrt.
-					{#if powerCurveDuration === 1200 && configuredFtpWatts !== null}
-						· Deine hinterlegte FTP: {configuredFtpWatts} W
-					{/if}
-				{/if}
-			</p>
+				</div>
+			{/each}
 		</section>
 
 		{#if activeProgressMetric}

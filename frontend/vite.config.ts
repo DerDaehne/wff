@@ -29,6 +29,14 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter({ fallback: 'index.html' }), // SPA fallback for client-side routing
+			// The vendored rekta.js is not ours to type-check (checkJs); lib/rekta/rekta.d.ts
+			// types the parts WFF uses (ADR adr-004-wff-rekta-js).
+			typescript: {
+				config: (config) => {
+					config.exclude = [...(config.exclude ?? []), '../src/lib/rekta/rekta.js'];
+					return config;
+				}
+			},
 			serviceWorker: { register: false } // registration handled by vite-plugin-pwa
 		}),
 		SvelteKitPWA({

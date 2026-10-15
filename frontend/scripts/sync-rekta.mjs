@@ -1,6 +1,7 @@
-// Vendors Rekta Design (ADR adr-002-wff-rekta-design) into src/lib/styles/:
-// rekta.tokens.css, rekta.fonts.css and rekta.css byte-for-byte below a
-// provenance header, plus the Barlow woff2 files rekta.fonts.css points at.
+// Vendors Rekta Design (ADRs adr-002-wff-rekta-design, adr-004-wff-rekta-js)
+// into src/lib/rekta/: rekta.tokens.css, rekta.fonts.css, rekta.css and
+// rekta.js byte-for-byte below a provenance header, plus the Barlow woff2
+// files rekta.fonts.css points at.
 // No npm dependency on purpose: a dependency would change the Nix
 // fixed-output hash on every Rekta bump, and Rekta has no release tag yet.
 //
@@ -11,8 +12,8 @@ import { createHash } from 'node:crypto';
 import { copyFileSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const OUT = new URL('../src/lib/styles/', import.meta.url).pathname;
-const FILES = ['rekta.tokens.css', 'rekta.fonts.css', 'rekta.css'];
+const OUT = new URL('../src/lib/rekta/', import.meta.url).pathname;
+const FILES = ['rekta.tokens.css', 'rekta.fonts.css', 'rekta.css', 'rekta.js'];
 const HASH_LINE = /^ \* SHA-256 of everything below this header: ([0-9a-f]{64})$/m;
 
 const sha256 = (s) => createHash('sha256').update(s).digest('hex');
@@ -58,7 +59,7 @@ function sync(repo) {
 			` * Commit: ${commit}${tag ? `\n * Tag: ${tag}` : ''}`,
 			` * Generator: scripts/build.mjs -> dist/${name}`,
 			` * SHA-256 of everything below this header: ${sha256(body)}`,
-			' * License: MIT (code, tokens, CSS), see LICENSE and NOTICE in the source repository;',
+			' * License: MIT (code, tokens, CSS, JS), see LICENSE and NOTICE in the source repository;',
 			' * some token values derive from the Porsche Design System (Apache-2.0, values only).',
 			' * Barlow: SIL Open Font License 1.1, see fonts/OFL.txt.',
 			' */',
