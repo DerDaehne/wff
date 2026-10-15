@@ -607,3 +607,9 @@ a.fact:active {
 .rk-tile[data-status] .rk-kicker {
 	color: inherit;
 }
+
+/* A tile's kicker (its question) stays at the top, its figures at the foot. */
+.rk-tile > .rk-kicker {
+	margin-bottom: auto;
+	text-align: left;
+}

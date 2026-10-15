@@ -14,7 +14,7 @@
 	import { getSettings } from '$lib/profile';
 	import { getPowerCurve, type PowerCurveHistoryPoint } from '$lib/powercurve';
 	import LineChart from '$lib/components/LineChart.svelte';
-	import StoryCards from '$lib/components/StoryCards.svelte';
+	import StoryCards, { statementLabel } from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import { pivotWidths } from '$lib/pivot';
@@ -252,85 +252,14 @@
 		<h1 class="rk-title">{status?.title || 'Dein Trainingsstand'}</h1>
 	</header>
 
-	<!-- Rekta live tiles, sized by what they hold (#657 "auf einen Blick"). -->
-	<section class="rk-tiles glance" aria-label="Auf einen Blick">
-		{#if fitness}
-			<div class="rk-tile rk-w2" style="--rk-i: 0">
-				<span class="rk-stat"><b>{fitness.value}</b><span>{fitness.label}</span></span>
-				{#if ctlSpark}
-					<svg class="rk-spark" viewBox="0 0 200 28" aria-hidden="true">
-						<polyline pathLength="1" points={ctlSpark} />
-					</svg>
-				{/if}
-			</div>
-		{/if}
-		{#if fatigue}
-			<div class="rk-tile" style="--rk-i: 1">
-				<span class="rk-stat"><b>{fatigue.value}</b><span>{fatigue.label}</span></span>
-			</div>
-		{/if}
-		<div class="rk-tile" style="--rk-i: 2">
-			<span class="rk-stat">
-				<b
-					>{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}<small>km</small
-					></b
-				>
-				<span>insgesamt gefahren</span>
-			</span>
-		</div>
-		{#if freshness}
-			<!-- Frische as a position, not just a signed number (D4): the one figure
-			     a hobbyist can't read cold. -->
-			<div class="rk-tile rk-w2" style="--rk-i: 3">
-				<span class="rk-stat"><b>{freshness.value}</b><span>{freshness.label}</span></span>
-				<div class="fact-scale" style="--fact-share: {tsbShare}">
-					<div class="fact-scale-marker"></div>
-				</div>
-				<p class="fact-scale-ends"><span>ausgelaugt</span><span>frisch</span></p>
-			</div>
-		{/if}
-		{#if status?.gauge}
-			<div class="rk-tile rk-w2" style="--rk-i: 4">
-				<span class="rk-stat"><b>{gaugeCategory}</b><span>Trainingsniveau</span></span>
-				<progress
-					class="rk-progress"
-					max="100"
-					value={status.gauge.percent}
-					aria-label="Trainingsniveau"
-				></progress>
-				{#if status.gauge.caption}<span class="rk-tile-msg">{status.gauge.caption}</span>{/if}
-			</div>
-		{/if}
-		<div class="rk-tile" style="--rk-i: 5">
-			<span class="rk-stat">
-				<b>{progress ? progress.current_streak_weeks : '–'}<small>Wochen</small></b>
-				<span>am Stück gefahren</span>
-			</span>
-		</div>
-		{#if lastRide}
-			<a
-				class="rk-tile rk-w2"
-				style="--rk-i: 6"
-				href={resolve('/(app)/rides/[id]', { id: String(lastRide.id) })}
-			>
-				<span class="rk-kicker">letzte Fahrt</span>
-				<span class="rk-stat">
-					{#if lastRide.distance_meters != null}
-						<b>{formatDecimal(lastRide.distance_meters / 1000, 1)}<small>km</small></b>
-					{/if}
-					<span>{formatRideDay(lastRide)}</span>
-				</span>
-			</a>
-		{/if}
-		<a class="rk-tile" style="--rk-i: 7" href={resolve('/(app)/rueckblick')}>
-			<span class="rk-kicker">dein Jahr</span>
-			<span class="rk-stat"><b>{new Date().getFullYear()}</b><span>Jahresrückblick</span></span>
-		</a>
-	</section>
-
+	<!-- One Rekta tile grid (#657 "auf einen Blick"), tiles sized by what they
+	     hold. Fitness and Frische are also the answers to "Ob du besser wirst"
+	     and "Wie es dir gerade geht": one tile each, opening that answer's
+	     sheet, instead of the same number twice. -->
 	<StoryCards
 		statements={status?.statements ?? []}
-		label="Dein aktueller Trainingsstand"
+		label="Auf einen Blick"
+		own={['trend', 'form']}
 		context={{
 			form: {
 				xValues: dayTimestamps,
@@ -347,7 +276,108 @@
 				caption: 'Verlauf der letzten Wochen'
 			}
 		}}
-	/>
+	>
+		{#snippet tiles({ open, has })}
+			{#if fitness}
+				{#snippet trendBody()}
+					<span class="rk-kicker">{statementLabel.trend}</span>
+					<span class="rk-stat"><b>{fitness.value}</b><span>{fitness.label}</span></span>
+					{#if ctlSpark}
+						<svg class="rk-spark" viewBox="0 0 200 28" aria-hidden="true">
+							<polyline pathLength="1" points={ctlSpark} />
+						</svg>
+					{/if}
+				{/snippet}
+				{#if has('trend')}
+					<button
+						type="button"
+						class="rk-tile rk-w2"
+						style="--rk-i: 0"
+						onclick={() => open('trend')}
+					>
+						{@render trendBody()}
+					</button>
+				{:else}
+					<div class="rk-tile rk-w2" style="--rk-i: 0">{@render trendBody()}</div>
+				{/if}
+			{/if}
+			{#if fatigue}
+				<div class="rk-tile" style="--rk-i: 1">
+					<span class="rk-stat"><b>{fatigue.value}</b><span>{fatigue.label}</span></span>
+				</div>
+			{/if}
+			<div class="rk-tile" style="--rk-i: 2">
+				<span class="rk-stat">
+					<b
+						>{progress ? Math.round(progress.lifetime_distance_meters / 1000) : '–'}<small>km</small
+						></b
+					>
+					<span>insgesamt gefahren</span>
+				</span>
+			</div>
+			{#if freshness}
+				<!-- Frische as a position, not just a signed number (D4): the one figure
+				     a hobbyist can't read cold. -->
+				{#snippet formBody()}
+					<span class="rk-kicker">{statementLabel.form}</span>
+					<span class="rk-stat"><b>{freshness.value}</b><span>{freshness.label}</span></span>
+					<span class="fact-scale" style="--fact-share: {tsbShare}">
+						<span class="fact-scale-marker"></span>
+					</span>
+					<span class="fact-scale-ends"><span>ausgelaugt</span><span>frisch</span></span>
+				{/snippet}
+				{#if has('form')}
+					<button
+						type="button"
+						class="rk-tile rk-w2"
+						style="--rk-i: 3"
+						onclick={() => open('form')}
+					>
+						{@render formBody()}
+					</button>
+				{:else}
+					<div class="rk-tile rk-w2" style="--rk-i: 3">{@render formBody()}</div>
+				{/if}
+			{/if}
+			{#if status?.gauge}
+				<div class="rk-tile rk-w2" style="--rk-i: 4">
+					<span class="rk-stat"><b>{gaugeCategory}</b><span>Trainingsniveau</span></span>
+					<progress
+						class="rk-progress"
+						max="100"
+						value={status.gauge.percent}
+						aria-label="Trainingsniveau"
+					></progress>
+					{#if status.gauge.caption}<span class="rk-tile-msg">{status.gauge.caption}</span>{/if}
+				</div>
+			{/if}
+			<div class="rk-tile" style="--rk-i: 5">
+				<span class="rk-stat">
+					<b>{progress ? progress.current_streak_weeks : '–'}<small>Wochen</small></b>
+					<span>am Stück gefahren</span>
+				</span>
+			</div>
+			{#if lastRide}
+				<a
+					class="rk-tile rk-w2"
+					style="--rk-i: 6"
+					href={resolve('/(app)/rides/[id]', { id: String(lastRide.id) })}
+				>
+					<span class="rk-kicker">letzte Fahrt</span>
+					<span class="rk-stat">
+						{#if lastRide.distance_meters != null}
+							<b>{formatDecimal(lastRide.distance_meters / 1000, 1)}<small>km</small></b>
+						{/if}
+						<span>{formatRideDay(lastRide)}</span>
+					</span>
+				</a>
+			{/if}
+			<a class="rk-tile" style="--rk-i: 7" href={resolve('/(app)/rueckblick')}>
+				<span class="rk-kicker">dein Jahr</span>
+				<span class="rk-stat"><b>{new Date().getFullYear()}</b><span>Jahresrückblick</span></span>
+			</a>
+		{/snippet}
+	</StoryCards>
 
 	<section class="sec reveal" style="--i: 1">
 		<h2 class="rk-group">Wie sich das entwickelt hat</h2>
@@ -561,22 +591,19 @@
 		margin-top: var(--rk-space-xs);
 	}
 
-	.glance {
-		margin-bottom: var(--rk-space-s);
-	}
-
 	/* Frische's position on a tile: the track in the tile's own text colour,
 	   as Rekta draws progress on a tile. */
-	.glance .fact-scale {
+	.rk-tile .fact-scale {
+		display: block;
 		height: 4px;
 		background: color-mix(in srgb, currentColor 20%, transparent);
 	}
 
-	.glance .fact-scale-marker {
+	.rk-tile .fact-scale-marker {
 		box-shadow: 0 0 0 2px var(--rk-surface);
 	}
 
-	.glance .fact-scale-ends {
+	.rk-tile .fact-scale-ends {
 		margin: 0;
 	}
 

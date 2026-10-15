@@ -1,6 +1,30 @@
+<script lang="ts" module>
+	import type { RideStatement } from '$lib/rides';
+
+	// Every statement leads with what it MEANS; the kicker says which question it
+	// answers, so nobody has to infer that from the sentence itself.
+	export const statementLabel: Record<RideStatement['kind'], string> = {
+		effort: 'Wie hart war es',
+		load: 'Was es gebracht hat',
+		pace: 'Wie schnell du warst',
+		climb: 'Wie gut du geklettert bist',
+		endurance: 'Ob es bis zum Schluss trug',
+		context: 'Warum es sich so anfühlte',
+		comparison: 'Im Vergleich zu sonst',
+		form: 'Wie es dir gerade geht',
+		trend: 'Ob du besser wirst',
+		endurance_trend: 'Ob deine Ausdauer wächst',
+		zones: 'Wie du die Zeit verteilt hast',
+		calories: 'Was es an Energie gekostet hat',
+		milestone: 'Persönlicher Rekord',
+		hint_profile: 'Dafür fehlt noch etwas',
+		hint_history: 'Dafür fehlt noch etwas'
+	};
+</script>
+
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { RideStatement } from '$lib/rides';
+	import type { Snippet } from 'svelte';
 	import BottomSheet from './BottomSheet.svelte';
 	import LineChart from './LineChart.svelte';
 
@@ -23,32 +47,27 @@
 	let {
 		statements,
 		label,
-		context = {}
+		context = {},
+		own = [],
+		tiles
 	}: {
 		statements: RideStatement[];
 		label: string;
 		context?: Partial<Record<RideStatement['kind'], SparkContext>>;
+		// Kinds whose tile the caller draws itself, in `tiles` (the dashboard's
+		// Fitness and Frische tiles are also the "trend" and "form" answers).
+		// Their sheet is still this component's: `open` shows it, `has` says
+		// whether there is one.
+		own?: RideStatement['kind'][];
+		tiles?: Snippet<
+			[
+				{
+					open: (kind: RideStatement['kind']) => void;
+					has: (kind: RideStatement['kind']) => boolean;
+				}
+			]
+		>;
 	} = $props();
-
-	// Every statement leads with what it MEANS; the kicker says which question it
-	// answers, so nobody has to infer that from the sentence itself.
-	const statementLabel: Record<RideStatement['kind'], string> = {
-		effort: 'Wie hart war es',
-		load: 'Was es gebracht hat',
-		pace: 'Wie schnell du warst',
-		climb: 'Wie gut du geklettert bist',
-		endurance: 'Ob es bis zum Schluss trug',
-		context: 'Warum es sich so anfühlte',
-		comparison: 'Im Vergleich zu sonst',
-		form: 'Wie es dir gerade geht',
-		trend: 'Ob du besser wirst',
-		endurance_trend: 'Ob deine Ausdauer wächst',
-		zones: 'Wie du die Zeit verteilt hast',
-		calories: 'Was es an Energie gekostet hat',
-		milestone: 'Persönlicher Rekord',
-		hint_profile: 'Dafür fehlt noch etwas',
-		hint_history: 'Dafür fehlt noch etwas'
-	};
 
 	// Consecutive statements of the same kind share one card — three separate
 	// cards all headed "Warum es sich so anfühlte" (wind, hills, heat) read as
@@ -100,14 +119,21 @@
 
 	let activeGroup: (typeof groups)[number] | null = $state(null);
 
+	const sheetFor = {
+		open: (kind: RideStatement['kind']) =>
+			(activeGroup = groups.find((g) => g.kind === kind) ?? null),
+		has: (kind: RideStatement['kind']) => groups.some((g) => g.kind === kind)
+	};
+
 	function closeDetail() {
 		activeGroup = null;
 	}
 </script>
 
-{#if groups.length > 0}
+{#if groups.length > 0 || tiles}
 	<section class="rk-tiles story" aria-label={label}>
-		{#each groups as group, i (i)}
+		{@render tiles?.(sheetFor)}
+		{#each groups.filter((g) => !own.includes(g.kind)) as group, i (i)}
 			{@const status = statusOf[group.kind]}
 			{@const metrics = metricsOf(group)}
 			<button
@@ -119,7 +145,7 @@
 				onclick={() => (activeGroup = group)}
 			>
 				{#if status}<span class="rk-tile-word">{status.word}</span>{/if}
-				<span class="rk-kicker question">{statementLabel[group.kind]}</span>
+				<span class="rk-kicker">{statementLabel[group.kind]}</span>
 				{#if metrics.length > 0}
 					<span class="figures">
 						{#each metrics as m, j (j)}
@@ -187,12 +213,6 @@
 <style>
 	.story {
 		margin-bottom: var(--rk-space-l);
-	}
-
-	/* The question stays at the top of the tile, the figures at its foot. */
-	.question {
-		margin-bottom: auto;
-		text-align: left;
 	}
 
 	.figures {
