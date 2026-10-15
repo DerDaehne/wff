@@ -49,10 +49,10 @@ export default defineConfig({
 				// before any page (and its <meta theme-color> tags in app.html,
 				// which do react to prefers-color-scheme) has ever loaded — was
 				// still the pre-Nocturne teal brand colour. Matches the light
-				// scheme's --color-bg, since manifest values can't themselves
+				// scheme's --rk-bg, since manifest values can't themselves
 				// vary by scheme.
-				theme_color: '#f4f6f8',
-				background_color: '#f4f6f8',
+				theme_color: '#ffffff',
+				background_color: '#ffffff',
 				icons: [
 					{ src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
 					{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -86,7 +86,8 @@ export default defineConfig({
 				}
 			},
 			workbox: {
-				globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest}'],
+				// woff2: Barlow (Rekta) must work offline too; five weights, ~110 KB.
+				globPatterns: ['**/*.{js,css,html,svg,png,ico,webmanifest,woff2}'],
 				// adapter-static writes the SPA-fallback index.html *after* Vite's
 				// build finishes, so it never exists for the plugin to glob or hash
 				// at build time. @vite-pwa/sveltekit's kit.adapterFallback option

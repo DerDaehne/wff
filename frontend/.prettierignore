@@ -7,3 +7,6 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Vendored from Rekta Design byte-for-byte (scripts/sync-rekta.mjs --verify checks it)
+/src/lib/styles/rekta*.css

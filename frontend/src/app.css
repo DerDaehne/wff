@@ -1,216 +1,132 @@
-/* Design tokens for the Klartext-first sport look (#607, note
-   design-wff-klartext-first). Two colour schemes, both complete, selected by
-   the operating system via prefers-color-scheme.
+/* Design tokens: Rekta Design (ADR adr-002-wff-rekta-design, epic #1055).
+   lib/styles/rekta.tokens.css, rekta.fonts.css and rekta.css load before this
+   file (routes/+layout.svelte) and own colour, type, spacing, radius, motion,
+   light/dark (system, or data-theme on <html>), density and reduced motion.
+   This file only
 
-   Components MUST only reference the semantic tokens below — a hard-coded hex
-   in a component means one of the two schemes is silently broken. */
+   1. aliases the names WFF components already read onto --rk-*, so the views
+      can move to Rekta classes one ticket at a time. New code reads --rk-*
+      directly; the aliases go once nothing reads them (#1062).
+   2. adds the one WFF product layer Rekta has no slot for: the data accents
+      (--chart-*, --zone-*) below, reported upstream as Rekta feedback #1053.
 
-/* Manrope, self-hosted: no CDN request, works offline, and it is the single
-   biggest reason the app stopped looking like an industrial control panel
-   (a system-ui stack is exactly what those use). Latin subset only, 25 KB —
-   the other Fontsource subsets would be precached by the service worker
-   without a German user ever needing them. SIL OFL, see
-   static/fonts/manrope-LICENSE.txt. */
-@font-face {
-	font-family: 'Manrope';
-	font-style: normal;
-	font-display: swap;
-	font-weight: 200 800;
-	src: url('/fonts/manrope-latin-variable.woff2') format('woff2-variations');
-	unicode-range:
-		U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
-		U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+   Never override a --rk-* colour, text or focus value here: Rekta's AA checks
+   (build.mjs --check) only hold for its own values. Components still MUST NOT
+   hard-code a hex value. */
 
 :root {
-	/* Uppercase fact labels only (Nocturne v2) — anything below this is
-	   illegible on a phone; the ride-detail grid used to hard-code 9.5px,
-	   which was the actual complaint. */
-	--text-2xs: 11px;
-	--text-xs: 12px;
-	--text-sm: 14px;
-	--text-base: 16px;
-	--text-lg: 20px;
-	--text-xl: 25px;
-	--text-2xl: 31px;
-	/* Headline numbers. The point of the redesign: one number leads the page. */
-	--text-3xl: 44px;
-	--text-4xl: 64px;
+	--text-2xs: var(--rk-font-size-xxs);
+	--text-xs: var(--rk-font-size-xxs);
+	--text-sm: var(--rk-font-size-xs);
+	--text-base: var(--rk-font-size-s);
+	--text-lg: var(--rk-font-size-m);
+	--text-xl: var(--rk-font-size-l);
+	--text-2xl: var(--rk-font-size-xl);
+	--text-3xl: var(--rk-font-size-xxl);
+	--text-4xl: var(--rk-font-size-title);
 
-	--font-sans: 'Manrope', system-ui, sans-serif;
+	--font-sans: var(--rk-font-sans);
 
-	--radius-sm: 10px;
-	--radius-md: 16px;
-	--radius-lg: 24px;
-	--radius-pill: 999px;
+	/* Rekta rounds nothing off: tiles 2px, controls 4/8/12px, no pills. */
+	--radius-sm: var(--rk-radius-s);
+	--radius-md: var(--rk-radius-m);
+	--radius-lg: var(--rk-radius-l);
+	--radius-pill: var(--rk-radius-s);
 
-	/* Nocturne v2 (design review 2026-08-31, note design-wff-nocturne-v2):
-	   "flächige Farben" — a fact's own tinted fill instead of a bordered card
-	   around it. --fill-strength/--fill-strength-strong mix a semantic colour
-	   straight into the PAGE background (--fill-base), not into a card the
-	   way --wash-strength already does for chips — that pair stays for chips
-	   and .insight, this one is additive. Dark needs more of it to read at
-	   all, same reasoning --wash-strength already documents. */
+	--dur-fast: var(--rk-duration-press);
+	--dur-base: var(--rk-duration-short);
+	--dur-slow: var(--rk-duration-long);
+	/* Rekta has no overshoot: both curves land on its entering curve. */
+	--ease-out-soft: var(--rk-ease-in);
+	--ease-overshoot: var(--rk-ease-in);
+
+	--color-brand: var(--rk-accent);
+	--color-bg: var(--rk-bg);
+	--color-surface: var(--rk-surface);
+	--color-border: var(--rk-text-contrast-low);
+	--color-text: var(--rk-text-primary);
+	--color-text-muted: var(--rk-text-contrast-high);
+	--color-success: var(--rk-status-success-full);
+	--color-warning: var(--rk-status-warning-full);
+	--color-danger: var(--rk-status-error-full);
+	--color-info: var(--rk-status-info-full);
+	/* Read by the ride map through getComputedStyle, which resolves var() in a
+	   custom property, so this must stay a plain var() chain (no light-dark()). */
+	--color-track: var(--rk-accent);
+
+	/* Interim until the dashboard/ride tickets (#1059, #1060) replace the hero
+	   block, the record glow, washes and fills with Rekta tiles. Rekta-near
+	   values only, no new colours. */
+	--color-hero-bg: var(--rk-surface);
+	--color-hero-text: var(--rk-text-primary);
+	--color-hero-muted: var(--rk-text-contrast-high);
+	--color-achievement: var(--rk-status-success-full);
+	--shadow-sm: none;
+	--shadow-md: none;
+	--shadow-lg: none;
+	--surface-glass: var(--rk-glass);
+	--wash-strength: 10%;
+	--wash-base: var(--color-surface);
 	--fill-base: var(--color-bg);
 	--fill-strength: 12%;
 	--fill-strength-strong: 24%;
-
-	--dur-fast: 180ms;
-	--dur-base: 260ms;
-	--dur-slow: 700ms;
-	--ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
-	--ease-overshoot: cubic-bezier(0.34, 1.4, 0.64, 1);
-
-	/* Series colours stay bound to their metric across the whole app —
-	   recognition matters more than local harmony. Kept from #145, lifted in
-	   saturation so they hold up on a dark background too. */
-	--chart-elevation: #a8a29e;
-	--chart-power: #fbbf24;
-	--chart-heart-rate: #fb7185;
-	--chart-speed: #38bdf8;
-	--chart-cadence: #a78bfa;
-	--chart-ctl: #2dd4bf;
-	--chart-atl: #fbbf24;
-	--chart-tsb: #94a3b8;
-
-	/* Heart-rate zones (#621), cool to warm in the order of effort. Shared by
-	   the ride view and the dashboard so the same band is the same colour
-	   everywhere — that recognition is the whole point of the bar. */
-	--zone-recovery: #94a3b8;
-	--zone-endurance: #2dd4bf;
-	--zone-tempo: #fbbf24;
-	--zone-threshold: #fb923c;
-	--zone-vo2: #fb7185;
 }
 
-/* Light scheme (default) */
+/* WFF data accents: each metric keeps its own colour across the whole app and
+   the heart-rate zones run cool to warm, a code riders know from every other
+   cycling app (ADR 002 §2). Small marks only: chart lines, zone bars, legend
+   swatches, a statement's colour mark. Never a tile fill, never text.
+   Measured contrast (WCAG, against --rk-bg / --rk-surface), floor 3:1:
+
+   light            bg     surface      dark             bg     surface
+   elevation #78716c 4.80  4.17         elevation #a8a29e 7.64  6.31
+   power     #b45309 5.02  4.37         power     #fbbf24 11.54 9.53
+   heart     #e11d48 4.70  4.09         heart     #fb7185 7.16  5.91
+   speed     #0284c7 4.10  3.56         speed     #38bdf8 8.99  7.43
+   cadence   #7c3aed 5.70  4.96         cadence   #a78bfa 7.08  5.85
+   ctl       #0d9488 3.74  3.26         ctl       #2dd4bf 10.35 8.55
+   tsb       #64748b 4.76  4.14         tsb       #94a3b8 7.51  6.20
+   z tempo   #a16207 4.92  4.28         z thresh. #fb923c 8.51  7.03
+   z thresh. #c2410c 5.18  4.50
+
+   ATL shares power's amber and the zones reuse the series values above.
+   Plain hex per theme, not light-dark(): the ride map reads the zone colours
+   through getComputedStyle, which would hand MapLibre the unresolved function. */
 :root {
-	color-scheme: light;
+	--chart-elevation: #78716c;
+	--chart-power: #b45309;
+	--chart-heart-rate: #e11d48;
+	--chart-speed: #0284c7;
+	--chart-cadence: #7c3aed;
+	--chart-ctl: #0d9488;
+	--chart-atl: #b45309;
+	--chart-tsb: #64748b;
 
-	--color-brand: #0f766e;
-	--color-brand-accent: #14b8a6;
-	--color-bg: #f4f6f8;
-	--color-surface: #ffffff;
-	--color-surface-raised: #ffffff;
-	/* The hero block: a deep brand wash that carries the big numbers. */
-	--color-hero-bg: #0b3b39;
-	--color-hero-text: #ecfdf9;
-	--color-hero-muted: #8fd3ca;
-	--color-border: #e2e8f0;
-	--color-text: #0f172a;
-	/* Was #5a6a7d — raised for Nocturne v2's flat fact-band fills, whose base
-	   tint (a semantic colour mixed straight into the page background) is
-	   lighter than the surfaces this token was originally measured against.
-	   #5a6a7d only clears 4.36:1 on that tint (fails AA); #526376 clears
-	   4.86:1 there and improves every existing pairing too (5.11→5.69 on
-	   --color-bg, 5.54→6.17 on --color-surface) — a strict improvement, not a
-	   trade-off. Measured, not eyeballed: see design-wff-nocturne-v2. */
-	--color-text-muted: #526376;
-	--color-success: #15803d;
-	--color-warning: #b45309;
-	--color-danger: #dc2626;
-	--color-info: #1d4ed8;
-	--color-track: #0f766e;
-	/* The app's own brand accent pushed brighter, not a fifth hue family —
-	   every obvious celebration colour (amber/green/coral/blue) is already a
-	   chart series. Used only for records (RideStatement kind: 'milestone')
-	   and their glow — the one place in the app a glow appears at all, which
-	   is what keeps it meaning something. 5.72:1 on --color-bg. */
-	--color-achievement: #b81079;
-
-	--shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-	--shadow-md: 0 6px 16px rgba(15, 23, 42, 0.08);
-	--shadow-lg: 0 14px 32px rgba(15, 23, 42, 0.16);
-	/* Was 0.72 — legible over a plain card, not always over real scrolling
-	   content (a chart's own colours, a bright fact-tile fill). Raised so the
-	   glass reads as "frosted", not "half-there", while still letting colour
-	   and shape show through. */
-	--surface-glass: rgba(255, 255, 255, 0.85);
-	/* Strength of a semantic colour used as a card wash. Dark needs more of it
-	   to be visible at all, so it is a token rather than a literal per card. */
-	--wash-strength: 10%;
-	--wash-base: var(--color-surface);
+	--zone-recovery: #64748b;
+	--zone-endurance: #0d9488;
+	--zone-tempo: #a16207;
+	--zone-threshold: #c2410c;
+	--zone-vo2: #e11d48;
 }
 
-/* "Nocturne" — the dark palette from the WFF Mobile design review
-   (claude.ai/design project db4dcd7d, 2026-08-30). Values are lifted
-   directly from that mockup (a lavender accent instead of teal, oklch zone
-   colours, hairline-ring cards instead of blurred shadows) — checked against
-   WCAG AA at the pairings that matter (text-muted/#9397ab-equivalent on
-   --color-surface: 5.25:1; --color-brand on --color-bg: 5.45:1, also used
-   reversed for --btn-primary's text-on-brand). The mock's own fifth text
-   tier (#75798c) does NOT clear AA against --color-surface (3.52:1) so it
-   was deliberately left out — this scheme keeps the existing two-tier
-   text/text-muted system rather than adding a tier that would fail contrast
-   the moment it landed on real content. Font stays Manrope: the mock's
-   Inter+JetBrains Mono pairing loads from Google Fonts, which would add a
-   CDN dependency this self-hosted, offline-capable PWA deliberately doesn't
-   have (see the self-hosted font comment above) — not something a colour
-   reskin should quietly trade away. Light scheme is untouched; this mockup
-   only designed a dark one. */
+/* Same selector as Rekta's own dark block. ponytail: :root[data-theme='dark']
+   is not mirrored because WFF has no theme switch; add it with the switch. */
 @media (prefers-color-scheme: dark) {
-	:root {
-		color-scheme: dark;
-
-		--color-brand: #9184d9;
-		--color-brand-accent: #b5abfc;
-		--color-bg: #161826;
-		--color-surface: #232532;
-		--color-surface-raised: #2b2e3d;
-		/* Was #232532 — identical to --color-surface, which is exactly why the
-		   dashboard hero used to have no visible top against the page below
-		   it. One step brighter so it reads as its own block again (Nocturne
-		   v2). 10.53:1 for --color-hero-text, 6.19:1 for --color-hero-muted —
-		   both improve slightly over the old value. */
-		--color-hero-bg: #322f4c;
-		--color-hero-text: #e9e9ed;
-		--color-hero-muted: #b5abfc;
-		--color-border: #3f424d;
-		--color-text: #e9e9ed;
-		--color-text-muted: #9397ab;
-		--color-success: oklch(0.75 0.09 195);
-		--color-warning: oklch(0.7 0.12 60);
-		--color-danger: oklch(0.66 0.13 25);
-		--color-info: oklch(0.72 0.07 230);
-		--color-track: #9184d9;
-		--color-achievement: #f86ab5;
-
-		/* Dark needs a stronger mix than light to read as a distinct fill at
-		   all — same reasoning as --wash-strength below, just for the newer
-		   page-level fill pair. */
-		--fill-strength: 14%;
-		--fill-strength-strong: 26%;
-
-		/* Nocturne's cards are a flat hairline ring (0 0 0 1px), never a blurred
-		   drop-shadow — no elevation hierarchy between sm/md/lg, which is
-		   deliberate, not a shortcut: it's the same flatter, less-card-heavy
-		   direction already applied to /raeder this session. */
-		--shadow-sm: 0 0 0 1px var(--color-border);
-		--shadow-md: 0 0 0 1px var(--color-border);
-		--shadow-lg: 0 0 0 1px var(--color-border);
-		/* Was 0.82 — same reasoning as the light value above. */
-		--surface-glass: rgba(22, 24, 38, 0.9);
-		--wash-strength: 18%;
-		--wash-base: var(--color-surface);
-
-		/* Series colours (shared, non-dark-specific in :root above) get a
-		   dark-only override here rather than changing the shared default —
-		   the mock only designed a dark palette, so light mode keeps its
-		   existing series colours untouched. */
-		--chart-elevation: #75798c;
-		--chart-power: oklch(0.78 0.14 85);
-		--chart-heart-rate: oklch(0.66 0.13 25);
-		--chart-speed: oklch(0.72 0.07 230);
+	:root:not([data-theme='light']) {
+		--chart-elevation: #a8a29e;
+		--chart-power: #fbbf24;
+		--chart-heart-rate: #fb7185;
+		--chart-speed: #38bdf8;
 		--chart-cadence: #a78bfa;
-		--chart-ctl: #9184d9;
-		--chart-atl: #c79a63;
-		--chart-tsb: #75798c;
+		--chart-ctl: #2dd4bf;
+		--chart-atl: #fbbf24;
+		--chart-tsb: #94a3b8;
 
-		--zone-recovery: oklch(0.68 0.05 265);
-		--zone-endurance: oklch(0.7 0.09 195);
-		--zone-tempo: oklch(0.74 0.1 110);
-		--zone-threshold: oklch(0.7 0.12 60);
-		--zone-vo2: oklch(0.66 0.13 25);
+		--zone-recovery: #94a3b8;
+		--zone-endurance: #2dd4bf;
+		--zone-tempo: #fbbf24;
+		--zone-threshold: #fb923c;
+		--zone-vo2: #fb7185;
 	}
 }
 
@@ -248,16 +164,16 @@ body {
 	color: var(--color-text);
 	font-family: var(--font-sans);
 	font-size: var(--text-base);
-	line-height: 1.5;
+	line-height: var(--rk-line-height-body);
 	-webkit-font-smoothing: antialiased;
 }
 
+/* Rekta: one semibold title per screen, never heavier; no negative tracking. */
 h1,
 h2,
 h3 {
-	line-height: 1.15;
-	letter-spacing: -0.015em;
-	font-weight: 700;
+	line-height: var(--rk-line-height-tight);
+	font-weight: var(--rk-font-weight-semibold);
 }
 
 /* Component base patterns — shared across pages so buttons/inputs/cards look
@@ -419,9 +335,13 @@ a {
 .fact {
 	position: relative;
 	overflow: hidden;
-	border-radius: var(--radius-sm);
+	border-radius: var(--rk-radius-tile);
 	padding: 0.875rem 1rem;
-	background: color-mix(in srgb, var(--fact-color, var(--color-brand)) var(--fill-strength), var(--fill-base));
+	background: color-mix(
+		in srgb,
+		var(--fact-color, var(--color-brand)) var(--fill-strength),
+		var(--fill-base)
+	);
 	color: var(--color-text);
 	text-align: left;
 }
@@ -526,9 +446,13 @@ a.fact:active {
 /* Grid variant: same paint, smaller number, no fill unless the caller adds
    one — most tiles (a plain distance, a duration) have no natural scale. */
 .fact-tile {
-	border-radius: var(--radius-sm);
+	border-radius: var(--rk-radius-tile);
 	padding: 0.75rem 0.875rem;
-	background: color-mix(in srgb, var(--fact-color, var(--color-brand)) var(--fill-strength), var(--fill-base));
+	background: color-mix(
+		in srgb,
+		var(--fact-color, var(--color-brand)) var(--fill-strength),
+		var(--fill-base)
+	);
 }
 
 .fact-tile-value {
