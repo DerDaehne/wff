@@ -25,7 +25,8 @@ export async function addPasskey(name: string): Promise<Passkey> {
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({ name })
 	}).then(
-		(r) => r.json() as Promise<PublicKeyWrapper<Parameters<typeof startRegistration>[0]['optionsJSON']>>
+		(r) =>
+			r.json() as Promise<PublicKeyWrapper<Parameters<typeof startRegistration>[0]['optionsJSON']>>
 	);
 	const attestation = await startRegistration({ optionsJSON: creation.publicKey });
 	const res = await apiFetch('/api/passkeys/finish', {

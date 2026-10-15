@@ -222,7 +222,9 @@
 	let gridStats: RideStat[] = $derived(detailStats.filter((s) => s !== tssStat && s !== ifStat));
 	// IF already lives on a real 0–~1.2 scale (1.0 = riding exactly at
 	// threshold) — a genuine position to mark, not a fabricated percentage.
-	let ifShare = $derived(ifStat ? Math.max(0, Math.min(1, parseFloat(ifStat.value.replace(',', '.')))) : 0);
+	let ifShare = $derived(
+		ifStat ? Math.max(0, Math.min(1, parseFloat(ifStat.value.replace(',', '.')))) : 0
+	);
 	let hasPower = $derived(hasAnyValue(samples.map((s) => s.power_watts)));
 	let hasHeartRate = $derived(hasAnyValue(samples.map((s) => s.heart_rate)));
 	// Prefer power (more directly trainable) when both are present.
@@ -558,7 +560,11 @@
 				<LineChart
 					xValues={elapsedMinutes}
 					series={[
-						{ name: 'Höhe', color: 'var(--chart-elevation)', values: samples.map((s) => s.altitude_meters) }
+						{
+							name: 'Höhe',
+							color: 'var(--chart-elevation)',
+							values: samples.map((s) => s.altitude_meters)
+						}
 					]}
 					xFormat={formatElapsed}
 					yFormat={(y) => `${Math.round(y)} m`}
@@ -571,7 +577,11 @@
 
 		{#if tssStat}
 			<div class="fact reveal" style="--i: 2">
-				<p class="fact-value">{tssStat.value}{#if tssStat.unit}<span class="fact-unit">{tssStat.unit}</span>{/if}<span class="fact-name">{tssStat.label}</span></p>
+				<p class="fact-value">
+					{tssStat.value}{#if tssStat.unit}<span class="fact-unit">{tssStat.unit}</span>{/if}<span
+						class="fact-name">{tssStat.label}</span
+					>
+				</p>
 			</div>
 		{/if}
 
@@ -581,7 +591,9 @@
 				<div class="fact-scale" style="--fact-share: {ifShare}">
 					<div class="fact-scale-marker"></div>
 				</div>
-				<p class="fact-scale-ends"><span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span></p>
+				<p class="fact-scale-ends">
+					<span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span>
+				</p>
 			</div>
 		{/if}
 
@@ -597,52 +609,52 @@
 		{/if}
 
 		<div class="reveal" style="--i: 5">
-		<StoryCards
-			statements={story?.statements ?? []}
-			label="Einordnung dieser Fahrt"
-			context={{
-				...(showPower || showHeartRate
-					? {
-							effort: {
-								xValues: elapsedMinutes,
-								series: [
-									showPower
-										? {
-												name: 'Leistung',
-												color: 'var(--chart-power)',
-												values: samples.map((s) => s.power_watts)
-											}
-										: {
-												name: 'Herzfrequenz',
-												color: 'var(--chart-heart-rate)',
-												values: samples.map((s) => s.heart_rate)
-											}
-								],
-								xFormat: formatElapsed,
-								yFormat: (y: number) => `${Math.round(y)}${showPower ? ' W' : ' bpm'}`,
-								caption: 'Verlauf während der Fahrt'
+			<StoryCards
+				statements={story?.statements ?? []}
+				label="Einordnung dieser Fahrt"
+				context={{
+					...(showPower || showHeartRate
+						? {
+								effort: {
+									xValues: elapsedMinutes,
+									series: [
+										showPower
+											? {
+													name: 'Leistung',
+													color: 'var(--chart-power)',
+													values: samples.map((s) => s.power_watts)
+												}
+											: {
+													name: 'Herzfrequenz',
+													color: 'var(--chart-heart-rate)',
+													values: samples.map((s) => s.heart_rate)
+												}
+									],
+									xFormat: formatElapsed,
+									yFormat: (y: number) => `${Math.round(y)}${showPower ? ' W' : ' bpm'}`,
+									caption: 'Verlauf während der Fahrt'
+								}
 							}
-						}
-					: {}),
-				...(hasElevation
-					? {
-							climb: {
-								xValues: elapsedMinutes,
-								series: [
-									{
-										name: 'Höhe',
-										color: 'var(--chart-elevation)',
-										values: samples.map((s) => s.altitude_meters)
-									}
-								],
-								xFormat: formatElapsed,
-								yFormat: (y: number) => `${Math.round(y)} m`,
-								caption: 'Höhenprofil dieser Fahrt'
+						: {}),
+					...(hasElevation
+						? {
+								climb: {
+									xValues: elapsedMinutes,
+									series: [
+										{
+											name: 'Höhe',
+											color: 'var(--chart-elevation)',
+											values: samples.map((s) => s.altitude_meters)
+										}
+									],
+									xFormat: formatElapsed,
+									yFormat: (y: number) => `${Math.round(y)} m`,
+									caption: 'Höhenprofil dieser Fahrt'
+								}
 							}
-						}
-					: {})
-			}}
-		/>
+						: {})
+				}}
+			/>
 		</div>
 
 		{#if shareStatus?.active}

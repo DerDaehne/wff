@@ -258,7 +258,9 @@
 				},
 				trend: {
 					xValues: dayTimestamps,
-					series: [{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }],
+					series: [
+						{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }
+					],
 					xFormat: formatDay,
 					yFormat: (y) => formatDecimal(y, 1),
 					caption: 'Verlauf der letzten Wochen'

@@ -189,7 +189,10 @@ export async function getActivityStory(id: number): Promise<RideStory> {
  *  value reads as "1.5" in one place and "1,5" in another for the same
  *  ride. */
 export function formatDecimal(value: number, digits: number): string {
-	return value.toLocaleString('de-DE', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+	return value.toLocaleString('de-DE', {
+		minimumFractionDigits: digits,
+		maximumFractionDigits: digits
+	});
 }
 
 export function formatDistance(meters: number | null): string {

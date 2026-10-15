@@ -126,8 +126,8 @@
 	<h1>Was die Begriffe bedeuten</h1>
 	<p class="intro">
 		Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
-		Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was dahinter
-		steckt.
+		Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was
+		dahinter steckt.
 	</p>
 </div>
 

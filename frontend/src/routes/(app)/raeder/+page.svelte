@@ -81,7 +81,8 @@
 	}
 
 	function toggleSelectAll() {
-		selectedIds = selectedIds.size === unassigned.length ? new Set() : new Set(unassigned.map((a) => a.id));
+		selectedIds =
+			selectedIds.size === unassigned.length ? new Set() : new Set(unassigned.map((a) => a.id));
 	}
 
 	function formatRideDate(a: ActivitySummary): string {
@@ -127,56 +128,56 @@
 			</p>
 
 			<ul class="bikes">
-			{#each bikeList as bike (bike.id)}
-				<li class="bike-row" class:retired={bike.retired_at}>
-					<div class="bike-header">
-						<strong>{bike.name}</strong>
-						{#if bike.active}
-							<span class="chip" style="--chip-color: var(--color-success)">Aktiv</span>
-						{:else if bike.retired_at}
-							<span class="chip" style="--chip-color: var(--color-text-muted)">Stillgelegt</span>
-						{/if}
-					</div>
-					<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
-					<p class="stat" class:overdue={bike.chain_due_km <= 0}>{chainLabel(bike)}</p>
-					<div class="actions">
-						{#if !bike.active && !bike.retired_at}
+				{#each bikeList as bike (bike.id)}
+					<li class="bike-row" class:retired={bike.retired_at}>
+						<div class="bike-header">
+							<strong>{bike.name}</strong>
+							{#if bike.active}
+								<span class="chip" style="--chip-color: var(--color-success)">Aktiv</span>
+							{:else if bike.retired_at}
+								<span class="chip" style="--chip-color: var(--color-text-muted)">Stillgelegt</span>
+							{/if}
+						</div>
+						<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
+						<p class="stat" class:overdue={bike.chain_due_km <= 0}>{chainLabel(bike)}</p>
+						<div class="actions">
+							{#if !bike.active && !bike.retired_at}
+								<button
+									class="btn btn-secondary"
+									disabled={busy}
+									onclick={() => run(() => activateBike(bike.id))}
+								>
+									Als aktiv setzen
+								</button>
+							{/if}
 							<button
 								class="btn btn-secondary"
 								disabled={busy}
-								onclick={() => run(() => activateBike(bike.id))}
+								onclick={() => run(() => markChainReplaced(bike.id))}
 							>
-								Als aktiv setzen
+								Kette gewechselt
 							</button>
-						{/if}
-						<button
-							class="btn btn-secondary"
-							disabled={busy}
-							onclick={() => run(() => markChainReplaced(bike.id))}
-						>
-							Kette gewechselt
-						</button>
-						{#if bike.retired_at}
-							<button
-								class="btn btn-secondary"
-								disabled={busy}
-								onclick={() => run(() => updateBike(bike.id, { retired: false }))}
-							>
-								Reaktivieren
-							</button>
-						{:else}
-							<button
-								class="btn btn-secondary"
-								disabled={busy}
-								onclick={() => run(() => updateBike(bike.id, { retired: true }))}
-							>
-								Stilllegen
-							</button>
-						{/if}
-					</div>
-				</li>
-			{/each}
-		</ul>
+							{#if bike.retired_at}
+								<button
+									class="btn btn-secondary"
+									disabled={busy}
+									onclick={() => run(() => updateBike(bike.id, { retired: false }))}
+								>
+									Reaktivieren
+								</button>
+							{:else}
+								<button
+									class="btn btn-secondary"
+									disabled={busy}
+									onclick={() => run(() => updateBike(bike.id, { retired: true }))}
+								>
+									Stilllegen
+								</button>
+							{/if}
+						</div>
+					</li>
+				{/each}
+			</ul>
 		</div>
 
 		<form class="add-bike reveal" style="--i: 1" onsubmit={addBike}>
@@ -220,8 +221,8 @@
 								{#each bikeList as bike (bike.id)}
 									<tr class:retired={bike.retired_at}>
 										<td
-											>{bike.name}{#if bike.retired_at}<span class="muted"
-													> (stillgelegt)</span
+											>{bike.name}{#if bike.retired_at}<span class="muted">
+													(stillgelegt)</span
 												>{/if}</td
 										>
 										<td>{bike.ride_count}</td>
@@ -229,7 +230,9 @@
 										<td>{formatDuration(bike.moving_seconds)}</td>
 										<td>{Math.round(bike.elevation_gain_meters)} m</td>
 										<td
-											>{bike.avg_speed_kmh > 0 ? `${formatDecimal(bike.avg_speed_kmh, 1)} km/h` : '–'}</td
+											>{bike.avg_speed_kmh > 0
+												? `${formatDecimal(bike.avg_speed_kmh, 1)} km/h`
+												: '–'}</td
 										>
 									</tr>
 								{/each}

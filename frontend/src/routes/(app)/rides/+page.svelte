@@ -146,72 +146,72 @@
 		<div class="reveal" style="--i: {i + 1}">
 			<h2 class="month-header">{group.label}</h2>
 			<ul class="rides">
-			{#each group.rides as ride (ride.id)}
-				<li class:compare-row={compareMode}>
-					{#if compareMode}
-						<label class="compare-checkbox">
-							<input
-								type="checkbox"
-								checked={selectedIds.includes(ride.id)}
-								disabled={!selectedIds.includes(ride.id) && selectedIds.length >= 2}
-								onchange={() => toggleSelected(ride.id)}
-							/>
-							<span class="sr-only">{rideDate(ride.started_at)} auswählen</span>
-						</label>
-					{/if}
-					<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
-						<span class="ride-date">
-							{rideDate(ride.started_at)}
-							{#if ride.is_shared}
-								<svg
-									class="share-badge"
-									viewBox="0 0 24 24"
-									width="16"
-									height="16"
-									aria-hidden="true"
-								>
-									<path
-										fill="currentColor"
-										d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15.19l7.13 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.95-3.92z"
-									/>
-								</svg>
-								<span class="sr-only">Diese Fahrt ist per Link geteilt</span>
-							{/if}
-						</span>
-						<!-- Fahrt-Charakter auf einen Blick (#633), promoted right under the
+				{#each group.rides as ride (ride.id)}
+					<li class:compare-row={compareMode}>
+						{#if compareMode}
+							<label class="compare-checkbox">
+								<input
+									type="checkbox"
+									checked={selectedIds.includes(ride.id)}
+									disabled={!selectedIds.includes(ride.id) && selectedIds.length >= 2}
+									onchange={() => toggleSelected(ride.id)}
+								/>
+								<span class="sr-only">{rideDate(ride.started_at)} auswählen</span>
+							</label>
+						{/if}
+						<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
+							<span class="ride-date">
+								{rideDate(ride.started_at)}
+								{#if ride.is_shared}
+									<svg
+										class="share-badge"
+										viewBox="0 0 24 24"
+										width="16"
+										height="16"
+										aria-hidden="true"
+									>
+										<path
+											fill="currentColor"
+											d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15.19l7.13 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.95-3.92z"
+										/>
+									</svg>
+									<span class="sr-only">Diese Fahrt ist per Link geteilt</span>
+								{/if}
+							</span>
+							<!-- Fahrt-Charakter auf einen Blick (#633), promoted right under the
 						     date (Nocturne v2) — a Grundlagenfahrt and an Intervalleinheit are
 						     distinguishable at a glance, before a single number is read. -->
-						{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
-							<div
-								class="zone-bar"
-								role="img"
-								aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
-									? ' (geschätzt aus beobachtetem Maximalpuls)'
-									: ''}"
-							>
-								{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
-									<span
-										class="zone-segment"
-										style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
-									></span>
-								{/each}
-							</div>
-						{/if}
-						<!-- Same order as the ride's own hero: the list and the detail view
+							{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
+								<div
+									class="zone-bar"
+									role="img"
+									aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
+										? ' (geschätzt aus beobachtetem Maximalpuls)'
+										: ''}"
+								>
+									{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
+										<span
+											class="zone-segment"
+											style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
+										></span>
+									{/each}
+								</div>
+							{/if}
+							<!-- Same order as the ride's own hero: the list and the detail view
 						     must not disagree about what matters. "TSS 101" became a
 						     labelled figure — the abbreviation said nothing to anyone who
 						     hadn't already looked it up. -->
-						<span class="ride-figures">
-							{#each figuresFor(ride) as figure (figure.metric)}
-								<span class="figure">
-									<strong>{figure.value}</strong>
-									<span class="figure-label">{figure.label}</span>
-								</span>
-							{/each}
-						</span>
-					</a>
-				</li>
-			{/each}
+							<span class="ride-figures">
+								{#each figuresFor(ride) as figure (figure.metric)}
+									<span class="figure">
+										<strong>{figure.value}</strong>
+										<span class="figure-label">{figure.label}</span>
+									</span>
+								{/each}
+							</span>
+						</a>
+					</li>
+				{/each}
 			</ul>
 		</div>
 	{/each}
