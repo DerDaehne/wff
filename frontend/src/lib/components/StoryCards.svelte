@@ -225,7 +225,7 @@
 	.statement-milestone.statement-row {
 		--fact-color: var(--color-achievement);
 		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent);
-		animation: wff-milestone-land var(--dur-slow) var(--ease-overshoot) 1 both;
+		animation: wff-milestone-land var(--dur-slow) var(--rk-ease-in) 1 both;
 	}
 
 	/* Chip above, summary below, both full-width — trying to fit chip +

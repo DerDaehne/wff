@@ -36,9 +36,7 @@
 	--dur-fast: var(--rk-duration-press);
 	--dur-base: var(--rk-duration-short);
 	--dur-slow: var(--rk-duration-long);
-	/* Rekta has no overshoot: both curves land on its entering curve. */
 	--ease-out-soft: var(--rk-ease-in);
-	--ease-overshoot: var(--rk-ease-in);
 
 	--color-brand: var(--rk-accent);
 	--color-bg: var(--rk-bg);
@@ -479,48 +477,27 @@ a.fact:active {
 	color: var(--color-text-muted);
 }
 
-/* Nocturne v3: tiles/bands rise and fade in on mount instead of just
-   appearing, staggered via a per-item --i set by the caller ({#each ... as
-   x, i}). Excludes .fact--milestone, which already runs its own glow+pop
-   entrance (wff-milestone-land) — stacking this on top would make a record
-   read as noisier, the opposite of what the one-glow-in-the-app rule is
-   for. Capped at 5 items so a long grid doesn't crawl in. */
+/* Build-in on arrival, Rekta's timing (rk-build-in in rekta.css: 6px rise,
+   duration-moderate, ease-in, duration-stagger per step, at most 10 steps),
+   staggered by a per-item --i the caller sets ({#each ... as x, i}). Excludes
+   .fact--milestone, which runs its own entrance (wff-milestone-land). Rekta
+   tiles (.rk-tile) build in by themselves through --rk-i once the views use
+   them (#1059-#1062); this covers the WFF shapes until then. */
 .fact-tile:not(.fact-tile--milestone),
-.fact:not(.fact--milestone) {
+.fact:not(.fact--milestone),
+.reveal {
 	transition:
-		opacity var(--dur-base) var(--ease-out-soft),
-		transform var(--dur-base) var(--ease-out-soft);
-	transition-delay: calc(min(var(--i, 0), 5) * 50ms);
+		opacity var(--rk-duration-moderate) var(--rk-ease-in),
+		transform var(--rk-duration-moderate) var(--rk-ease-in);
+	transition-delay: calc(min(var(--i, 0), 10) * var(--rk-duration-stagger));
 }
 
 @starting-style {
 	.fact-tile:not(.fact-tile--milestone),
-	.fact:not(.fact--milestone) {
-		opacity: 0;
-		transform: translateY(8px);
-	}
-}
-
-/* .reveal generalises the same rise-and-fade-in-on-mount mechanism for
-   anything outside the fact-tile/fact family — page-level cards, nav items,
-   list rows. Same contract: caller sets --i (its position in a top-to-bottom
-   or {#each} order) for the stagger, capped at 6 steps so a longer stack
-   still finishes settling in under half a second instead of visibly
-   crawling in one by one. Not applied globally to e.g. .card, because not
-   every card-shaped thing is a top-level page section (a card can live
-   inside another card, inside a sheet, ...) — opt in explicitly where the
-   staggered top-to-bottom entrance actually reads as one sequence. */
-.reveal {
-	transition:
-		opacity var(--dur-base) var(--ease-out-soft),
-		transform var(--dur-base) var(--ease-out-soft);
-	transition-delay: calc(min(var(--i, 0), 6) * 70ms);
-}
-
-@starting-style {
+	.fact:not(.fact--milestone),
 	.reveal {
 		opacity: 0;
-		transform: translateY(14px);
+		transform: translateY(6px);
 	}
 }
 
@@ -589,12 +566,12 @@ a.fact:active {
 }
 
 .fact--milestone {
-	animation: wff-milestone-land var(--dur-slow) var(--ease-overshoot) 1 both;
+	animation: wff-milestone-land var(--dur-slow) var(--rk-ease-in) 1 both;
 }
 
 .fact--milestone .fact-value {
 	display: inline-block;
-	animation: wff-milestone-pop var(--dur-slow) var(--ease-overshoot) 1 both;
+	animation: wff-milestone-pop var(--dur-slow) var(--rk-ease-in) 1 both;
 }
 
 @keyframes wff-milestone-land {
