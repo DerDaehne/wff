@@ -10,6 +10,7 @@
 	} from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import { getSettings } from '$lib/profile';
+	import { zoneCharacter } from '$lib/zones';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 
 	let viewState: 'loading' | 'empty' | 'error' | 'ready' = $state('loading');
@@ -182,20 +183,9 @@
 						     date (Nocturne v2) — a Grundlagenfahrt and an Intervalleinheit are
 						     distinguishable at a glance, before a single number is read. -->
 							{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
-								<div
-									class="zone-bar"
-									role="img"
-									aria-label="Pulszonen-Verteilung dieser Fahrt{ride.zones.assumed
-										? ' (geschätzt aus beobachtetem Maximalpuls)'
-										: ''}"
+								<span class="zone-character rk-meta"
+									>{zoneCharacter(ride.zones)}{ride.zones.assumed ? ' (geschätzt)' : ''}</span
 								>
-									{#each ride.zones.zones.filter((z) => z.share > 0) as zone (zone.key)}
-										<span
-											class="zone-segment"
-											style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
-										></span>
-									{/each}
-								</div>
 							{/if}
 							<!-- Same order as the ride's own hero: the list and the detail view
 						     must not disagree about what matters. "TSS 101" became a
@@ -333,24 +323,8 @@
 	   Wipes open on mount (Nocturne v3), --dur-base and no per-row stagger:
 	   a long list cascading at 40ms/row would take seconds to finish, so
 	   every row's bar wipes at once instead. */
-	.zone-bar {
-		display: flex;
-		height: 0.375rem;
-		border-radius: var(--radius-pill);
-		overflow: hidden;
-		background: var(--color-border);
-		transform-origin: left;
-		transition: transform var(--dur-base) var(--ease-out-soft);
-	}
-
-	@starting-style {
-		.zone-bar {
-			transform: scaleX(0);
-		}
-	}
-
-	.zone-segment {
-		height: 100%;
+	.zone-character {
+		display: block;
 	}
 
 	.ride-date {

@@ -2,13 +2,13 @@
    lib/styles/rekta.tokens.css, rekta.fonts.css and rekta.css load before this
    file (routes/+layout.svelte) and own colour, type, spacing, radius, motion,
    light/dark (system, or data-theme on <html>), density and reduced motion.
-   This file only
+   This file only aliases the names WFF components already read onto --rk-*,
+   so the views can move to Rekta classes one ticket at a time. New code reads
+   --rk-* directly; the aliases go once nothing reads them (#1062).
 
-   1. aliases the names WFF components already read onto --rk-*, so the views
-      can move to Rekta classes one ticket at a time. New code reads --rk-*
-      directly; the aliases go once nothing reads them (#1062).
-   2. adds the one WFF product layer Rekta has no slot for: the data accents
-      (--chart-*, --zone-*) below, reported upstream as Rekta feedback #1053.
+   No WFF colours of its own, data included: charts and zones work in Rekta's
+   ink and grey until Rekta has a slot for colour codes (ADR
+   adr-003-wff-datenfarben-rekta, Rekta feedback #1053).
 
    Never override a --rk-* colour, text or focus value here: Rekta's AA checks
    (build.mjs --check) only hold for its own values. Components still MUST NOT
@@ -68,64 +68,6 @@
 	--fill-base: var(--color-bg);
 	--fill-strength: 12%;
 	--fill-strength-strong: 24%;
-}
-
-/* WFF data accents: each metric keeps its own colour across the whole app and
-   the heart-rate zones run cool to warm, a code riders know from every other
-   cycling app (ADR 002 §2). Small marks only: chart lines, zone bars, legend
-   swatches, a statement's colour mark. Never a tile fill, never text.
-   Measured contrast (WCAG, against --rk-bg / --rk-surface), floor 3:1:
-
-   light            bg     surface      dark             bg     surface
-   elevation #78716c 4.80  4.17         elevation #a8a29e 7.64  6.31
-   power     #b45309 5.02  4.37         power     #fbbf24 11.54 9.53
-   heart     #e11d48 4.70  4.09         heart     #fb7185 7.16  5.91
-   speed     #0284c7 4.10  3.56         speed     #38bdf8 8.99  7.43
-   cadence   #7c3aed 5.70  4.96         cadence   #a78bfa 7.08  5.85
-   ctl       #0d9488 3.74  3.26         ctl       #2dd4bf 10.35 8.55
-   tsb       #64748b 4.76  4.14         tsb       #94a3b8 7.51  6.20
-   z tempo   #a16207 4.92  4.28         z thresh. #fb923c 8.51  7.03
-   z thresh. #c2410c 5.18  4.50
-
-   ATL shares power's amber and the zones reuse the series values above.
-   Plain hex per theme, not light-dark(): the ride map reads the zone colours
-   through getComputedStyle, which would hand MapLibre the unresolved function. */
-:root {
-	--chart-elevation: #78716c;
-	--chart-power: #b45309;
-	--chart-heart-rate: #e11d48;
-	--chart-speed: #0284c7;
-	--chart-cadence: #7c3aed;
-	--chart-ctl: #0d9488;
-	--chart-atl: #b45309;
-	--chart-tsb: #64748b;
-
-	--zone-recovery: #64748b;
-	--zone-endurance: #0d9488;
-	--zone-tempo: #a16207;
-	--zone-threshold: #c2410c;
-	--zone-vo2: #e11d48;
-}
-
-/* Same selector as Rekta's own dark block. ponytail: :root[data-theme='dark']
-   is not mirrored because WFF has no theme switch; add it with the switch. */
-@media (prefers-color-scheme: dark) {
-	:root:not([data-theme='light']) {
-		--chart-elevation: #a8a29e;
-		--chart-power: #fbbf24;
-		--chart-heart-rate: #fb7185;
-		--chart-speed: #38bdf8;
-		--chart-cadence: #a78bfa;
-		--chart-ctl: #2dd4bf;
-		--chart-atl: #fbbf24;
-		--chart-tsb: #94a3b8;
-
-		--zone-recovery: #94a3b8;
-		--zone-endurance: #2dd4bf;
-		--zone-tempo: #fbbf24;
-		--zone-threshold: #fb923c;
-		--zone-vo2: #fb7185;
-	}
 }
 
 * {
@@ -284,23 +226,18 @@ a {
 	letter-spacing: 0.08em;
 }
 
-/* A filled bar is how a percentage should read, not as four digits of text. */
+/* A filled bar is how a percentage should read, not as four digits of text.
+   Rekta's meter look (.rk-meter): a 6px hairline-grey track, the fill in ink. */
 .meter {
-	height: 8px;
-	border-radius: var(--radius-pill);
-	background: color-mix(in srgb, var(--color-text) 12%, transparent);
+	height: 6px;
+	background: var(--rk-text-contrast-low);
 	overflow: hidden;
 }
 
 .meter > span {
 	display: block;
 	height: 100%;
-	border-radius: inherit;
-	background: linear-gradient(
-		90deg,
-		color-mix(in srgb, var(--meter-color, var(--color-brand)) 60%, transparent),
-		var(--meter-color, var(--color-brand))
-	);
+	background: var(--rk-text-primary);
 }
 
 /* Cancels .content's side padding so a fact band / chart can run full-bleed
@@ -502,21 +439,14 @@ a.fact:active {
 }
 
 /* The jargon-explainer variant (IF, TSB, "Trainingsniveau") — a value alone
-   means nothing to a hobbyist without training background; a position on
-   the app's own zone ramp does. Track reuses --zone-* verbatim so it reads
-   the same everywhere the zones already appear. */
+   means nothing to a hobbyist without training background; a position on a
+   scale does. A position on a scale (IF, Frische): Rekta's hairline-grey track with an
+   ink marker. The position carries the information, not a colour ramp (ADR
+   adr-003-wff-datenfarben-rekta). */
 .fact-scale {
 	position: relative;
-	height: 10px;
-	border-radius: var(--radius-pill);
-	background: linear-gradient(
-		90deg,
-		var(--zone-recovery),
-		var(--zone-endurance),
-		var(--zone-tempo),
-		var(--zone-threshold),
-		var(--zone-vo2)
-	);
+	height: 6px;
+	background: var(--rk-text-contrast-low);
 }
 
 .fact-scale-marker {
@@ -525,9 +455,8 @@ a.fact:active {
 	bottom: -3px;
 	width: 3px;
 	left: calc(var(--fact-share, 0) * 100%);
-	background: var(--color-text);
-	border-radius: 2px;
-	box-shadow: 0 0 0 2px var(--fill-base);
+	background: var(--rk-text-primary);
+	box-shadow: 0 0 0 2px var(--rk-bg);
 	transition: left var(--dur-slow) var(--ease-out-soft);
 }
 

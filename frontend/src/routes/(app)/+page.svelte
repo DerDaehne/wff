@@ -91,17 +91,15 @@
 	let estimatedFtpSeries = $derived(powerCurveHistory.map((p) => p.watts * 0.95));
 
 	let powerCurveSeries = $derived.by(() => {
-		const series: { name: string; color: string; values: number[]; description?: string }[] = [
+		const series: { name: string; values: number[]; description?: string }[] = [
 			{
 				name: 'Leistung',
-				color: 'var(--chart-power)',
 				values: powerCurveHistory.map((p) => p.watts)
 			}
 		];
 		if (powerCurveDuration !== 1200) return series;
 		series.push({
 			name: 'Geschätzte FTP (95 %)',
-			color: 'var(--color-brand)',
 			values: estimatedFtpSeries,
 			description:
 				'Übliche Faustregel: 95 % der besten 20-Minuten-Leistung einer Fahrt gilt als Schätzung für die Schwellenleistung (FTP).'
@@ -153,15 +151,6 @@
 	}
 
 	let latestTSB = $derived(series.length > 0 ? series[series.length - 1].tsb : null);
-	let tsbColor = $derived(
-		latestTSB === null
-			? 'var(--chart-tsb)'
-			: latestTSB < -10
-				? 'var(--color-danger)'
-				: latestTSB > 5
-					? 'var(--color-success)'
-					: 'var(--chart-tsb)'
-	);
 
 	// Frische (TSB) as a position on the zone ramp (Nocturne v3, direction B
 	// §1.4/D4) — the raw signed number means nothing to a hobbyist without
@@ -214,7 +203,7 @@
 	<div class="bleed reveal" style="--i: 0">
 		<LineChart
 			xValues={dayTimestamps}
-			series={[{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }]}
+			series={[{ name: 'Fitness', values: series.map((d) => d.ctl) }]}
 			xFormat={formatDay}
 			yFormat={(y) => formatDecimal(y, 1)}
 			ariaLabel="Fitness-Verlauf"
@@ -226,12 +215,7 @@
 	<!-- The answer first: how you are and whether you're getting better. The
 	     chart below is the evidence, not the message (#602). -->
 	<div class="reveal" style="--i: 1">
-		<StoryHero
-			story={status}
-			fallbackTitle="Dein Trainingsstand"
-			meterColor="var(--chart-ctl)"
-			showGauge={false}
-		/>
+		<StoryHero story={status} fallbackTitle="Dein Trainingsstand" showGauge={false} />
 	</div>
 
 	<!-- Frische (TSB) as a position, not just a signed number (D4) — the one
@@ -251,16 +235,14 @@
 			context={{
 				form: {
 					xValues: dayTimestamps,
-					series: [{ name: 'Frische', color: tsbColor, values: series.map((d) => d.tsb) }],
+					series: [{ name: 'Frische', values: series.map((d) => d.tsb) }],
 					xFormat: formatDay,
 					yFormat: (y) => (Math.abs(y) < 0.05 ? '0' : formatDecimal(y, 1)),
 					caption: 'Verlauf der letzten Wochen'
 				},
 				trend: {
 					xValues: dayTimestamps,
-					series: [
-						{ name: 'Fitness', color: 'var(--chart-ctl)', values: series.map((d) => d.ctl) }
-					],
+					series: [{ name: 'Fitness', values: series.map((d) => d.ctl) }],
 					xFormat: formatDay,
 					yFormat: (y) => formatDecimal(y, 1),
 					caption: 'Verlauf der letzten Wochen'
@@ -330,21 +312,18 @@
 				series={[
 					{
 						name: 'Fitness',
-						color: 'var(--chart-ctl)',
 						values: series.map((d) => d.ctl),
 						description:
 							'Fachbegriff CTL: dein Trainingsumfang der letzten 6 Wochen. Steigt langsam, fällt langsam — das ist deine Grundlage.'
 					},
 					{
 						name: 'Müdigkeit',
-						color: 'var(--chart-atl)',
 						values: series.map((d) => d.atl),
 						description:
 							'Fachbegriff ATL: die Belastung der letzten Woche. Reagiert schnell auf einzelne harte Fahrten.'
 					},
 					{
 						name: 'Frische',
-						color: tsbColor,
 						values: series.map((d) => d.tsb),
 						description:
 							'Fachbegriff TSB: Fitness minus Müdigkeit. Über null bist du erholt, unter null steckst du in einer Belastungsphase.'
@@ -461,7 +440,6 @@
 						series={[
 							{
 								name: activeProgressMetric.label,
-								color: activeProgressMetric.color,
 								values: progress.weeks.map((w) => w[activeProgressMetric!.key])
 							}
 						]}
@@ -477,7 +455,6 @@
 							series={[
 								{
 									name: progress.endurance.from_power ? 'Leistung je Puls' : 'Tempo je Puls',
-									color: 'var(--chart-heart-rate)',
 									values: progress.endurance.weeks.map((w) => w.value)
 								}
 							]}

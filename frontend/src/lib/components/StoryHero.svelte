@@ -8,13 +8,11 @@
 		story,
 		fallbackTitle,
 		note,
-		meterColor = 'var(--chart-power)',
 		showGauge = true
 	}: {
 		story: RideStory | null;
 		fallbackTitle: string;
 		note?: string;
-		meterColor?: string;
 		// The dashboard shows the training-level gauge in its "auf einen Blick"
 		// section instead (#657) — showing it here too would say the same thing
 		// twice on one page.
@@ -44,7 +42,7 @@
 
 	{#if showGauge && story?.gauge}
 		<div class="hero-meter">
-			<div class="meter" style="--meter-color: {meterColor}">
+			<div class="meter">
 				<span style="width: {story.gauge.percent}%"></span>
 			</div>
 			<p class="hero-note">{story.gauge.label} · {story.gauge.caption}</p>

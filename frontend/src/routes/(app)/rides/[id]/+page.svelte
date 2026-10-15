@@ -150,20 +150,7 @@
 	}
 
 	function trackColor(): string {
-		return cssColor('--color-track', '#0f766e');
-	}
-
-	// Same low-to-high ramp the heart-rate zone bars already use (ZoneBars,
-	// #621) — reused here instead of inventing a second colour language for
-	// "how hard" (#653).
-	function colorRamp(): string[] {
-		return [
-			cssColor('--zone-recovery', '#94a3b8'),
-			cssColor('--zone-endurance', '#2dd4bf'),
-			cssColor('--zone-tempo', '#fbbf24'),
-			cssColor('--zone-threshold', '#fb923c'),
-			cssColor('--zone-vo2', '#fb7185')
-		];
+		return cssColor('--color-track', '#010205');
 	}
 
 	// A bright map inside a dark page is the one thing that still looked pasted
@@ -418,7 +405,7 @@
 				// MapLibre takes a colour string, not a CSS variable, so the token
 				// has to be resolved here — otherwise the track keeps the light
 				// scheme's teal on a dark map.
-				paint: { 'line-color': trackColor(), 'line-width': 4 }
+				paint: { 'line-color': trackColor(), 'line-width': 3 }
 			});
 			mapReady = true;
 		});
@@ -439,8 +426,6 @@
 		const colored = coloredTrack;
 		if (!colored) return;
 		const { features, lo, hi } = colored;
-		const ramp = colorRamp();
-		const step = (hi - lo) / 4;
 		map.addSource('track-colored', {
 			type: 'geojson',
 			// geojson-vt's default simplification tolerance drops geometry below
@@ -456,23 +441,13 @@
 			id: 'track-colored',
 			type: 'line',
 			source: 'track-colored',
+			// The value is the line's width, in ink: thin where it was low,
+			// thick where it was high. Rekta has no colour ramp for data (ADR
+			// adr-003-wff-datenfarben-rekta), and on a map the width reads at a
+			// glance just as well.
 			paint: {
-				'line-width': 4,
-				'line-color': [
-					'interpolate',
-					['linear'],
-					['get', 'value'],
-					lo,
-					ramp[0],
-					lo + step,
-					ramp[1],
-					lo + step * 2,
-					ramp[2],
-					lo + step * 3,
-					ramp[3],
-					hi,
-					ramp[4]
-				]
+				'line-color': trackColor(),
+				'line-width': ['interpolate', ['linear'], ['get', 'value'], lo, 3, hi, 12]
 			}
 		});
 	});
@@ -562,7 +537,6 @@
 					series={[
 						{
 							name: 'Höhe',
-							color: 'var(--chart-elevation)',
 							values: samples.map((s) => s.altitude_meters)
 						}
 					]}
@@ -621,12 +595,10 @@
 										showPower
 											? {
 													name: 'Leistung',
-													color: 'var(--chart-power)',
 													values: samples.map((s) => s.power_watts)
 												}
 											: {
 													name: 'Herzfrequenz',
-													color: 'var(--chart-heart-rate)',
 													values: samples.map((s) => s.heart_rate)
 												}
 									],
@@ -643,7 +615,6 @@
 									series: [
 										{
 											name: 'Höhe',
-											color: 'var(--chart-elevation)',
 											values: samples.map((s) => s.altitude_meters)
 										}
 									],
@@ -769,10 +740,7 @@
 				<div class="map" bind:this={mapContainer}></div>
 				{#if coloredTrack}
 					<div class="color-legend">
-						<span
-							class="color-legend-bar"
-							style="background: linear-gradient(to right, var(--zone-recovery), var(--zone-endurance), var(--zone-tempo), var(--zone-threshold), var(--zone-vo2))"
-						></span>
+						<span class="color-legend-bar"></span>
 						<span class="color-legend-labels">
 							<span>{legendFormat(colorMetric, coloredTrack.lo)}</span>
 							<span>{colorMetricLabels[colorMetric as Exclude<ColorMetric, 'none'>]}</span>
@@ -794,7 +762,6 @@
 					series={[
 						{
 							name: 'Höhe',
-							color: 'var(--chart-elevation)',
 							values: samples.map((s) => s.altitude_meters)
 						}
 					]}
@@ -830,7 +797,6 @@
 					series={[
 						{
 							name: 'Leistung',
-							color: 'var(--chart-power)',
 							values: samples.map((s) => s.power_watts)
 						}
 					]}
@@ -847,7 +813,6 @@
 					series={[
 						{
 							name: 'Herzfrequenz',
-							color: 'var(--chart-heart-rate)',
 							values: samples.map((s) => s.heart_rate)
 						}
 					]}
@@ -1092,10 +1057,12 @@
 		margin-top: 0.75rem;
 	}
 
+	/* A wedge, thin to thick, the same as the line on the map. */
 	.color-legend-bar {
 		display: block;
-		height: 8px;
-		border-radius: var(--radius-pill);
+		height: 10px;
+		background: var(--color-track);
+		clip-path: polygon(0 45%, 100% 0, 100% 100%, 0 55%);
 	}
 
 	.color-legend-labels {

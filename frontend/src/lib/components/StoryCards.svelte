@@ -14,7 +14,7 @@
 	// design-wff-nocturne-v3, "what needs backend work".
 	interface SparkContext {
 		xValues: number[];
-		series: { name: string; color: string; values: (number | null)[] }[];
+		series: { name: string; values: (number | null)[] }[];
 		xFormat: (x: number) => string;
 		yFormat?: (y: number) => string;
 		caption: string;
@@ -343,45 +343,11 @@
 		font-size: var(--text-sm);
 	}
 
-	/* Each kind gets the colour of the chart series it refers to, so the same
-	   metric wears the same colour everywhere. */
-	.statement-effort {
-		--chip-color: var(--chart-power);
-	}
-
-	.statement-load,
-	.statement-form {
-		--chip-color: var(--color-brand);
-	}
-
-	.statement-pace {
-		--chip-color: var(--chart-speed);
-	}
-
-	.statement-climb {
-		--chip-color: var(--chart-elevation);
-	}
-
-	.statement-endurance {
-		--chip-color: var(--chart-heart-rate);
-	}
-
-	.statement-context {
-		--chip-color: var(--color-info);
-	}
-
-	.statement-trend {
-		--chip-color: var(--color-success);
-	}
-
-	.statement-comparison {
-		--chip-color: var(--color-text-muted);
-	}
-
-	.statement-calories {
-		--chip-color: var(--zone-tempo);
-	}
-
+	/* The meaning lives in each card's question, not in a colour (ADR
+	   adr-003-wff-datenfarben-rekta): every kind takes the neutral default, and
+	   a status colour only where the card is a status. A missing prerequisite
+	   is a warning; the record keeps its interim success colour until
+	   #1059/#1060 rebuild these cards as Rekta tiles. */
 	.statement-milestone {
 		--chip-color: var(--color-success);
 	}

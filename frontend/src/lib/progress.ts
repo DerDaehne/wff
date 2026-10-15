@@ -79,28 +79,24 @@ export const progressMetrics = [
 		key: 'avg_speed_kmh' as const,
 		setting: 'speed',
 		label: 'Tempo',
-		color: 'var(--chart-speed)',
 		format: (v: number) => `${formatDecimal(v, 1)} km/h`
 	},
 	{
 		key: 'distance_meters' as const,
 		setting: 'distance',
 		label: 'Kilometer',
-		color: 'var(--chart-ctl)',
 		format: (v: number) => `${Math.round(v / 1000)} km`
 	},
 	{
 		key: 'moving_seconds' as const,
 		setting: 'duration',
 		label: 'Fahrzeit',
-		color: 'var(--chart-power)',
 		format: (v: number) => `${formatDecimal(v / 3600, 1)} h`
 	},
 	{
 		key: 'elevation_gain_meters' as const,
 		setting: 'elevation',
 		label: 'Höhenmeter',
-		color: 'var(--chart-elevation)',
 		format: (v: number) => `${Math.round(v)} hm`
 	}
 ];

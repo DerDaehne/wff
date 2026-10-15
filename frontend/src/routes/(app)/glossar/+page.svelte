@@ -11,7 +11,6 @@
 		{
 			term: 'Fitness',
 			jargon: 'CTL, Chronic Training Load',
-			color: 'var(--chart-ctl)',
 			text: `Wie viel du in den letzten sechs Wochen insgesamt trainiert hast. Steigt langsam und fällt
 				langsam — deshalb ist das die Zahl, die deine Grundlage beschreibt. Ein einzelnes hartes
 				Wochenende bewegt sie kaum, sechs Wochen Pause dagegen deutlich.`
@@ -19,14 +18,12 @@
 		{
 			term: 'Müdigkeit',
 			jargon: 'ATL, Acute Training Load',
-			color: 'var(--chart-atl)',
 			text: `Wie viel du in der letzten Woche trainiert hast. Reagiert schnell: eine harte Ausfahrt
 				treibt sie sofort hoch, zwei ruhige Tage bringen sie wieder runter.`
 		},
 		{
 			term: 'Frische',
 			jargon: 'TSB, Training Stress Balance',
-			color: 'var(--chart-tsb)',
 			text: `Fitness minus Müdigkeit. Über null bist du erholt und kannst zugreifen, unter null steckst
 				du in einer Belastungsphase. Dauerhaft weit im Plus heißt allerdings auch, dass du gerade
 				Fitness abbaust.`
@@ -34,7 +31,6 @@
 		{
 			term: 'Belastung',
 			jargon: 'TSS, Training Stress Score',
-			color: 'var(--color-brand)',
 			text: `Wie viel eine einzelne Fahrt dich gekostet hat — Dauer und Intensität zusammengerechnet.
 				100 entspricht einer Stunde an deiner Schwelle. Eine lange lockere Fahrt kann denselben Wert
 				ergeben wie eine kurze harte.`
@@ -42,7 +38,6 @@
 		{
 			term: 'Intensität',
 			jargon: 'IF, Intensity Factor',
-			color: 'var(--chart-power)',
 			text: `Wie hart eine Fahrt im Verhältnis zu deiner eigenen Schwelle war. 100 % heißt: so hart, wie
 				du es ungefähr eine Stunde durchhältst. Aus Leistung gerechnet ist unter 75 % Grundlagentempo,
 				über 95 % Wettkampf. Aus dem Puls geschätzt liegt die Skala höher — ein ruhiges Tempo schlägt
@@ -52,7 +47,6 @@
 		{
 			term: 'Trainingsniveau',
 			jargon: null,
-			color: 'var(--chart-ctl)',
 			text: `Ordnet deine Fitness (CTL) in eine von fünf Stufen ein, von "Einstieg" bis
 				"Wettkampfniveau" — die Grenzen folgen den Trainingsumfängen, die für diese Stufen üblich
 				sind, gerundet auf Zahlen, die man sich merken kann. Es ist keine Bewertung, nur eine
@@ -61,7 +55,6 @@
 		{
 			term: 'Abfall 2. Hälfte',
 			jargon: 'Decoupling',
-			color: 'var(--chart-heart-rate)',
 			text: `Wie viel mehr Puls dieselbe Leistung (oder dasselbe Tempo) in der zweiten Hälfte einer
 				Fahrt gekostet hat als in der ersten. Niedriger ist besser — ein kleiner Abfall heißt, das Herz
 				hat die Anstrengung bis zum Schluss gleich gut weggesteckt. Nur bei ruhigen, gleichmäßigen
@@ -71,7 +64,6 @@
 		{
 			term: 'Beobachteter Maximalpuls',
 			jargon: null,
-			color: 'var(--chart-heart-rate)',
 			text: `Der höchste Puls, der bisher auf einer deiner Fahrten aufgezeichnet wurde — keine Messung
 				aus einem echten Ausbelastungstest, nur die härteste Sache, die bisher passiert ist. Ohne
 				eingetragenen Schwellenpuls nutzt die App diesen Wert ersatzweise, um grob abzuschätzen, wo
@@ -82,7 +74,6 @@
 		{
 			term: 'Schwellenleistung',
 			jargon: 'FTP, Functional Threshold Power',
-			color: 'var(--chart-power)',
 			text: `Die Leistung in Watt, die du ungefähr eine Stunde am Stück treten kannst. Sie ist der
 				Bezugspunkt für fast alles andere: ohne sie kann die App nicht sagen, ob eine Fahrt für dich
 				hart war. Braucht einen Leistungsmesser — die App schätzt sie dir aus deinen Fahrten.`
@@ -90,7 +81,6 @@
 		{
 			term: 'Schwellenpuls',
 			jargon: 'LTHR, Lactate Threshold Heart Rate',
-			color: 'var(--chart-heart-rate)',
 			text: `Dasselbe wie die Schwellenleistung, nur über den Puls: der Puls, den du etwa eine Stunde
 				halten kannst. Der Ersatzweg, wenn kein Leistungsmesser am Rad ist — etwas ungenauer, weil
 				Puls von Hitze, Schlaf und Kaffee mitbestimmt wird.`
@@ -98,7 +88,6 @@
 		{
 			term: 'Normalisierte Leistung',
 			jargon: 'NP, Normalized Power',
-			color: 'var(--chart-power)',
 			text: `Ein Durchschnitt, der harte Abschnitte stärker gewichtet als Rollpassagen. Er bildet
 				besser ab, wie anstrengend eine Fahrt war, als der schlichte Wattschnitt: 200 Watt gleichmäßig
 				sind leichter als ständiger Wechsel zwischen 100 und 300.`
@@ -106,7 +95,6 @@
 		{
 			term: 'Kletterrate',
 			jargon: 'VAM, Velocità Ascensionale Media',
-			color: 'var(--chart-elevation)',
 			text: `Wie viele Höhenmeter du pro Stunde schaffst. Braucht keinerlei Messgerät — nur Höhe und
 				Zeit — und ist zwischen Fahrten direkt vergleichbar. Mit deinem Gewicht lässt sich daraus
 				grob schätzen, wie viel Kraft du am Berg getreten hast.`
@@ -133,7 +121,7 @@
 
 <dl class="glossary">
 	{#each entries as entry, i (entry.term)}
-		<div class="entry reveal" style="--chip-color: {entry.color}; --i: {i + 1}">
+		<div class="entry reveal" style="--i: {i + 1}">
 			<dt>
 				{entry.term}
 				{#if entry.jargon}<span class="chip">{entry.jargon}</span>{/if}

@@ -18,132 +18,70 @@
 	}
 </script>
 
+<!-- One Rekta meter per zone, cool to warm, in ink: the zone is told by its
+     name, not by a colour (ADR adr-003-wff-datenfarben-rekta, until Rekta has
+     a slot for colour codes, Rekta #1053). -->
 <figure class="zones">
-	<figcaption class="sr-only">{label}</figcaption>
+	<figcaption class="rk-sr">{label}</figcaption>
 	{#if distribution.assumed}
 		<p class="assumed-note">
 			Geschätzt aus deinem bisher höchsten aufgezeichneten Puls, nicht aus einem echten
 			Schwellentest — nimm die Grenzen als groben Anhalt.
 		</p>
 	{/if}
-	<div
-		class="bar"
-		role="img"
-		aria-label={used.map((z) => `${z.name} ${percent(z.share)}`).join(', ')}
-	>
+	<ul>
 		{#each used as zone (zone.key)}
-			<div
-				class="segment"
-				style="width: {zone.share * 100}%; background: var(--zone-{zone.key})"
-			></div>
+			<li>
+				<p class="rk-meter-head">
+					<span class="name">{zone.name}</span>
+					<b>{percent(zone.share)}</b>
+				</p>
+				<div
+					class="rk-meter"
+					role="meter"
+					aria-label={zone.name}
+					aria-valuemin="0"
+					aria-valuemax="100"
+					aria-valuenow={Math.round(zone.share * 100)}
+					aria-valuetext="{percent(zone.share)}, {time(zone.seconds)}"
+					style="--rk-v: {zone.share}"
+				></div>
+				<p class="meaning">{time(zone.seconds)} · {zone.meaning}</p>
+			</li>
 		{/each}
-	</div>
-
-	<dl class="legend">
-		{#each used as zone (zone.key)}
-			<div class="row">
-				<dt>
-					<span class="swatch" style="background: var(--zone-{zone.key})"></span>
-					{zone.name}
-				</dt>
-				<dd class="numbers">{time(zone.seconds)} · {percent(zone.share)}</dd>
-				<dd class="meaning">{zone.meaning}</dd>
-			</div>
-		{/each}
-	</dl>
+	</ul>
 </figure>
 
 <style>
 	.zones {
 		margin: 0;
-		/* Same measure as the panel's intro text. Full panel width pushed the
-		   time and percentage a screen away from the band they belong to. */
+		/* Same measure as the panel's intro text, so the share stays near its
+		   bar. */
 		max-width: 60ch;
 	}
 
 	.assumed-note {
-		margin: 0 0 0.75rem;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+		margin: 0 0 var(--rk-space-m);
+		color: var(--rk-text-contrast-high);
+		font-size: var(--rk-font-size-xs);
 	}
 
-	/* Wipes open left to right on mount, same --dur-slow as the charts on the
-	   same pages so a page with both reads as one motion (Nocturne v3).
-	   Animates the container's own scaleX rather than each segment's width —
-	   one composited property, and the segments keep their proportions
-	   instead of racing each other open. */
-	.bar {
-		display: flex;
-		height: 1.25rem;
-		border-radius: var(--radius-pill);
-		overflow: hidden;
-		background: var(--color-border);
-		transform-origin: left;
-		transition: transform var(--dur-slow) var(--ease-out-soft);
-	}
-
-	@starting-style {
-		.bar {
-			transform: scaleX(0);
-		}
-	}
-
-	.segment {
-		height: 100%;
-	}
-
-	.legend {
-		margin: 1rem 0 0;
-	}
-
-	.row {
+	ul {
 		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: 0.25rem 1rem;
-		padding: 0.6rem 0;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.row:first-child {
-		border-top: none;
-	}
-
-	dt {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		font-weight: 700;
-	}
-
-	dd {
+		gap: var(--rk-space-m);
 		margin: 0;
+		padding: 0;
+		list-style: none;
 	}
 
-	.numbers {
-		text-align: right;
-		font-variant-numeric: tabular-nums;
+	.name {
+		color: var(--rk-text-primary);
+		font-weight: var(--rk-font-weight-semibold);
 	}
 
 	.meaning {
-		grid-column: 1 / -1;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		max-width: 60ch;
-	}
-
-	.swatch {
-		width: 0.75rem;
-		height: 0.75rem;
-		border-radius: var(--radius-sm);
-		flex: none;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0 0 0 0);
-		white-space: nowrap;
+		margin-top: var(--rk-space-xs);
+		color: var(--rk-text-contrast-high);
+		font-size: var(--rk-font-size-xs);
 	}
 </style>
