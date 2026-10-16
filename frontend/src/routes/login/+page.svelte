@@ -21,46 +21,47 @@
 	}
 </script>
 
-<div class="auth-page">
-	<form class="card auth-card reveal" style="--i: 0" onsubmit={login}>
-		<h1>Anmelden</h1>
-		<label for="username">Benutzername</label>
-		<input
-			id="username"
-			name="username"
-			class="input"
-			bind:value={username}
-			autocomplete="username webauthn"
-			required
-		/>
-		<button class="btn btn-primary" type="submit" disabled={status === 'working'}>
-			{status === 'working' ? 'Warte auf Passkey…' : 'Mit Passkey anmelden'}
-		</button>
-
-		{#if status === 'error'}
-			<p class="error" role="alert">{errorMessage}</p>
-		{/if}
+<!-- Rekta: no card around a form; a kicker, the one title, the field and the
+     primary action on the ground. -->
+<main class="rk-place auth reveal" style="--i: 0">
+	<form onsubmit={login}>
+		<p class="rk-kicker">WFF — wir fahren Fahrrad</p>
+		<h1 class="rk-title">Anmelden</h1>
+		<div class="rk-field" data-status={status === 'error' ? 'error' : undefined}>
+			<label class="rk-label" for="username">Benutzername</label>
+			<input
+				id="username"
+				name="username"
+				class="rk-input"
+				bind:value={username}
+				autocomplete="username webauthn"
+				required
+			/>
+			{#if status === 'error'}<p class="rk-hint" role="alert">{errorMessage}</p>{/if}
+		</div>
+		<p class="rk-actions">
+			<button class="rk-btn rk-btn--primary" type="submit" disabled={status === 'working'}>
+				{status === 'working' ? 'Warte auf Passkey…' : 'Mit Passkey anmelden'}
+			</button>
+		</p>
 	</form>
-</div>
+</main>
 
 <style>
-	.auth-page {
-		display: flex;
-		align-items: center;
-		justify-content: center;
+	.auth {
+		display: grid;
+		place-items: center;
 		min-height: 100dvh;
+		padding: var(--rk-space-m);
 	}
 
-	.auth-card {
-		width: 100%;
-		max-width: 22rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	form {
+		display: grid;
+		gap: var(--rk-space-m);
+		width: min(100%, 22rem);
 	}
 
-	.error {
-		color: var(--color-danger);
-		font-size: var(--text-sm);
+	.rk-title {
+		margin-top: calc(-1 * var(--rk-space-s));
 	}
 </style>

@@ -32,99 +32,61 @@
 	}
 </script>
 
-<div class="share-page">
-	<div class="card share-card reveal" style="--i: 0">
-		{#if viewState === 'loading'}
-			<p>Lädt…</p>
-		{:else if viewState === 'error'}
-			<h1>Nicht gefunden</h1>
-			<p role="alert">{errorMessage}</p>
-		{:else if summary}
-			<p class="eyebrow">Geteilte Fahrt</p>
-			<h1>{formatDate(summary.started_at)}</h1>
-			<div class="stats">
-				<div class="stat">
-					<strong>{formatDistance(summary.distance_meters)}</strong>
-					<span>Distanz</span>
-				</div>
-				<div class="stat">
-					<strong>{formatDuration(summary.moving_seconds)}</strong>
-					<span>Dauer</span>
-				</div>
-				{#if summary.elevation_gain_meters}
-					<div class="stat">
-						<strong>{Math.round(summary.elevation_gain_meters)} hm</strong>
-						<span>Höhenmeter</span>
-					</div>
-				{/if}
-				{#if summary.training_stress_score !== null}
-					<div class="stat">
-						<strong>{Math.round(summary.training_stress_score)}</strong>
-						<span>Belastung</span>
-					</div>
-				{/if}
+<!-- A shared ride for someone without an account: the day as title, its
+     figures as Rekta tiles, on the ground (no card). -->
+<main class="rk-place share reveal" style="--i: 0">
+	{#if viewState === 'loading'}
+		<p>Lädt…</p>
+	{:else if viewState === 'error'}
+		<h1 class="rk-title">Nicht gefunden</h1>
+		<p class="rk-empty" data-status="error" role="alert">{errorMessage}</p>
+	{:else if summary}
+		<p class="rk-kicker">Geteilte Fahrt</p>
+		<h1 class="rk-title">{formatDate(summary.started_at)}</h1>
+		<div class="rk-tiles">
+			<div class="rk-tile" style="--rk-i: 0">
+				<span class="rk-stat"
+					><b>{formatDistance(summary.distance_meters)}</b><span>Distanz</span></span
+				>
 			</div>
-			<p class="hint">Geteilt über WFF — die Strecke selbst ist bei einem Link nicht sichtbar.</p>
-		{/if}
-	</div>
-</div>
+			<div class="rk-tile" style="--rk-i: 1">
+				<span class="rk-stat"
+					><b>{formatDuration(summary.moving_seconds)}</b><span>Dauer</span></span
+				>
+			</div>
+			{#if summary.elevation_gain_meters}
+				<div class="rk-tile" style="--rk-i: 2">
+					<span class="rk-stat"
+						><b>{Math.round(summary.elevation_gain_meters)}<small>hm</small></b><span
+							>Höhenmeter</span
+						></span
+					>
+				</div>
+			{/if}
+			{#if summary.training_stress_score !== null}
+				<div class="rk-tile" style="--rk-i: 3">
+					<span class="rk-stat"
+						><b>{Math.round(summary.training_stress_score)}</b><span>Belastung</span></span
+					>
+				</div>
+			{/if}
+		</div>
+		<p class="rk-facts">Geteilt über WFF — die Strecke selbst ist bei einem Link nicht sichtbar.</p>
+	{/if}
+</main>
 
 <style>
-	.share-page {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		min-height: 100dvh;
-	}
-
-	.share-card {
-		width: 100%;
-		max-width: 24rem;
-	}
-
-	.eyebrow {
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		margin: 0 0 0.25rem;
-	}
-
-	.share-card h1 {
-		margin: 0 0 1.25rem;
-	}
-
-	.stats {
+	.share {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-		gap: 1rem;
+		align-content: center;
+		gap: var(--rk-space-m);
+		width: min(100%, 40rem);
+		min-height: 100dvh;
+		margin-inline: auto;
+		padding: var(--rk-space-m);
 	}
 
-	.stat {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-
-	.stat strong {
-		font-size: var(--text-xl);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.stat span {
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
-	}
-
-	.hint {
-		margin-top: 1.5rem;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-	}
-
-	[role='alert'] {
-		color: var(--color-danger);
+	.rk-title {
+		margin-top: calc(-1 * var(--rk-space-s));
 	}
 </style>

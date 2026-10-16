@@ -28,83 +28,62 @@
 	}
 </script>
 
-<div class="page-center">
-	<h1 class="reveal" style="--i: 0">Trainingserfolg im Vergleich</h1>
+<h1 class="rk-title reveal" style="--i: 0">Trainingserfolg im Vergleich</h1>
 
-	{#if viewState === 'loading'}
-		<p>Lädt…</p>
-	{:else if viewState === 'error'}
-		<p role="alert">{errorMessage}</p>
-	{:else if result && !result.opted_in}
-		<EmptyState
-			message="Um andere zu sehen, musst du selbst zustimmen — dein Trainingsstand wird dann genauso für die anderen sichtbar."
-			actionHref={resolve('/(app)/profile')}
-			actionLabel="Im Profil zustimmen"
-		/>
-	{:else if result}
-		<p class="hint reveal" style="--i: 1">
-			Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
-			bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
-		</p>
-		<ul class="entries">
-			{#each result.entries as entry, i (entry.display_name)}
-				<li class="entry reveal" style="--i: {i + 2}" class:you={entry.is_you}>
-					<span class="name">{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>
-					<span
-						class="delta"
-						class:positive={entry.delta_ctl !== null && entry.delta_ctl > 0}
-						class:muted={entry.delta_ctl === null}
-					>
-						{formatDelta(entry.delta_ctl)}
-					</span>
-				</li>
-			{/each}
-		</ul>
-	{/if}
-</div>
+{#if viewState === 'loading'}
+	<p>Lädt…</p>
+{:else if viewState === 'error'}
+	<p role="alert">{errorMessage}</p>
+{:else if result && !result.opted_in}
+	<EmptyState
+		message="Um andere zu sehen, musst du selbst zustimmen — dein Trainingsstand wird dann genauso für die anderen sichtbar."
+		actionHref={resolve('/(app)/profile')}
+		actionLabel="Im Profil zustimmen"
+	/>
+{:else if result}
+	<p class="sub reveal" style="--i: 1">
+		Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
+		bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
+	</p>
+	<!-- Hairline rows, no cards; you are the bold row. -->
+	<ul class="rk-rows entries reveal" style="--i: 2">
+		{#each result.entries as entry (entry.display_name)}
+			<li class:you={entry.is_you}>
+				<span>{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>
+				<span class="delta" class:none={entry.delta_ctl === null}
+					>{formatDelta(entry.delta_ctl)}</span
+				>
+			</li>
+		{/each}
+	</ul>
+{/if}
 
 <style>
-	.hint {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+	h1 {
+		margin-bottom: var(--rk-space-s);
+	}
+
+	.sub {
 		max-width: 60ch;
-		margin-bottom: 1.5rem;
+		margin-bottom: var(--rk-space-m);
+		color: var(--rk-text-contrast-high);
 	}
 
 	.entries {
-		list-style: none;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.625rem;
 		max-width: 30rem;
 	}
 
-	.entry {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-sm);
-		padding: 0.875rem 1.25rem;
-	}
-
-	.entry.you {
-		font-weight: 700;
+	.you {
+		font-weight: var(--rk-font-weight-semibold);
 	}
 
 	.delta {
+		font-size: var(--rk-font-size-m);
 		font-variant-numeric: tabular-nums;
 	}
 
-	.delta.positive {
-		color: var(--color-success);
-	}
-
-	.delta.muted {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		font-weight: 400;
+	.delta.none {
+		font-size: var(--rk-font-size-xs);
+		color: var(--rk-text-contrast-high);
 	}
 </style>

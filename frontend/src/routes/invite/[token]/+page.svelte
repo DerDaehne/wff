@@ -20,45 +20,39 @@
 	}
 </script>
 
-<div class="auth-page">
-	<div class="card auth-card reveal" style="--i: 0">
-		<h1>Willkommen bei WFF</h1>
+<!-- Rekta: no card; a kicker, the one title, a sentence and the action. -->
+<main class="rk-place auth reveal" style="--i: 0">
+	<div class="box">
+		<p class="rk-kicker">Einladung</p>
+		<h1 class="rk-title">Willkommen bei WFF</h1>
 		<p>Richte einen Passkey ein, um dein Konto zu aktivieren.</p>
-
-		<button class="btn btn-primary" onclick={register} disabled={status === 'working'}>
-			{status === 'working' ? 'Warte auf Passkey…' : 'Passkey einrichten'}
-		</button>
-
+		<p class="rk-actions">
+			<button class="rk-btn rk-btn--primary" onclick={register} disabled={status === 'working'}>
+				{status === 'working' ? 'Warte auf Passkey…' : 'Passkey einrichten'}
+			</button>
+		</p>
 		{#if status === 'error'}
-			<p class="error" role="alert">{errorMessage}</p>
+			<p class="rk-empty" data-status="error" role="alert">{errorMessage}</p>
 		{/if}
-
-		<p class="alt-link"><a href={resolve('/login')}>Schon registriert? Hier anmelden.</a></p>
+		<p class="rk-facts"><a href={resolve('/login')}>Schon registriert? Hier anmelden.</a></p>
 	</div>
-</div>
+</main>
 
 <style>
-	.auth-page {
-		display: flex;
-		justify-content: center;
-		padding-top: 15vh;
+	.auth {
+		display: grid;
+		place-items: center;
+		min-height: 100dvh;
+		padding: var(--rk-space-m);
 	}
 
-	.auth-card {
-		width: 100%;
-		max-width: 22rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
+	.box {
+		display: grid;
+		gap: var(--rk-space-m);
+		width: min(100%, 22rem);
 	}
 
-	.error {
-		color: var(--color-danger);
-		font-size: var(--text-sm);
-	}
-
-	.alt-link {
-		font-size: var(--text-sm);
-		color: var(--color-text-muted);
+	.rk-title {
+		margin-top: calc(-1 * var(--rk-space-s));
 	}
 </style>

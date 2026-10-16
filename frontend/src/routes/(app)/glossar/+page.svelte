@@ -102,7 +102,6 @@
 		{
 			term: 'Gegen- und Rückenwind',
 			jargon: null,
-			color: 'var(--color-info)',
 			text: `Die App rechnet den Wind auf deine tatsächliche Fahrtrichtung um, Abschnitt für Abschnitt.
 				Deshalb steht dort „auf 50 % der Strecke gegen den Wind" statt eines Mittelwerts — bei einer
 				Hin-und-zurück-Runde hebt sich der nämlich fast auf, obwohl der Wind die Fahrt geprägt hat.`
@@ -110,21 +109,21 @@
 	];
 </script>
 
-<div class="reveal" style="--i: 0">
-	<h1>Was die Begriffe bedeuten</h1>
-	<p class="intro">
-		Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
-		Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was
-		dahinter steckt.
-	</p>
-</div>
+<h1 class="rk-title reveal" style="--i: 0">Was die Begriffe bedeuten</h1>
+<p class="sub reveal" style="--i: 0">
+	Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
+	Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was dahinter
+	steckt.
+</p>
 
+<!-- One term per hairline row: the term, its jargon small beside it, the
+     explanation below (Rekta: content over chrome, no cards or chips). -->
 <dl class="glossary">
 	{#each entries as entry, i (entry.term)}
 		<div class="entry reveal" style="--i: {i + 1}">
 			<dt>
-				{entry.term}
-				{#if entry.jargon}<span class="chip">{entry.jargon}</span>{/if}
+				<b>{entry.term}</b>
+				{#if entry.jargon}<span class="rk-meta">{entry.jargon}</span>{/if}
 			</dt>
 			<dd>{entry.text}</dd>
 		</div>
@@ -132,39 +131,38 @@
 </dl>
 
 <style>
-	.intro {
-		color: var(--color-text-muted);
+	h1 {
+		margin-bottom: var(--rk-space-s);
+	}
+
+	.sub {
 		max-width: 60ch;
-		margin-bottom: 1.5rem;
+		margin-bottom: var(--rk-space-l);
+		color: var(--rk-text-contrast-high);
 	}
 
 	.glossary {
 		display: grid;
-		gap: 0.75rem;
-		grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-		align-items: start;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+		column-gap: var(--rk-space-xl);
 		margin: 0;
 	}
 
 	.entry {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-sm);
-		padding: 1.25rem;
+		padding-block: var(--rk-space-m);
+		border-top: 1px solid var(--rk-text-contrast-low);
 	}
 
 	dt {
 		display: flex;
-		align-items: center;
-		gap: 0.5rem;
 		flex-wrap: wrap;
-		font-size: var(--text-lg);
-		font-weight: 700;
-		margin-bottom: 0.5rem;
+		align-items: baseline;
+		gap: var(--rk-space-s);
+		font-size: var(--rk-font-size-m);
 	}
 
 	dd {
-		margin: 0;
-		line-height: 1.5;
+		margin: var(--rk-space-xs) 0 0;
+		max-width: 60ch;
 	}
 </style>

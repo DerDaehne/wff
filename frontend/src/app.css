@@ -1,114 +1,31 @@
-/* Design tokens: Rekta Design (ADR adr-002-wff-rekta-design, epic #1055).
-   lib/rekta/rekta.tokens.css, rekta.fonts.css and rekta.css load before this
-   file (routes/+layout.svelte) and own colour, type, spacing, radius, motion,
-   light/dark (system, or data-theme on <html>), density and reduced motion.
-   This file only aliases the names WFF components already read onto --rk-*,
-   so the views can move to Rekta classes one ticket at a time. New code reads
-   --rk-* directly; the aliases go once nothing reads them (#1062).
+/* WFF on Rekta Design (ADRs adr-002-wff-rekta-design, adr-003-wff-datenfarben-rekta,
+   adr-004-wff-rekta-js). lib/rekta/rekta.tokens.css, rekta.fonts.css and
+   rekta.css load before this file (routes/+layout.svelte) and own colour,
+   type, spacing, radius, motion, light/dark, density and reduced motion;
+   <body class="rk"> is Rekta's root. This file only adds what WFF needs on
+   top, in Rekta's tokens. Components read --rk-* directly and never set a
+   hex value or a --rk-* colour, text or focus value: Rekta's AA checks only
+   hold for its own values. */
 
-   No WFF colours of its own, data included: charts and zones work in Rekta's
-   ink and grey until Rekta has a slot for colour codes (ADR
-   adr-003-wff-datenfarben-rekta, Rekta feedback #1053).
-
-   Never override a --rk-* colour, text or focus value here: Rekta's AA checks
-   (build.mjs --check) only hold for its own values. Components still MUST NOT
-   hard-code a hex value. */
-
-:root {
-	--text-2xs: var(--rk-font-size-xxs);
-	--text-xs: var(--rk-font-size-xxs);
-	--text-sm: var(--rk-font-size-xs);
-	--text-base: var(--rk-font-size-s);
-	--text-lg: var(--rk-font-size-m);
-	--text-xl: var(--rk-font-size-l);
-	--text-2xl: var(--rk-font-size-xl);
-	--text-3xl: var(--rk-font-size-xxl);
-	--text-4xl: var(--rk-font-size-title);
-
-	--font-sans: var(--rk-font-sans);
-
-	/* Rekta rounds nothing off: tiles 2px, controls 4/8/12px, no pills. */
-	--radius-sm: var(--rk-radius-s);
-	--radius-md: var(--rk-radius-m);
-	--radius-lg: var(--rk-radius-l);
-	--radius-pill: var(--rk-radius-s);
-
-	--dur-fast: var(--rk-duration-press);
-	--dur-base: var(--rk-duration-short);
-	--dur-slow: var(--rk-duration-long);
-	--ease-out-soft: var(--rk-ease-in);
-
-	--color-brand: var(--rk-accent);
-	--color-bg: var(--rk-bg);
-	--color-surface: var(--rk-surface);
-	--color-border: var(--rk-text-contrast-low);
-	--color-text: var(--rk-text-primary);
-	--color-text-muted: var(--rk-text-contrast-high);
-	--color-success: var(--rk-status-success-full);
-	--color-warning: var(--rk-status-warning-full);
-	--color-danger: var(--rk-status-error-full);
-	--color-info: var(--rk-status-info-full);
-	/* Read by the ride map through getComputedStyle, which resolves var() in a
-	   custom property, so this must stay a plain var() chain (no light-dark()). */
-	--color-track: var(--rk-accent);
-
-	/* Interim until the dashboard/ride tickets (#1059, #1060) replace the hero
-	   block, the record glow, washes and fills with Rekta tiles. Rekta-near
-	   values only, no new colours. */
-	--color-hero-bg: var(--rk-surface);
-	--color-hero-text: var(--rk-text-primary);
-	--color-hero-muted: var(--rk-text-contrast-high);
-	--color-achievement: var(--rk-status-success-full);
-	--shadow-sm: none;
-	--shadow-md: none;
-	--shadow-lg: none;
-	--surface-glass: var(--rk-glass);
-	--wash-strength: 10%;
-	--wash-base: var(--color-surface);
-	--fill-base: var(--color-bg);
-	--fill-strength: 12%;
-	--fill-strength-strong: 24%;
-}
-
+/* Scrollbar hidden everywhere (page, the tables' own overflow, the sheet)
+   for a native-app look; scrolling itself (wheel, touch, keyboard) is
+   untouched, the same trade-off iOS and most native apps make. */
 * {
-	box-sizing: border-box;
-}
-
-/* Scrollbar hidden everywhere (page, the laps/compare tables' own
-   overflow-x, the bottom sheet) for a cleaner, more native-app look —
-   deliberate, not an accessibility regression: scrolling itself is
-   untouched (wheel/touch/keyboard all still work), only the track's own
-   chrome is gone, the same trade-off iOS and most native apps already
-   make by default. */
-* {
-	scrollbar-width: none; /* Firefox */
+	scrollbar-width: none;
 }
 
 *::-webkit-scrollbar {
-	display: none; /* Chromium, Safari */
+	display: none;
 	width: 0;
 	height: 0;
 }
 
 body {
 	margin: 0;
-	/* A decorative gradient here (tried in #645) tiled visibly on tall pages
-	   (no background-repeat: no-repeat) and, on iOS, background-attachment:
-	   fixed doesn't reliably cover the viewport through overscroll bounce —
-	   real seams at the top/bottom edge. Apple's own Liquid Glass guidance is
-	   also explicit that glass belongs on the control layer and shouldn't be
-	   decorative on the content layer beneath it. Flat colour avoids all of
-	   that; the glass nav bar still gets real cards/charts/chips to refract
-	   as content scrolls under it. */
-	background: var(--color-bg);
-	color: var(--color-text);
-	font-family: var(--font-sans);
-	font-size: var(--text-base);
-	line-height: var(--rk-line-height-body);
 	-webkit-font-smoothing: antialiased;
 }
 
-/* Rekta: one semibold title per screen, never heavier; no negative tracking. */
+/* Rekta: one semibold title per screen, never heavier. */
 h1,
 h2,
 h3 {
@@ -116,255 +33,10 @@ h3 {
 	font-weight: var(--rk-font-weight-semibold);
 }
 
-/* Component base patterns — shared across pages so buttons/inputs/cards look
-   consistent without per-page duplication. */
-
-button {
-	font: inherit;
-}
-
-a {
-	color: var(--color-brand);
-}
-
-.btn {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.5rem;
-	border: none;
-	border-radius: var(--radius-pill);
-	padding: 0.625rem 1.25rem;
-	font-size: var(--text-base);
-	font-weight: 700;
-	text-decoration: none;
-	cursor: pointer;
-	transition:
-		box-shadow 0.15s ease,
-		transform 0.15s ease;
-}
-
-.btn:disabled {
-	cursor: default;
-	opacity: 0.6;
-}
-
-.btn-primary {
-	background: var(--color-brand);
-	/* Brand teal is light in the dark scheme, so white-on-brand would fail
-	   contrast there — the label follows the background instead. */
-	color: var(--color-bg);
-	box-shadow: var(--shadow-sm);
-}
-
-.btn-primary:not(:disabled):hover {
-	box-shadow: var(--shadow-md);
-	transform: translateY(-1px);
-}
-
-.input {
-	display: block;
-	width: 100%;
-	border: none;
-	border-radius: var(--radius-sm);
-	background: color-mix(in srgb, var(--color-text) 6%, var(--color-surface));
-	padding: 0.625rem 0.875rem;
-	font-size: var(--text-base);
-	color: var(--color-text);
-}
-
-.input:focus {
-	outline: none;
-	box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand) 35%, transparent);
-}
-
-.card {
-	background: var(--color-surface);
-	border-radius: var(--radius-md);
-	box-shadow: var(--shadow-md);
-	padding: 1.5rem;
-}
-
-/* Short pages (a form, a handful of stats) otherwise sit pinned to the top
-   with a wall of empty space below on a tall phone screen. min-height only
-   sets a floor, so a page whose content is actually longer than the screen
-   just grows past it and starts at the top as normal — nothing to opt out of
-   per page. */
-.page-center {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	min-height: calc(100dvh - 8rem);
-}
-
-/* Fact Band / Fact Tile / Skala-Band (Nocturne v2, design-wff-nocturne-v2) —
-   the unit that replaces a bordered "card" for a single measurement: no
-   ring, no shadow, a flat fill of the fact's own colour instead. A number
-   with a scale (--fact-share, 0–1) draws that scale as its own background,
-   so the container IS the chart; a number without one just sits on the flat
-   tint. --fact-color defaults to the brand so a plain `.fact` still looks
-   intentional without a caller having to set it.
-
-   Hard rule, not a suggestion: --color-text-muted only clears AA on the
-   BASE tint, not on the stronger fill (see the measured note on
-   --color-text-muted above) — so a fact's label and any muted meaning text
-   belong outside the band, on the page background, never printed on top of
-   the fill itself. */
-.fact {
-	position: relative;
-	overflow: hidden;
-	border-radius: var(--rk-radius-tile);
-	padding: 0.875rem 1rem;
-	background: color-mix(
-		in srgb,
-		var(--fact-color, var(--color-brand)) var(--fill-strength),
-		var(--fill-base)
-	);
-	color: var(--color-text);
-	text-align: left;
-}
-
-button.fact,
-a.fact {
-	display: block;
-	width: 100%;
-	border: none;
-	font: inherit;
-	color: inherit;
-	text-decoration: none;
-	cursor: pointer;
-	transition: transform var(--dur-fast) ease-out;
-}
-
-button.fact:active,
-a.fact:active {
-	transform: scale(0.985);
-}
-
-/* The fill IS the value — transform, not width, so it composites instead of
-   triggering layout, and so @starting-style below can animate it in on
-   mount without JavaScript.
-
-   Selector is `.fact > .fact-fill`, not just `.fact-fill`: at equal
-   specificity `.fact > *` below (position: relative) would win by source
-   order and silently turn this back into a normal in-flow block, collapsing
-   it to zero height and pushing the value text down instead of layering
-   behind it. The child combinator makes this one unconditionally win
-   regardless of where either rule sits in the file. */
-.fact > .fact-fill {
-	position: absolute;
-	inset: 0;
-	transform-origin: left;
-	transform: scaleX(var(--fact-share, 0));
-	background: color-mix(
-		in srgb,
-		var(--fact-color, var(--color-brand)) var(--fill-strength-strong),
-		var(--fill-base)
-	);
-	transition: transform var(--dur-slow) var(--ease-out-soft);
-}
-
-@starting-style {
-	.fact > .fact-fill {
-		transform: scaleX(0);
-	}
-}
-
-.fact > * {
-	position: relative;
-	z-index: 1;
-}
-
-.fact-value {
-	/* It's a <p> — without this it keeps the UA stylesheet's default 1em
-	   top+bottom margin, which at this font-size is 44px each. .fact's own
-	   overflow: hidden turns that into ~88px of dead space inside the band
-	   instead of letting it collapse away, since a block-formatting context
-	   contains a child's margins rather than passing them through. Every
-	   other .fact-* text element already resets margin explicitly — this
-	   one was the one left at the browser default, invisible until a real
-	   .fact-fill call site (Nocturne v3) finally made the gap obvious. */
-	margin: 0;
-	font-size: var(--text-3xl);
-	font-weight: 800;
-	line-height: 1;
-	letter-spacing: -0.03em;
-	font-variant-numeric: tabular-nums;
-}
-
-.fact-unit {
-	font-size: var(--text-sm);
-	font-weight: 700;
-	margin-left: 0.3rem;
-}
-
-.fact-name {
-	font-size: var(--text-base);
-	font-weight: 500;
-	margin-left: 0.625rem;
-}
-
-/* The label above and the meaning line below a .fact both live on the page,
-   never inside the band — see the AA note on .fact above. */
-.fact-label {
-	margin: 0 0 0.375rem;
-	font-size: var(--text-2xs);
-	font-weight: 700;
-	letter-spacing: 0.09em;
-	text-transform: uppercase;
-	color: var(--color-text-muted);
-}
-
-.fact-meaning {
-	margin: 0.5rem 0 0;
-	font-size: var(--text-sm);
-	color: var(--color-text-muted);
-}
-
-/* Grid variant: same paint, smaller number, no fill unless the caller adds
-   one — most tiles (a plain distance, a duration) have no natural scale. */
-.fact-tile {
-	border-radius: var(--rk-radius-tile);
-	padding: 0.75rem 0.875rem;
-	background: color-mix(
-		in srgb,
-		var(--fact-color, var(--color-brand)) var(--fill-strength),
-		var(--fill-base)
-	);
-}
-
-.fact-tile-value {
-	margin: 0;
-	font-size: var(--text-2xl);
-	font-weight: 800;
-	line-height: 1.1;
-	font-variant-numeric: tabular-nums;
-	letter-spacing: -0.02em;
-}
-
-.fact-tile-unit {
-	font-size: var(--text-sm);
-	font-weight: 700;
-	color: var(--color-text-muted);
-	margin-left: 0.2rem;
-}
-
-.fact-tile-label {
-	margin: 0.2rem 0 0;
-	font-size: var(--text-2xs);
-	letter-spacing: 0.05em;
-	text-transform: uppercase;
-	color: var(--color-text-muted);
-}
-
-/* Build-in on arrival, Rekta's timing (rk-build-in in rekta.css: 6px rise,
-   duration-moderate, ease-in, duration-stagger per step, at most 10 steps),
-   staggered by a per-item --i the caller sets ({#each ... as x, i}). Excludes
-   .fact--milestone, which runs its own entrance (wff-milestone-land). Rekta
-   tiles (.rk-tile) build in by themselves through --rk-i once the views use
-   them (#1059-#1062); this covers the WFF shapes until then. */
-.fact-tile:not(.fact-tile--milestone),
-.fact:not(.fact--milestone),
+/* Build-in on arrival for page sections, in Rekta's timing (rk-build-in:
+   6px rise, duration-moderate, ease-in, duration-stagger per step, at most 10
+   steps), staggered by a per-item --i the caller sets. Rekta tiles build in
+   by themselves (--rk-i, data-rk-arriving). */
 .reveal {
 	transition:
 		opacity var(--rk-duration-moderate) var(--rk-ease-in),
@@ -373,19 +45,16 @@ a.fact:active {
 }
 
 @starting-style {
-	.fact-tile:not(.fact-tile--milestone),
-	.fact:not(.fact--milestone),
 	.reveal {
 		opacity: 0;
 		transform: translateY(6px);
 	}
 }
 
-/* The jargon-explainer variant (IF, TSB, "Trainingsniveau") — a value alone
-   means nothing to a hobbyist without training background; a position on a
-   scale does. A position on a scale (IF, Frische): Rekta's hairline-grey track with an
-   ink marker. The position carries the information, not a colour ramp (ADR
-   adr-003-wff-datenfarben-rekta). */
+/* A position on a scale (intensity, Frische): the value alone means nothing
+   to a hobbyist, its place between two words does. A hairline-grey track and
+   an ink marker; the position carries it, never a colour ramp (ADR 003).
+   On a tile the track takes the tile's text colour (see the views). */
 .fact-scale {
 	position: relative;
 	height: 6px;
@@ -400,14 +69,11 @@ a.fact:active {
 	left: calc(var(--fact-share, 0) * 100%);
 	background: var(--rk-text-primary);
 	box-shadow: 0 0 0 2px var(--rk-bg);
-	transition: left var(--dur-slow) var(--ease-out-soft);
+	transition: left var(--rk-duration-long) var(--rk-ease-in);
 }
 
-/* Nocturne v3: the marker slides in from "ruhig" to its real position on
-   mount, in step with the elevation strip / chart above it (both --dur-slow).
-   `left`, not `transform: translateX()` — a percentage there resolves
-   against the marker's own 3px width, not the track, so it would need a
-   JS-computed pixel value for a 3px element. Not worth it. */
+/* The marker slides in from the start of the scale on arrival. `left`, not
+   a translate: a percentage there would resolve against the 3px marker. */
 @starting-style {
 	.fact-scale-marker {
 		left: 0;
@@ -417,103 +83,14 @@ a.fact:active {
 .fact-scale-ends {
 	display: flex;
 	justify-content: space-between;
-	margin: 0.375rem 0 0;
-	font-size: var(--text-xs);
-	color: var(--color-text-muted);
+	margin-top: var(--rk-space-xs);
+	font-size: var(--rk-font-size-xxs);
+	color: var(--rk-text-contrast-high);
 }
 
-/* Two intensities (Nocturne v2): a milestone is a record — an event, rare
-   enough to earn the app's only glow. A positive trend gets the same
-   colour language minus the glow, so "rare" stays legible instead of
-   inflating into wallpaper. Both measured for AA — see
-   design-wff-nocturne-v2. */
-.fact--milestone,
-.fact-tile--milestone {
-	--fact-color: var(--color-achievement);
-}
-
-.fact--milestone .fact-value,
-.fact-tile--milestone .fact-tile-value {
-	color: var(--color-achievement);
-}
-
-.fact--milestone {
-	animation: wff-milestone-land var(--dur-slow) var(--rk-ease-in) 1 both;
-}
-
-.fact--milestone .fact-value {
-	display: inline-block;
-	animation: wff-milestone-pop var(--dur-slow) var(--rk-ease-in) 1 both;
-}
-
-@keyframes wff-milestone-land {
-	0% {
-		box-shadow:
-			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
-			0 0 0 0 transparent;
-	}
-	55% {
-		box-shadow:
-			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
-			0 8px 40px -6px color-mix(in srgb, var(--color-achievement) 80%, transparent);
-	}
-	100% {
-		box-shadow:
-			inset 0 0 0 1px color-mix(in srgb, var(--color-achievement) 70%, transparent),
-			0 8px 28px -10px color-mix(in srgb, var(--color-achievement) 70%, transparent);
-	}
-}
-
-@keyframes wff-milestone-pop {
-	from {
-		transform: scale(0.94);
-	}
-	to {
-		transform: scale(1);
-	}
-}
-
-.fact--improve,
-.fact-tile--improve {
-	--fact-color: var(--color-success);
-}
-
-.fact--improve .fact-value,
-.fact-tile--improve .fact-tile-value {
-	color: var(--color-success);
-}
-
-.fact--improve {
-	box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success) 70%, transparent);
-}
-
-.chip {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.375rem;
-	border-radius: var(--radius-pill);
-	padding: 0.25rem 0.75rem;
-	font-size: var(--text-xs);
-	font-weight: 700;
-	letter-spacing: 0.02em;
-	background: color-mix(
-		in srgb,
-		var(--chip-color, var(--color-brand)) var(--wash-strength),
-		var(--wash-base)
-	);
-	/* 45 %, arrived at by measurement rather than taste: at 75 % the lighter
-	   series colours (speed blue) hit 3.2:1, at 55 % the amber ones still only
-	   reached 4.24:1 on the glossary. Mixing in more text colour is what buys
-	   AA for every chip in both schemes. */
-	color: color-mix(in srgb, var(--chip-color, var(--color-brand)) 45%, var(--color-text));
-}
-
-/* Motion is only allowed when it shows a value's magnitude, a state change
-   the rider caused, or a once-per-event moment (Nocturne v2) — fill bars,
-   chart draw-ins, the milestone glow, button press feedback. This blanket
-   is the actual accessibility floor for all of it: 1ms rather than 0/none
-   so animation-fill-mode: both still lands every one of those on its
-   correct end state instead of stuck at frame zero. */
+/* Reduced motion: Rekta zeroes its own durations; this floor also catches
+   anything outside them (1ms, so fill-mode still lands on the end state, and
+   no stagger delay that would turn into "invisible, then pop"). */
 @media (prefers-reduced-motion: reduce) {
 	*,
 	*::before,
@@ -521,10 +98,6 @@ a.fact:active {
 		animation-duration: 1ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 1ms !important;
-		/* Nocturne v3: staggered reveals (fact tiles, hero stats, StoryCards
-		   rows) set a per-item transition/animation-delay — without zeroing
-		   it too, reduced-motion turns each stagger into "invisible for N ms,
-		   then pop", which is worse than no animation at all. */
 		animation-delay: 0ms !important;
 		transition-delay: 0ms !important;
 	}

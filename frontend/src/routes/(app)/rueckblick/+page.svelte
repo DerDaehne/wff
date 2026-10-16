@@ -38,100 +38,85 @@
 	}
 </script>
 
-<div class="page-center">
-	<div class="reveal" style="--i: 0">
-		<h1>Dein Jahr {year}</h1>
-		<p class="year-nav">
-			<a href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
-			<a href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
-		</p>
-	</div>
+<header class="head reveal" style="--i: 0">
+	<h1 class="rk-title">Dein Jahr {year}</h1>
+	<p class="rk-actions">
+		<a class="rk-btn" href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>
+		<a class="rk-btn" href="{resolve('/(app)/rueckblick')}?year={year + 1}">{year + 1} →</a>
+	</p>
+</header>
 
-	{#if viewState === 'loading'}
-		<p>Lädt…</p>
-	{:else if viewState === 'error'}
-		<p role="alert">{errorMessage}</p>
-	{:else if review && review.ride_count === 0}
-		<EmptyState message="Keine Fahrten im Jahr {year}." />
-	{:else if review}
-		<div class="sums reveal" style="--i: 1">
-			<div class="fact-tile sum" style="--i: 0">
-				<p class="fact-tile-value">{review.ride_count}</p>
-				<p class="fact-tile-label">{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</p>
-			</div>
-			<div class="fact-tile sum" style="--i: 1">
-				<p class="fact-tile-value">{formatDistance(review.distance_meters)}</p>
-				<p class="fact-tile-label">Distanz</p>
-			</div>
-			<div class="fact-tile sum" style="--i: 2">
-				<p class="fact-tile-value">{Math.round(review.elevation_gain_meters)} hm</p>
-				<p class="fact-tile-label">Höhenmeter</p>
-			</div>
-			<div class="fact-tile sum" style="--i: 3">
-				<p class="fact-tile-value">{formatDuration(review.moving_seconds)}</p>
-				<p class="fact-tile-label">Auf dem Rad</p>
-			</div>
+{#if viewState === 'loading'}
+	<p>Lädt…</p>
+{:else if viewState === 'error'}
+	<p role="alert">{errorMessage}</p>
+{:else if review && review.ride_count === 0}
+	<EmptyState message="Keine Fahrten im Jahr {year}." />
+{:else if review}
+	<!-- The year in Rekta tiles; the two records open their ride and wear
+	     Rekta's success fill with the word, as a record does on a ride. -->
+	<section class="rk-tiles" aria-label="Dein Jahr in Zahlen">
+		<div class="rk-tile" style="--rk-i: 0">
+			<span class="rk-stat"
+				><b>{review.ride_count}</b><span>{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</span
+				></span
+			>
 		</div>
-
-		<!-- These are literally records — the app's own achievement glow is
-		     designed for exactly this screen (Nocturne v2). -->
+		<div class="rk-tile" style="--rk-i: 1">
+			<span class="rk-stat"
+				><b>{formatDistance(review.distance_meters)}</b><span>Distanz</span></span
+			>
+		</div>
+		<div class="rk-tile" style="--rk-i: 2">
+			<span class="rk-stat"
+				><b>{Math.round(review.elevation_gain_meters)}<small>hm</small></b><span>Höhenmeter</span
+				></span
+			>
+		</div>
+		<div class="rk-tile" style="--rk-i: 3">
+			<span class="rk-stat"
+				><b>{formatDuration(review.moving_seconds)}</b><span>auf dem Rad</span></span
+			>
+		</div>
 		{#if review.longest_ride}
 			<a
-				class="fact fact--milestone highlight"
+				class="rk-tile rk-w2"
+				data-status="success"
+				style="--rk-i: 4"
 				href={resolve('/(app)/rides/[id]', { id: String(review.longest_ride.activity_id) })}
 			>
-				<p class="fact-label">Deine weiteste Fahrt</p>
-				<p class="fact-value">{formatDistance(review.longest_ride.value)}</p>
-				<p class="fact-meaning">am {rideDate(review.longest_ride.started_at)}</p>
+				<span class="rk-tile-word">Rekord</span>
+				<span class="rk-kicker">deine weiteste Fahrt</span>
+				<span class="rk-stat"
+					><b>{formatDistance(review.longest_ride.value)}</b><span
+						>am {rideDate(review.longest_ride.started_at)}</span
+					></span
+				>
 			</a>
 		{/if}
 		{#if review.hardest_ride}
 			<a
-				class="fact fact--milestone highlight"
+				class="rk-tile rk-w2"
+				data-status="success"
+				style="--rk-i: 5"
 				href={resolve('/(app)/rides/[id]', { id: String(review.hardest_ride.activity_id) })}
 			>
-				<p class="fact-label">Deine härteste Fahrt</p>
-				<p class="fact-value">Belastung {Math.round(review.hardest_ride.value)}</p>
-				<p class="fact-meaning">am {rideDate(review.hardest_ride.started_at)}</p>
+				<span class="rk-tile-word">Rekord</span>
+				<span class="rk-kicker">deine härteste Fahrt</span>
+				<span class="rk-stat"
+					><b>{Math.round(review.hardest_ride.value)}</b><span
+						>Belastung, am {rideDate(review.hardest_ride.started_at)}</span
+					></span
+				>
 			</a>
 		{/if}
-	{/if}
-</div>
+	</section>
+{/if}
 
 <style>
-	.year-nav {
-		display: flex;
-		justify-content: space-between;
-		max-width: 20rem;
-		margin: 0 0 1.5rem;
-	}
-
-	.sums {
+	.head {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
-	}
-
-	/* The screen everyone already likes for its big numbers was running them
-	   at 25px (Nocturne v2). text-4xl (64px) was tried first but these
-	   values carry their unit baked into one string ("294 hm", "1:00 h" —
-	   formatDistance/formatDuration return one formatted string, not a
-	   separate value+unit pair) and wrapped mid-word at that size; text-3xl
-	   is the largest that reliably stays on one line at a 2-column phone
-	   width and is still a large jump from the original. */
-	.sum .fact-tile-value {
-		font-size: var(--text-3xl);
-		font-variant-numeric: tabular-nums;
-		white-space: nowrap;
-	}
-
-	.highlight {
-		display: block;
-		margin: 0.75rem 0;
-	}
-
-	.highlight .fact-value {
-		font-size: var(--text-2xl);
+		gap: var(--rk-space-s);
+		margin-bottom: var(--rk-space-l);
 	}
 </style>

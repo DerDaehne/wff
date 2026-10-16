@@ -166,7 +166,7 @@
 	}
 
 	function trackColor(): string {
-		return cssColor('--color-track', '#010205');
+		return cssColor('--rk-accent', '#010205');
 	}
 
 	// A bright map inside a dark page is the one thing that still looked pasted
@@ -902,7 +902,7 @@
 	.color-legend-bar {
 		display: block;
 		height: 10px;
-		background: var(--color-track);
+		background: var(--rk-accent);
 		clip-path: polygon(0 45%, 100% 0, 100% 100%, 0 55%);
 	}
 
