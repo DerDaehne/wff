@@ -150,7 +150,7 @@
 		<progress class="rk-progress" aria-label="Upload läuft"></progress>
 	{:else}
 		<b>Datei hierher ziehen</b>
-		<span>oder tippen, um eine auszuwählen</span>
+		<span>oder eine auswählen</span>
 	{/if}
 </label>
 
