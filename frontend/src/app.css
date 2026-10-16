@@ -605,3 +605,9 @@ a.fact:active {
 	margin-bottom: auto;
 	text-align: left;
 }
+
+/* A link that looks like a Rekta button is a button: no underline (Rekta's
+   root underlines every link). */
+a.rk-btn {
+	text-decoration: none;
+}

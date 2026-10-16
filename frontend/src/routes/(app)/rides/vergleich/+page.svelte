@@ -78,113 +78,60 @@
 			viewState = 'error';
 		}
 	});
+	const watts = (w: number | null) => (w !== null ? `${Math.round(w)} W` : '–');
+	const bpm = (h: number | null) => (h !== null ? `${Math.round(h)} bpm` : '–');
 </script>
 
-<h1 class="reveal" style="--i: 0">Fahrten im Vergleich</h1>
+<h1 class="rk-title reveal" style="--i: 0">Fahrten im Vergleich</h1>
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else if rideA && rideB}
-	<div class="panel reveal" style="--i: 1">
-		<div class="compare-scroll">
-			<table class="compare">
-				<thead>
-					<tr>
-						<th></th>
-						<th
-							><a href={resolve('/(app)/rides/[id]', { id: String(rideA.id) })}
-								>{rideDate(rideA.started_at)}</a
-							></th
-						>
-						<th
-							><a href={resolve('/(app)/rides/[id]', { id: String(rideB.id) })}
-								>{rideDate(rideB.started_at)}</a
-							></th
-						>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td>Dauer</td>
-						<td>{formatDuration(rideA.moving_seconds)}</td>
-						<td>{formatDuration(rideB.moving_seconds)}</td>
-					</tr>
-					<tr>
-						<td>Distanz</td>
-						<td>{formatDistance(rideA.distance_meters)}</td>
-						<td>{formatDistance(rideB.distance_meters)}</td>
-					</tr>
-					<tr>
-						<td>⌀ Tempo</td>
-						<td>{avgSpeedKmh(rideA)}</td>
-						<td>{avgSpeedKmh(rideB)}</td>
-					</tr>
-					<tr>
-						<td>⌀ Leistung</td>
-						<td
-							>{rideA.avg_power_watts !== null ? `${Math.round(rideA.avg_power_watts)} W` : '–'}</td
-						>
-						<td
-							>{rideB.avg_power_watts !== null ? `${Math.round(rideB.avg_power_watts)} W` : '–'}</td
-						>
-					</tr>
-					<tr>
-						<td>⌀ Puls</td>
-						<td
-							>{rideA.avg_heart_rate !== null ? `${Math.round(rideA.avg_heart_rate)} bpm` : '–'}</td
-						>
-						<td
-							>{rideB.avg_heart_rate !== null ? `${Math.round(rideB.avg_heart_rate)} bpm` : '–'}</td
-						>
-					</tr>
-					<tr>
-						<td>Wind</td>
-						<td>{windLabel(weatherA)}</td>
-						<td>{windLabel(weatherB)}</td>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-	</div>
+	{@const rows = [
+		['Dauer', formatDuration(rideA.moving_seconds), formatDuration(rideB.moving_seconds)],
+		['Distanz', formatDistance(rideA.distance_meters), formatDistance(rideB.distance_meters)],
+		['⌀ Tempo', avgSpeedKmh(rideA), avgSpeedKmh(rideB)],
+		['⌀ Leistung', watts(rideA.avg_power_watts), watts(rideB.avg_power_watts)],
+		['⌀ Puls', bpm(rideA.avg_heart_rate), bpm(rideB.avg_heart_rate)],
+		['Wind', windLabel(weatherA), windLabel(weatherB)]
+	]}
+	<!-- Rekta hairline rows, one figure per row, the two rides side by side:
+	     content over chrome, no box around the comparison. -->
+	<ul class="rk-rows compare reveal" style="--i: 1">
+		<li class="head">
+			<span></span>
+			<a class="rk-kicker" href={resolve('/(app)/rides/[id]', { id: String(rideA.id) })}
+				>{rideDate(rideA.started_at)}</a
+			>
+			<a class="rk-kicker" href={resolve('/(app)/rides/[id]', { id: String(rideB.id) })}
+				>{rideDate(rideB.started_at)}</a
+			>
+		</li>
+		{#each rows as [label, a, b] (label)}
+			<li>
+				<span class="rk-meta">{label}</span>
+				<b>{a}</b>
+				<b>{b}</b>
+			</li>
+		{/each}
+	</ul>
 {/if}
 
 <style>
-	.panel {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		padding: 1.25rem;
-		box-shadow: var(--shadow-md);
+	h1 {
+		margin-bottom: var(--rk-space-l);
 	}
 
-	.compare-scroll {
-		overflow-x: auto;
+	.compare > li {
+		display: grid;
+		grid-template-columns: minmax(5.5rem, 1fr) 2fr 2fr;
+		align-items: baseline;
 	}
 
-	.compare {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-	}
-
-	.compare th,
-	.compare td {
-		padding: 0.5rem 0.75rem;
-		text-align: left;
-		white-space: nowrap;
-	}
-
-	.compare thead th {
-		border-bottom: 1px solid var(--color-border);
-		font-weight: 700;
-	}
-
-	.compare tbody td:first-child {
-		color: var(--color-text-muted);
-	}
-
-	.compare tbody tr + tr td {
-		border-top: 1px solid var(--color-border);
+	.compare b {
+		font-weight: var(--rk-font-weight-medium);
+		font-variant-numeric: tabular-nums;
 	}
 </style>

@@ -35,3 +35,13 @@ export const prefs: {
 	set(name: Pref, value: string, options?: { remember?: boolean }): void;
 	restore(): void;
 };
+
+export function confirm(options: {
+	title: string;
+	text?: string;
+	kicker?: string;
+	ok?: string;
+	cancel?: string;
+	safe?: 'ok' | 'cancel';
+	root?: HTMLElement;
+}): Promise<boolean>;

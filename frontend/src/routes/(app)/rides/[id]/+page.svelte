@@ -29,6 +29,7 @@
 	import LineChart from '$lib/components/LineChart.svelte';
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
+	import { confirm, pivot } from '$lib/rekta/rekta.js';
 
 	// maplibre-gl's own worker-URL construction is a runtime string template
 	// (`new URL('./maplibre-gl-worker.mjs', import.meta.url)`), which Vite's
@@ -60,6 +61,15 @@
 	// {#if}: the map is expensive to tear down and recreate, and the charts
 	// have nothing to lose by staying alive off-screen either.
 	let activeTab: 'uebersicht' | 'karte' | 'analyse' = $state('uebersicht');
+	const tabs = [
+		{ key: 'uebersicht', label: 'Übersicht' },
+		{ key: 'karte', label: 'Karte' },
+		{ key: 'analyse', label: 'Analyse' }
+	] as const;
+	function facetPivot(el: HTMLElement) {
+		const strip = pivot(el, { onSelect: (i) => (activeTab = tabs[i].key) });
+		return { destroy: strip.destroy };
+	}
 
 	// Share status (#641): loaded best-effort alongside the story, since a
 	// ride still renders fine without knowing whether it's shared yet.
@@ -122,9 +132,16 @@
 	// yes/no gate, not a view worth its own component.
 	async function deleteRide() {
 		const label = story?.subtitle ? `Fahrt vom ${story.subtitle}` : 'diese Fahrt';
-		if (!confirm(`${label} endgültig löschen? Das kann nicht rückgängig gemacht werden.`)) {
-			return;
-		}
+		// Rekta's question sheet; keeping the ride is the safe, focused answer.
+		const ok = await confirm({
+			kicker: 'löschen',
+			title: `${label} löschen?`,
+			text: 'Das kann nicht rückgängig gemacht werden.',
+			ok: 'Fahrt löschen',
+			cancel: 'Behalten',
+			safe: 'cancel'
+		});
+		if (!ok) return;
 		deleteBusy = true;
 		deleteError = '';
 		try {
@@ -157,7 +174,11 @@
 	// on. OpenFreeMap ships a dark style ("fiord") next to the light one, same
 	// tiles, no key — so the map follows the colour scheme like everything else.
 	function mapStyleUrl(): string {
-		const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+		// A theme chosen in the app (Rekta prefs, data-theme) wins over the system.
+		const chosen = document.documentElement.dataset.theme;
+		const dark = chosen
+			? chosen === 'dark'
+			: window.matchMedia?.('(prefers-color-scheme: dark)').matches;
 		return `https://tiles.openfreemap.org/styles/${dark ? 'fiord' : 'liberty'}`;
 	}
 
@@ -235,6 +256,13 @@
 	type ColorMetric = 'none' | 'speed' | 'power' | 'heart_rate';
 	let colorMetric: ColorMetric = $state('none');
 	let mapReady = $state(false);
+
+	let colorMetrics = $derived([
+		{ key: 'none' as ColorMetric, label: 'Einfarbig' },
+		...(hasPower ? [{ key: 'power' as ColorMetric, label: 'Leistung' }] : []),
+		...(hasHeartRate ? [{ key: 'heart_rate' as ColorMetric, label: 'Puls' }] : []),
+		{ key: 'speed' as ColorMetric, label: 'Tempo' }
+	]);
 
 	const colorMetricLabels: Record<Exclude<ColorMetric, 'none'>, string> = {
 		speed: 'Tempo',
@@ -478,68 +506,43 @@
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<!-- Sections instead of one long scroll (#650): Übersicht carries the
-	     always-relevant story, Karte and Analyse are their own tabs rather
-	     than more panels to scroll past. -->
-	<div class="tabs" role="tablist">
-		<button
-			class="tab"
-			class:active={activeTab === 'uebersicht'}
-			type="button"
-			role="tab"
-			aria-selected={activeTab === 'uebersicht'}
-			onclick={() => (activeTab = 'uebersicht')}
-		>
-			Übersicht
-		</button>
-		<button
-			class="tab"
-			class:active={activeTab === 'karte'}
-			type="button"
-			role="tab"
-			aria-selected={activeTab === 'karte'}
-			onclick={() => (activeTab = 'karte')}
-		>
-			Karte
-		</button>
-		<button
-			class="tab"
-			class:active={activeTab === 'analyse'}
-			type="button"
-			role="tab"
-			aria-selected={activeTab === 'analyse'}
-			onclick={() => (activeTab = 'analyse')}
-		>
-			Analyse
-		</button>
+	<!-- The ride's own title: what kind of ride it was, with the day (and the
+	     weather) as its kicker (Rekta: kicker, one bold title). -->
+	<header class="head reveal" style="--i: 0">
+		<p class="rk-kicker">{story?.subtitle}{conditions[0] ? ` · ${conditions[0]}` : ''}</p>
+		<h1 class="rk-title">{story?.title || 'Deine Fahrt'}</h1>
+	</header>
+
+	<!-- Übersicht, Karte, Analyse: facets of one ride (#650), Rekta's facet
+	     pivot (rekta.js pivot(): the strip glides, the panel slides in). -->
+	<div class="rk-pivot facets" role="tablist" aria-label="Ansicht wählen" use:facetPivot>
+		{#each tabs as t (t.key)}
+			<button
+				type="button"
+				role="tab"
+				id="ride-tab-{t.key}"
+				aria-controls="ride-panel-{t.key}"
+				aria-selected={activeTab === t.key}
+				tabindex={activeTab === t.key ? 0 : -1}
+			>
+				{t.label}
+			</button>
+		{/each}
 	</div>
 
-	<div hidden={activeTab !== 'uebersicht'}>
-		<!-- Data-dense grid (Nocturne reskin, 2026-08-30) — chosen over the
-		     narrative-hero alternative for this page specifically; the dashboard
-		     keeps StoryHero's sentence-first shape (#602) unchanged. Every figure
-		     the ride actually has data for (story.detail_stats), never a curated
-		     2-3 like the hero shows elsewhere. -->
-		<div class="ride-header reveal" style="--i: 0">
-			<h1 class="ride-title">{story?.title || 'Deine Fahrt'}</h1>
-			<p class="ride-date-mono">
-				{story?.subtitle}{conditions[0] ? ` · ${conditions[0]}` : ''}
-			</p>
-		</div>
-
-		<!-- The ride's shape as its own header (Nocturne v2) — the Übersicht tab
-		     otherwise has zero graphics, and a hobbyist reads an elevation
-		     profile faster than any number on the page. -->
+	<div
+		role="tabpanel"
+		id="ride-panel-uebersicht"
+		aria-labelledby="ride-tab-uebersicht"
+		hidden={activeTab !== 'uebersicht'}
+	>
+		<!-- The ride's shape first: a hobbyist reads an elevation profile faster
+		     than any number on the page (Nocturne v2). -->
 		{#if hasElevation}
-			<div class="bleed elevation-strip reveal" style="--i: 1">
+			<div class="elevation-strip">
 				<LineChart
 					xValues={elapsedMinutes}
-					series={[
-						{
-							name: 'Höhe',
-							values: samples.map((s) => s.altitude_meters)
-						}
-					]}
+					series={[{ name: 'Höhe', values: samples.map((s) => s.altitude_meters) }]}
 					xFormat={formatElapsed}
 					yFormat={(y) => `${Math.round(y)} m`}
 					ariaLabel="Höhenprofil"
@@ -549,199 +552,161 @@
 			</div>
 		{/if}
 
-		{#if tssStat}
-			<div class="fact reveal" style="--i: 2">
-				<p class="fact-value">
-					{tssStat.value}{#if tssStat.unit}<span class="fact-unit">{tssStat.unit}</span>{/if}<span
-						class="fact-name">{tssStat.label}</span
-					>
-				</p>
-			</div>
-		{/if}
-
-		{#if ifStat}
-			<div class="reveal" style="--i: 3">
-				<p class="fact-label">{ifStat.label}</p>
-				<div class="fact-scale" style="--fact-share: {ifShare}">
-					<div class="fact-scale-marker"></div>
+		<!-- Every figure the ride has data for (story.detail_stats, the data-dense
+		     variant chosen in #735), as Rekta tiles. -->
+		<section class="rk-tiles figures" aria-label="Kennzahlen">
+			{#if tssStat}
+				<div class="rk-tile rk-w2" style="--rk-i: 0">
+					<span class="rk-stat">
+						<b
+							>{tssStat.value}{#if tssStat.unit}<small>{tssStat.unit}</small>{/if}</b
+						>
+						<span>{tssStat.label}</span>
+					</span>
 				</div>
-				<p class="fact-scale-ends">
-					<span>ruhig</span><span>{ifStat.value}</span><span>Vollgas</span>
-				</p>
-			</div>
-		{/if}
+			{/if}
+			{#if ifStat}
+				<!-- Intensity as a position, not a bare 1,09 (same idea as Frische). -->
+				<div class="rk-tile rk-w2" style="--rk-i: 1">
+					<span class="rk-stat"><b>{ifStat.value}</b><span>{ifStat.label}</span></span>
+					<span class="fact-scale" style="--fact-share: {ifShare}">
+						<span class="fact-scale-marker"></span>
+					</span>
+					<span class="fact-scale-ends"><span>ruhig</span><span>Vollgas</span></span>
+				</div>
+			{/if}
+			{#each gridStats as stat, i (stat.label)}
+				<div class="rk-tile" style="--rk-i: {i + 2}">
+					<span class="rk-stat">
+						<b
+							>{stat.value}{#if stat.unit}<small>{stat.unit}</small>{/if}</b
+						>
+						<span>{stat.label}</span>
+					</span>
+				</div>
+			{/each}
+		</section>
 
-		{#if gridStats.length > 0}
-			<div class="stat-grid reveal" style="--i: 4">
-				{#each gridStats as stat, i (stat.label)}
-					<div class="fact-tile" style="--i: {i}">
-						<p class="fact-tile-value">{stat.value}</p>
-						<p class="fact-tile-label">{stat.unit ? `${stat.unit} ` : ''}{stat.label}</p>
-					</div>
-				{/each}
-			</div>
-		{/if}
-
-		<div class="reveal" style="--i: 5">
-			<StoryCards
-				statements={story?.statements ?? []}
-				label="Einordnung dieser Fahrt"
-				context={{
-					...(showPower || showHeartRate
-						? {
-								effort: {
-									xValues: elapsedMinutes,
-									series: [
-										showPower
-											? {
-													name: 'Leistung',
-													values: samples.map((s) => s.power_watts)
-												}
-											: {
-													name: 'Herzfrequenz',
-													values: samples.map((s) => s.heart_rate)
-												}
-									],
-									xFormat: formatElapsed,
-									yFormat: (y: number) => `${Math.round(y)}${showPower ? ' W' : ' bpm'}`,
-									caption: 'Verlauf während der Fahrt'
-								}
+		<StoryCards
+			statements={story?.statements ?? []}
+			label="Einordnung dieser Fahrt"
+			context={{
+				...(showPower || showHeartRate
+					? {
+							effort: {
+								xValues: elapsedMinutes,
+								series: [
+									showPower
+										? { name: 'Leistung', values: samples.map((s) => s.power_watts) }
+										: { name: 'Herzfrequenz', values: samples.map((s) => s.heart_rate) }
+								],
+								xFormat: formatElapsed,
+								yFormat: (y: number) => `${Math.round(y)}${showPower ? ' W' : ' bpm'}`,
+								caption: 'Verlauf während der Fahrt'
 							}
-						: {}),
-					...(hasElevation
-						? {
-								climb: {
-									xValues: elapsedMinutes,
-									series: [
-										{
-											name: 'Höhe',
-											values: samples.map((s) => s.altitude_meters)
-										}
-									],
-									xFormat: formatElapsed,
-									yFormat: (y: number) => `${Math.round(y)} m`,
-									caption: 'Höhenprofil dieser Fahrt'
-								}
+						}
+					: {}),
+				...(hasElevation
+					? {
+							climb: {
+								xValues: elapsedMinutes,
+								series: [{ name: 'Höhe', values: samples.map((s) => s.altitude_meters) }],
+								xFormat: formatElapsed,
+								yFormat: (y: number) => `${Math.round(y)} m`,
+								caption: 'Höhenprofil dieser Fahrt'
 							}
-						: {})
-				}}
-			/>
-		</div>
+						}
+					: {})
+			}}
+		/>
 
-		{#if shareStatus?.active}
-			<div class="share-banner">
-				<p>
-					<strong>Diese Fahrt ist per Link geteilt</strong> — Kennzahlen sind ohne Login sichtbar.
-				</p>
-				<div class="share-row">
+		<section class="sec">
+			<h2 class="rk-group">Teilen und verwalten</h2>
+			{#if shareStatus?.active}
+				<div class="rk-field">
+					<label class="rk-label" for="share-url"
+						>Geteilt per Link — Kennzahlen ohne Login sichtbar</label
+					>
 					<input
-						class="input"
+						id="share-url"
+						class="rk-input"
 						type="text"
 						readonly
 						value={shareUrl}
 						onclick={(e) => e.currentTarget.select()}
 					/>
-					<button class="btn btn-secondary" type="button" onclick={copyShareLink}>
-						{copied ? 'Kopiert!' : 'Kopieren'}
+				</div>
+				<p class="rk-actions">
+					<button class="rk-btn rk-btn--primary" type="button" onclick={copyShareLink}>
+						{copied ? 'Kopiert' : 'Link kopieren'}
 					</button>
-					<button class="btn btn-secondary" type="button" onclick={unshare} disabled={shareBusy}>
+					<button class="rk-btn" type="button" onclick={unshare} disabled={shareBusy}>
 						Teilen beenden
 					</button>
-				</div>
-			</div>
-		{:else}
-			<p class="export-hint">
-				<button class="link-button" type="button" onclick={share} disabled={shareBusy}>
-					Fahrt per Link teilen
-				</button>
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- server download endpoint, not an app route -->
-				· <a href="/api/activities/{page.params.id}/export">Original-Datei herunterladen</a>
-			</p>
-		{/if}
-
-		{#if bikeList.length > 0}
-			<p class="export-hint bike-select-row">
-				<label for="ride-bike">Rad:</label>
-				<select
-					id="ride-bike"
-					class="input"
-					value={currentBikeId ?? ''}
-					disabled={bikeBusy}
-					onchange={changeBike}
-				>
-					<option value="">Kein Rad</option>
-					{#each bikeList as bike (bike.id)}
-						<option value={bike.id}>{bike.name}{bike.retired_at ? ' (stillgelegt)' : ''}</option>
-					{/each}
-				</select>
-			</p>
-			{#if bikeError}
-				<p role="alert" class="delete-error">{bikeError}</p>
+				</p>
+			{:else}
+				<p class="rk-actions">
+					<button class="rk-btn" type="button" onclick={share} disabled={shareBusy}>
+						Per Link teilen
+					</button>
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- server download endpoint, not an app route -->
+					<a class="rk-btn" href="/api/activities/{page.params.id}/export">Original-Datei laden</a>
+				</p>
 			{/if}
-		{/if}
 
-		<p class="export-hint">
-			<button
-				class="link-button link-button-danger"
-				type="button"
-				onclick={deleteRide}
-				disabled={deleteBusy}
-			>
-				Fahrt löschen
-			</button>
-		</p>
-		{#if deleteError}
-			<p role="alert" class="delete-error">{deleteError}</p>
-		{/if}
+			{#if bikeList.length > 0}
+				<div class="rk-field bike" data-status={bikeError ? 'error' : undefined}>
+					<label class="rk-label" for="ride-bike">Rad</label>
+					<select
+						id="ride-bike"
+						class="rk-input"
+						value={currentBikeId ?? ''}
+						disabled={bikeBusy}
+						onchange={changeBike}
+					>
+						<option value="">Kein Rad</option>
+						{#each bikeList as bike (bike.id)}
+							<option value={bike.id}>{bike.name}{bike.retired_at ? ' (stillgelegt)' : ''}</option>
+						{/each}
+					</select>
+					{#if bikeError}<p class="rk-hint" role="alert">{bikeError}</p>{/if}
+				</div>
+			{/if}
+
+			<p class="rk-actions delete">
+				<button class="rk-btn" type="button" onclick={deleteRide} disabled={deleteBusy}>
+					Fahrt löschen
+				</button>
+			</p>
+			{#if deleteError}
+				<p class="rk-empty" data-status="error" role="alert">{deleteError}</p>
+			{/if}
+		</section>
 	</div>
 
-	<div hidden={activeTab !== 'karte'}>
-		<section class="panel reveal" style="--i: 0">
-			<h2>Wo du gefahren bist</h2>
+	<div
+		role="tabpanel"
+		id="ride-panel-karte"
+		aria-labelledby="ride-tab-karte"
+		hidden={activeTab !== 'karte'}
+	>
+		<section class="sec first">
+			<h2 class="rk-group">Wo du gefahren bist</h2>
 			{#if gpsCoords.length > 1}
-				<div class="color-switch" role="group" aria-label="Strecke einfärben nach">
-					<button
-						type="button"
-						class="btn {colorMetric === 'none' ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={colorMetric === 'none'}
-						onclick={() => (colorMetric = 'none')}
-					>
-						Einfarbig
-					</button>
-					{#if hasPower}
-						<button
-							type="button"
-							class="btn {colorMetric === 'power' ? 'btn-primary' : 'btn-secondary'}"
-							aria-pressed={colorMetric === 'power'}
-							onclick={() => (colorMetric = 'power')}
-						>
-							Leistung
-						</button>
-					{/if}
-					{#if hasHeartRate}
-						<button
-							type="button"
-							class="btn {colorMetric === 'heart_rate' ? 'btn-primary' : 'btn-secondary'}"
-							aria-pressed={colorMetric === 'heart_rate'}
-							onclick={() => (colorMetric = 'heart_rate')}
-						>
-							Puls
-						</button>
-					{/if}
-					<button
-						type="button"
-						class="btn {colorMetric === 'speed' ? 'btn-primary' : 'btn-secondary'}"
-						aria-pressed={colorMetric === 'speed'}
-						onclick={() => (colorMetric = 'speed')}
-					>
-						Tempo
-					</button>
-				</div>
+				<fieldset class="rk-segments">
+					<legend class="rk-sr">Strecke zeigen nach</legend>
+					{#each colorMetrics as m (m.key)}
+						<label>
+							<input type="radio" name="track-metric" value={m.key} bind:group={colorMetric} />
+							{m.label}
+						</label>
+					{/each}
+				</fieldset>
 				<div class="map" bind:this={mapContainer}></div>
 				{#if coloredTrack}
 					<div class="color-legend">
 						<span class="color-legend-bar"></span>
-						<span class="color-legend-labels">
+						<span class="rk-meta color-legend-labels">
 							<span>{legendFormat(colorMetric, coloredTrack.lo)}</span>
 							<span>{colorMetricLabels[colorMetric as Exclude<ColorMetric, 'none'>]}</span>
 							<span>{legendFormat(colorMetric, coloredTrack.hi)}</span>
@@ -749,38 +714,38 @@
 					</div>
 				{/if}
 			{:else}
-				<p class="empty">Für diese Fahrt wurde keine Position aufgezeichnet.</p>
+				<p class="rk-empty">Für diese Fahrt wurde keine Position aufgezeichnet.</p>
 			{/if}
 		</section>
 
-		<section class="panel reveal" style="--i: 1">
-			<h2>Bergauf, bergab</h2>
-			<p class="panel-sub">Höhe über dem Meer im Verlauf der Fahrt</p>
+		<section class="sec">
+			<h2 class="rk-group">Bergauf, bergab</h2>
+			<p class="sub">Höhe über dem Meer im Verlauf der Fahrt</p>
 			{#if hasElevation}
 				<LineChart
 					xValues={elapsedMinutes}
-					series={[
-						{
-							name: 'Höhe',
-							values: samples.map((s) => s.altitude_meters)
-						}
-					]}
+					series={[{ name: 'Höhe', values: samples.map((s) => s.altitude_meters) }]}
 					xFormat={formatElapsed}
 					yFormat={(y) => `${Math.round(y)} m`}
 					ariaLabel="Höhenprofil"
 					height={160}
 				/>
 			{:else}
-				<p class="empty">Für diese Fahrt wurden keine Höhendaten aufgezeichnet.</p>
+				<p class="rk-empty">Für diese Fahrt wurden keine Höhendaten aufgezeichnet.</p>
 			{/if}
 		</section>
 	</div>
 
-	<div hidden={activeTab !== 'analyse'}>
+	<div
+		role="tabpanel"
+		id="ride-panel-analyse"
+		aria-labelledby="ride-tab-analyse"
+		hidden={activeTab !== 'analyse'}
+	>
 		{#if story?.zones && story.zones.total_seconds > 0}
-			<section class="panel reveal" style="--i: 0">
-				<h2>Wo dein Puls lag</h2>
-				<p class="panel-sub">
+			<section class="sec first">
+				<h2 class="rk-group">Wo dein Puls lag</h2>
+				<p class="sub">
 					Der Durchschnittspuls verrät nicht, ob du gleichmäßig unterwegs warst oder zwischendurch
 					hart. Diese Aufteilung schon.
 				</p>
@@ -788,42 +753,32 @@
 			</section>
 		{/if}
 
-		<section class="panel reveal" style="--i: 1">
+		<section class="sec">
 			{#if showPower}
-				<h2>Wie viel Kraft du aufs Pedal gebracht hast</h2>
-				<p class="panel-sub">Leistung in Watt — höher heißt kräftiger getreten</p>
+				<h2 class="rk-group">Wie viel Kraft du aufs Pedal gebracht hast</h2>
+				<p class="sub">Leistung in Watt — höher heißt kräftiger getreten</p>
 				<LineChart
 					xValues={elapsedMinutes}
-					series={[
-						{
-							name: 'Leistung',
-							values: samples.map((s) => s.power_watts)
-						}
-					]}
+					series={[{ name: 'Leistung', values: samples.map((s) => s.power_watts) }]}
 					xFormat={formatElapsed}
 					yFormat={(y) => `${Math.round(y)} W`}
 					ariaLabel="Leistung"
 					height={160}
 				/>
 			{:else if showHeartRate}
-				<h2>Wie schnell dein Herz geschlagen hat</h2>
-				<p class="panel-sub">Herzfrequenz in Schlägen pro Minute — höher heißt anstrengender</p>
+				<h2 class="rk-group">Wie schnell dein Herz geschlagen hat</h2>
+				<p class="sub">Herzfrequenz in Schlägen pro Minute — höher heißt anstrengender</p>
 				<LineChart
 					xValues={elapsedMinutes}
-					series={[
-						{
-							name: 'Herzfrequenz',
-							values: samples.map((s) => s.heart_rate)
-						}
-					]}
+					series={[{ name: 'Herzfrequenz', values: samples.map((s) => s.heart_rate) }]}
 					xFormat={formatElapsed}
 					yFormat={(y) => `${Math.round(y)} bpm`}
 					ariaLabel="Herzfrequenz"
 					height={160}
 				/>
 			{:else}
-				<h2>Wie anstrengend es war</h2>
-				<p class="empty">
+				<h2 class="rk-group">Wie anstrengend es war</h2>
+				<p class="rk-empty">
 					Für diese Fahrt wurden weder Leistung noch Puls aufgezeichnet — dafür braucht das Rad
 					einen Leistungsmesser oder einen Pulsgurt.
 				</p>
@@ -831,38 +786,39 @@
 		</section>
 
 		{#if laps.length > 0}
-			<section class="panel reveal" style="--i: 2">
-				<h2>Zwischenzeiten</h2>
-				<p class="panel-sub">Runden, die dein Gerät selbst markiert hat</p>
-				<div class="laps-scroll">
-					<table class="laps">
+			<section class="sec">
+				<h2 class="rk-group">Zwischenzeiten</h2>
+				<p class="sub">Runden, die dein Gerät selbst markiert hat</p>
+				<!-- Rekta's table: on a narrow place its rows stack (container query). -->
+				<div class="rk-table-wrap">
+					<table class="rk-table">
 						<thead>
 							<tr>
-								<th>Runde</th>
-								<th>Zeit</th>
-								<th>Distanz</th>
-								<th>⌀ Leistung</th>
-								<th>⌀ Puls</th>
-								<th>⌀ Tempo</th>
+								<th scope="col">Runde</th>
+								<th scope="col">Zeit</th>
+								<th scope="col">Distanz</th>
+								<th scope="col">⌀ Leistung</th>
+								<th scope="col">⌀ Puls</th>
+								<th scope="col">⌀ Tempo</th>
 							</tr>
 						</thead>
 						<tbody>
 							{#each laps as lap (lap.lap_index)}
 								<tr>
-									<td>{lap.lap_index + 1}</td>
-									<td>{formatLapTime(lap.elapsed_seconds)}</td>
-									<td>{formatDistance(lap.distance_meters)}</td>
-									<td
+									<th scope="row">Runde {lap.lap_index + 1}</th>
+									<td data-label="Zeit">{formatLapTime(lap.elapsed_seconds)}</td>
+									<td data-label="Distanz">{formatDistance(lap.distance_meters)}</td>
+									<td data-label="⌀ Leistung"
 										>{lap.avg_power_watts !== null
 											? `${Math.round(lap.avg_power_watts)} W`
 											: '–'}</td
 									>
-									<td
+									<td data-label="⌀ Puls"
 										>{lap.avg_heart_rate !== null
 											? `${Math.round(lap.avg_heart_rate)} bpm`
 											: '–'}</td
 									>
-									<td>{formatSpeed(lap.avg_speed_mps)}</td>
+									<td data-label="⌀ Tempo">{formatSpeed(lap.avg_speed_mps)}</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -871,190 +827,76 @@
 			</section>
 		{/if}
 	</div>
-
-	<p class="glossary-hint">
-		Unsicher, was ein Begriff bedeutet? Im <a href={resolve('/(app)/glossar')}>Glossar</a> steht alles
-		erklärt.
-	</p>
 {/if}
 
 <style>
-	.tabs {
-		display: flex;
-		gap: 0.375rem;
-		margin-bottom: 1.25rem;
+	.head {
+		margin-bottom: var(--rk-space-m);
 	}
 
-	.tab {
-		flex: 1;
-		border: none;
-		border-radius: var(--radius-pill);
-		padding: 0.5rem 1rem;
-		font: inherit;
-		font-weight: 700;
-		color: var(--color-text-muted);
-		background: color-mix(in srgb, var(--color-text) 6%, transparent);
-		cursor: pointer;
+	.head .rk-title {
+		margin-top: var(--rk-space-xs);
 	}
 
-	.tab.active {
-		color: color-mix(in srgb, var(--color-brand) 70%, var(--color-text));
-		background: color-mix(in srgb, var(--color-brand) 16%, transparent);
-	}
-
-	.panel {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		padding: 1.25rem;
-		box-shadow: var(--shadow-md);
-		margin-bottom: 1.5rem;
-	}
-
-	/* Stacked, not a space-between row — a long title (weather note included:
-	   "Donnerstag, 18. Juni · 10:00 · 22 °C") plus the title text genuinely
-	   don't both fit on one line on a real phone width, and the row version
-	   let the date run past its own container with nothing to stop it. */
-	.ride-header {
-		margin-bottom: 1rem;
-	}
-
-	.ride-title {
-		margin: 0;
-		font-size: var(--text-xl);
-	}
-
-	/* Tabular Manrope, not a monospace stack — the mono date was the clearest
-	   remaining "industrial control panel" tell on the page (Nocturne v2);
-	   tabular-nums gives the same alignment without a second typeface. */
-	.ride-date-mono {
-		margin: 0.25rem 0 0;
-		font-variant-numeric: tabular-nums;
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
+	.facets {
+		margin-bottom: var(--rk-space-m);
 	}
 
 	.elevation-strip {
-		margin-bottom: 1.25rem;
+		margin-bottom: var(--rk-space-m);
 	}
 
-	.fact,
-	.fact-scale {
-		margin-bottom: 1.25rem;
+	.figures {
+		margin-bottom: var(--rk-space-s);
 	}
 
-	.fact-scale-ends {
-		margin-bottom: 1.5rem;
+	/* Intensity's position on a tile: the track in the tile's own text colour,
+	   as Rekta draws progress on a tile. */
+	.rk-tile .fact-scale {
+		display: block;
+		height: 4px;
+		background: color-mix(in srgb, currentColor 20%, transparent);
 	}
 
-	.stat-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 0.5rem;
-		margin-bottom: 1.5rem;
+	.rk-tile .fact-scale-marker {
+		box-shadow: 0 0 0 2px var(--rk-surface);
 	}
 
-	@media (min-width: 600px) {
-		.stat-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
-
-	.panel h2 {
+	.rk-tile .fact-scale-ends {
 		margin: 0;
 	}
 
-	.panel-sub {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.25rem 0 1rem;
+	.sec {
+		margin-top: var(--rk-space-xl);
+		display: grid;
+		gap: var(--rk-space-m);
 	}
 
-	.glossary-hint,
-	.export-hint {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+	.sec.first {
+		margin-top: 0;
 	}
 
-	.link-button {
-		background: none;
-		border: none;
-		padding: 0;
-		font: inherit;
-		color: var(--color-brand);
-		text-decoration: underline;
-		cursor: pointer;
+	.sec > :global(*) {
+		max-width: 100%;
 	}
 
-	.link-button-danger {
-		color: var(--color-danger);
+	.sub {
+		max-width: 60ch;
+		margin-top: calc(-1 * var(--rk-space-s));
+		color: var(--rk-text-contrast-high);
 	}
 
-	.delete-error {
-		color: var(--color-danger);
-		font-size: var(--text-sm);
-		margin: 0.5rem 0 0;
-	}
-
-	.bike-select-row {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.bike-select-row select {
-		/* flex-basis:0% via the shorthand overrides the global .input's
-		   width:100%, same trick .share-row .input already uses below. */
-		flex: 1;
-		min-width: 10rem;
-		max-width: 16rem;
-	}
-
-	/* Prominent on purpose (#641) — a rider who shared a ride and forgot
-	   should not have to go looking for that fact. */
-	.share-banner {
-		background: color-mix(in srgb, var(--color-brand) 10%, var(--color-surface));
-		border-radius: var(--radius-md);
-		padding: 1rem 1.25rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.share-banner p {
-		margin: 0 0 0.75rem;
-	}
-
-	.share-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.share-row .input {
-		flex: 1;
-		min-width: 12rem;
-	}
-
-	.empty {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
+	.rk-field {
+		width: min(100%, 36rem);
 	}
 
 	.map {
 		width: 100%;
 		height: 320px;
-		border-radius: 12px;
-		overflow: hidden;
-		margin-top: 1rem;
-	}
-
-	.color-switch {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
 	}
 
 	.color-legend {
-		margin-top: 0.75rem;
+		width: 100%;
 	}
 
 	/* A wedge, thin to thick, the same as the line on the map. */
@@ -1068,33 +910,10 @@
 	.color-legend-labels {
 		display: flex;
 		justify-content: space-between;
-		margin-top: 0.25rem;
-		font-size: var(--text-xs);
-		color: var(--color-text-muted);
+		margin-top: var(--rk-space-xs);
 	}
 
-	/* A narrow phone can't fit six columns — scroll the table itself rather
-	   than shrink the numbers unreadably or wrap rows onto a second line. */
-	.laps-scroll {
-		overflow-x: auto;
-	}
-
-	.laps {
+	.rk-table-wrap {
 		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-		white-space: nowrap;
-	}
-
-	.laps th {
-		text-align: left;
-		color: var(--color-text-muted);
-		font-weight: 700;
-		padding: 0.5rem 0.75rem;
-	}
-
-	.laps td {
-		padding: 0.5rem 0.75rem;
-		border-top: 1px solid var(--color-border);
 	}
 </style>

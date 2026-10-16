@@ -109,25 +109,27 @@
 	}
 </script>
 
-<div class="header-row reveal" style="--i: 0">
-	<h1>Deine Fahrten</h1>
-	{#if viewState === 'ready'}
-		<button class="btn btn-secondary" type="button" onclick={toggleCompareMode}>
+<!-- The pivot above already names this place ("Fahrten"); a visible title
+     would say it twice (Rekta typography), so the heading is for screen
+     readers only. -->
+<h1 class="rk-sr">Deine Fahrten</h1>
+
+{#if viewState === 'ready'}
+	<p class="rk-actions tools reveal" style="--i: 0">
+		<button class="rk-btn" type="button" onclick={toggleCompareMode}>
 			{compareMode ? 'Abbrechen' : 'Fahrten vergleichen'}
 		</button>
-	{/if}
-</div>
-
-{#if compareMode}
-	<p class="compare-hint">
-		Wähle zwei Fahrten aus.
-		{#if selectedIds.length === 2}
-			<a
-				class="btn btn-primary compare-cta"
-				href="{resolve('/(app)/rides/vergleich')}?a={selectedIds[0]}&b={selectedIds[1]}"
-			>
-				Vergleichen
-			</a>
+		{#if compareMode}
+			{#if selectedIds.length === 2}
+				<a
+					class="rk-btn rk-btn--primary"
+					href="{resolve('/(app)/rides/vergleich')}?a={selectedIds[0]}&b={selectedIds[1]}"
+				>
+					Vergleichen
+				</a>
+			{:else}
+				<span class="rk-hint">Wähle zwei Fahrten aus.</span>
+			{/if}
 		{/if}
 	</p>
 {/if}
@@ -144,58 +146,46 @@
 	/>
 {:else}
 	{#each monthGroups as group, i (group.key)}
-		<div class="reveal" style="--i: {i + 1}">
-			<h2 class="month-header">{group.label}</h2>
-			<ul class="rides">
+		<section class="month reveal" style="--i: {i + 1}">
+			<h2 class="rk-kicker">{group.label}</h2>
+			<!-- Rekta hairline rows: the row is the link (it tilts back where it is
+			     pressed, data-rk-press); in compare mode a checkbox leads it. -->
+			<ul class="rk-rows">
 				{#each group.rides as ride (ride.id)}
-					<li class:compare-row={compareMode}>
+					<li>
 						{#if compareMode}
-							<label class="compare-checkbox">
+							<label class="rk-switch pick">
 								<input
 									type="checkbox"
 									checked={selectedIds.includes(ride.id)}
 									disabled={!selectedIds.includes(ride.id) && selectedIds.length >= 2}
 									onchange={() => toggleSelected(ride.id)}
 								/>
-								<span class="sr-only">{rideDate(ride.started_at)} auswählen</span>
+								<span class="rk-sr">{rideDate(ride.started_at)} auswählen</span>
 							</label>
 						{/if}
-						<a href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}>
-							<span class="ride-date">
-								{rideDate(ride.started_at)}
-								{#if ride.is_shared}
-									<svg
-										class="share-badge"
-										viewBox="0 0 24 24"
-										width="16"
-										height="16"
-										aria-hidden="true"
-									>
-										<path
-											fill="currentColor"
-											d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 1 0-3-3c0 .24.04.47.09.7L8.04 9.81A3 3 0 1 0 6 15.19l7.13 4.16c-.05.21-.08.43-.08.65a2.92 2.92 0 1 0 2.95-3.92z"
-										/>
-									</svg>
-									<span class="sr-only">Diese Fahrt ist per Link geteilt</span>
-								{/if}
+						<a
+							class="ride"
+							href={resolve('/(app)/rides/[id]', { id: String(ride.id) })}
+							data-rk-press
+						>
+							<span class="when">
+								<b>{rideDate(ride.started_at)}</b>
+								{#if ride.is_shared}<span class="rk-tag">geteilt</span>{/if}
 							</span>
-							<!-- Fahrt-Charakter auf einen Blick (#633), promoted right under the
-						     date (Nocturne v2) — a Grundlagenfahrt and an Intervalleinheit are
-						     distinguishable at a glance, before a single number is read. -->
+							<!-- The ride's character in words (#633), right under the date. -->
 							{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
-								<span class="zone-character rk-meta"
+								<span class="rk-meta"
 									>{zoneCharacter(ride.zones)}{ride.zones.assumed ? ' (geschätzt)' : ''}</span
 								>
 							{/if}
-							<!-- Same order as the ride's own hero: the list and the detail view
-						     must not disagree about what matters. "TSS 101" became a
-						     labelled figure — the abbreviation said nothing to anyone who
-						     hadn't already looked it up. -->
-							<span class="ride-figures">
+							<!-- Same order as the ride's own figures: list and detail agree on
+							     what matters. -->
+							<span class="figures">
 								{#each figuresFor(ride) as figure (figure.metric)}
 									<span class="figure">
-										<strong>{figure.value}</strong>
-										<span class="figure-label">{figure.label}</span>
+										<b>{figure.value}</b>
+										<span class="rk-meta">{figure.label}</span>
 									</span>
 								{/each}
 							</span>
@@ -203,166 +193,71 @@
 					</li>
 				{/each}
 			</ul>
-		</div>
+		</section>
 	{/each}
-	<p class="glossary-hint">
+	<p class="rk-facts glossary-hint">
 		Was „Belastung" genau bedeutet, steht im <a href={resolve('/(app)/glossar')}>Glossar</a>.
 	</p>
 {/if}
 
 <style>
-	.header-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		flex-wrap: wrap;
-		gap: 0.75rem 1rem;
+	.tools {
+		margin-bottom: var(--rk-space-m);
 	}
 
-	/* On a narrow phone "Deine Fahrten" plus the toggle button don't fit one
-	   row — wrap the row instead of letting the button's own two words wrap
-	   into a squashed two-line pill. */
-	.header-row .btn {
-		white-space: nowrap;
+	.month + .month {
+		margin-top: var(--rk-space-l);
 	}
 
-	.compare-hint {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin: 0.5rem 0 1rem;
+	.month .rk-rows {
+		margin-top: var(--rk-space-xs);
 	}
 
-	.compare-cta {
-		font-size: var(--text-sm);
-		padding: 0.4rem 1rem;
-	}
-
-	.compare-row {
-		display: flex;
+	.rk-rows > li {
+		flex-wrap: nowrap;
 		align-items: center;
 	}
 
-	.compare-checkbox {
-		display: flex;
-		align-items: center;
-		padding: 0 0 0 1.25rem;
+	.pick {
+		flex: none;
 	}
 
-	.compare-checkbox input {
-		width: 1.25rem;
-		height: 1.25rem;
-	}
-
-	.compare-row a {
+	/* The whole row is the link: date, character and figures stacked, the
+	   same structure for every ride whatever its figures (#643). */
+	.ride {
+		display: grid;
+		gap: 2px;
 		flex: 1;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip: rect(0, 0, 0, 0);
-		white-space: nowrap;
-	}
-
-	.month-header {
-		position: sticky;
-		top: 0;
-		z-index: 1;
-		background: var(--color-bg);
-		margin: 0;
-		padding: 0.75rem 0 0.5rem;
-		font-size: var(--text-sm);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
-	}
-
-	.rides {
-		list-style: none;
-		padding: 0;
-		margin-bottom: 1.5rem;
-	}
-
-	/* No card (Nocturne v2) — a hairline divider between rows (same device
-	   /raeder already uses for its own flat list) instead of a shadowed box
-	   around each one; :active gives the only feedback a flat row needs on
-	   tap. */
-	.rides li {
-		border-top: 1px solid var(--color-border);
-		transition: transform var(--dur-fast) ease-out;
-	}
-
-	.rides li:first-child {
-		border-top: none;
-	}
-
-	.rides li:active {
-		transform: scale(0.99);
-	}
-
-	/* Date above figures, always — never side-by-side wrapping onto a second
-	   line only for some rows depending on how many figures they have or how
-	   wide the values are. One fixed structure for every row is what makes
-	   the list read as a list instead of an inconsistent zig-zag. */
-	.rides a {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		padding: 0.5rem 0;
+		min-width: 0;
+		padding-block: var(--rk-space-xs);
 		color: inherit;
 		text-decoration: none;
 	}
 
-	/* Promoted right under the date — the row's own zone-coloured identity,
-	   not an afterthought at the bottom of a card that no longer exists.
-	   Wipes open on mount (Nocturne v3), --dur-base and no per-row stagger:
-	   a long list cascading at 40ms/row would take seconds to finish, so
-	   every row's bar wipes at once instead. */
-	.zone-character {
-		display: block;
+	.when {
+		display: flex;
+		align-items: center;
+		gap: var(--rk-space-s);
 	}
 
-	.ride-date {
-		font-weight: 700;
-	}
-
-	/* Status, not content — a small glyph next to the date rather than a
-	   labelled chip like the pulse zones, which need the label to mean
-	   anything. "Shared" needs no explanation once you know the icon. */
-	.share-badge {
-		vertical-align: -2px;
-		margin-left: 0.25rem;
-		color: var(--color-brand);
-	}
-
-	.ride-figures {
+	.figures {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.75rem 1.5rem;
+		gap: 0 var(--rk-space-l);
+		margin-top: var(--rk-space-xs);
 	}
 
 	.figure {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
+		display: grid;
+	}
+
+	.figure b {
+		font-size: var(--rk-font-size-m);
+		font-weight: var(--rk-font-weight-medium);
 		font-variant-numeric: tabular-nums;
 	}
 
-	.figure-label {
-		font-size: var(--text-xs);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--color-text-muted);
-	}
-
 	.glossary-hint {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		margin-top: 1.5rem;
+		margin-top: var(--rk-space-xl);
 	}
 </style>
