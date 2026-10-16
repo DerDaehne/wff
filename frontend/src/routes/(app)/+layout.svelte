@@ -53,7 +53,9 @@
 	let depth = 0;
 	afterNavigate(({ from, type, delta }) => {
 		if (type === 'popstate') depth += delta ?? 0;
-		else if (from) depth++;
+		// The first load counts as an arrival, not a step (SvelteKit reports it as
+		// 'enter', with a 'from' when there is no server rendering).
+		else if (from && type !== 'enter') depth++;
 	});
 	function back() {
 		if (depth > 0) history.back();

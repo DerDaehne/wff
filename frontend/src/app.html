@@ -19,6 +19,9 @@
 		     any CSS or JS runs, so there's no flash of the wrong colour. -->
 		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
 		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0e0e12" />
+		<!-- In the static HTML, not in svelte:head: without server rendering the
+		     browser would ask for /favicon.ico before any script runs. -->
+		<link rel="icon" href="%sveltekit.assets%/favicon.svg" />
 		%sveltekit.head%
 	</head>
 	<body class="rk" data-sveltekit-preload-data="hover">

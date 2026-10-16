@@ -1,5 +1,4 @@
 <script lang="ts">
-	import favicon from '$lib/assets/favicon.svg';
 	import { pwaInfo } from 'virtual:pwa-info';
 	import { onMount } from 'svelte';
 	// Rekta first, WFF's aliases after (ADR adr-002-wff-rekta-design).
@@ -30,7 +29,6 @@
 </script>
 
 <svelte:head>
-	<link rel="icon" href={favicon} />
 	<!-- eslint-disable-next-line svelte/no-at-html-tags -- build-time markup from vite-plugin-pwa, not user input -->
 	{@html webManifestLink}
 </svelte:head>
