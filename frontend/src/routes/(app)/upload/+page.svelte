@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { confirm, drop } from '$lib/rekta/rekta.js';
+	import { toast } from '$lib/toast';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { uploadActivity, friendlyUploadError } from '$lib/activities';
@@ -32,7 +34,6 @@
 	let newTokenName = $state('iPhone');
 	let freshToken: string | null = $state(null);
 	let tokenError = $state('');
-	let copied = $state(false);
 
 	// Only fetched once the person actually opens the section — most uploads are
 	// a drag-and-drop and never need this.
@@ -51,7 +52,6 @@
 		try {
 			const created = await createDeviceToken(newTokenName.trim() || 'Mein Handy');
 			freshToken = created.token ?? null;
-			copied = false;
 			tokens = [created, ...tokens];
 		} catch {
 			tokenError = 'Der Geräteschlüssel konnte nicht angelegt werden.';
@@ -59,12 +59,15 @@
 	}
 
 	async function revoke(token: DeviceToken) {
-		if (
-			!confirm(
-				`Schlüssel „${token.name}" wirklich löschen? Das Gerät kann dann nicht mehr hochladen.`
-			)
-		)
-			return;
+		const ok = await confirm({
+			kicker: 'Schlüssel löschen',
+			title: `„${token.name}“ löschen?`,
+			text: 'Das Gerät kann dann nicht mehr hochladen.',
+			ok: 'Löschen',
+			cancel: 'Behalten',
+			safe: 'cancel'
+		});
+		if (!ok) return;
 		tokenError = '';
 		try {
 			await revokeDeviceToken(token.id);
@@ -77,7 +80,7 @@
 	async function copyToken() {
 		if (!freshToken) return;
 		await navigator.clipboard.writeText(freshToken);
-		copied = true;
+		toast('Schlüssel kopiert');
 	}
 
 	function tokenDate(iso: string): string {
@@ -91,7 +94,6 @@
 	let status: 'idle' | 'uploading' | 'success' | 'error' = $state('idle');
 	let errorMessage = $state('');
 	let activityId: number | null = $state(null);
-	let dragOver = $state(false);
 	let fileInput: HTMLInputElement;
 
 	async function handleFile(file: File) {
@@ -107,25 +109,18 @@
 		}
 	}
 
-	function onInputChange(e: Event) {
-		const file = (e.target as HTMLInputElement).files?.[0];
-		if (file) handleFile(file);
-	}
-
-	function onDrop(e: DragEvent) {
-		e.preventDefault();
-		dragOver = false;
-		const file = e.dataTransfer?.files?.[0];
-		if (file) handleFile(file);
-	}
-
-	function onDragOver(e: DragEvent) {
-		e.preventDefault();
-		dragOver = true;
-	}
-
-	function onDragLeave() {
-		dragOver = false;
+	// rekta.js drop(): files dropped on the zone or chosen with its input arrive
+	// here, sorted by the input's accept; a refused one says why.
+	function dropZone(el: HTMLElement) {
+		return drop(el, {
+			onFiles: (accepted, refused) => {
+				if (accepted[0]) handleFile(accepted[0]);
+				else if (refused[0]) {
+					errorMessage = `„${refused[0].name}“ ist keine .fit-Datei.`;
+					status = 'error';
+				}
+			}
+		});
 	}
 
 	function reset() {
@@ -136,293 +131,214 @@
 	}
 </script>
 
-<div class="page-center">
-	<div class="reveal" style="--i: 0">
-		<h1>Fahrt hochladen</h1>
-		<p class="lead">
-			Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
-			Einordnung macht die App danach von allein.
-		</p>
+<h1 class="rk-title reveal" style="--i: 0">Fahrt hochladen</h1>
+<p class="sub reveal" style="--i: 0">
+	Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
+	Einordnung macht die App danach von allein.
+</p>
 
-		{#if sharedProblem}
-			<p class="shared-problem" role="alert">{sharedProblem}</p>
-		{/if}
-	</div>
+{#if sharedProblem}
+	<p class="rk-empty" data-status="error" role="alert">{sharedProblem}</p>
+{/if}
 
-	<div
-		class="dropzone reveal"
-		style="--i: 1"
-		class:dragover={dragOver}
-		ondrop={onDrop}
-		ondragover={onDragOver}
-		ondragleave={onDragLeave}
-		role="button"
-		tabindex="0"
-		onclick={() => fileInput.click()}
-		onkeydown={(e) => e.key === 'Enter' && fileInput.click()}
-	>
-		{#if status === 'uploading'}
-			<p>Wird hochgeladen…</p>
-		{:else}
-			<p>Datei hierher ziehen oder klicken zum Auswählen</p>
-		{/if}
-		<input
-			bind:this={fileInput}
-			type="file"
-			accept=".fit"
-			hidden
-			onchange={onInputChange}
-			disabled={status === 'uploading'}
-		/>
-	</div>
+<!-- Rekta's drop zone (rekta.js drop()): a dashed frame around the file
+     input; a dragged file makes it solid, a drop or a choice uploads. -->
+<label class="rk-drop reveal" style="--i: 1" use:dropZone>
+	<input bind:this={fileInput} type="file" accept=".fit" disabled={status === 'uploading'} />
+	{#if status === 'uploading'}
+		<b>Wird hochgeladen…</b>
+		<progress class="rk-progress" aria-label="Upload läuft"></progress>
+	{:else}
+		<b>Datei hierher ziehen</b>
+		<span>oder tippen, um eine auszuwählen</span>
+	{/if}
+</label>
 
-	{#if status === 'success'}
-		<p role="status" class="done">Fahrt ist da.</p>
-		<div class="actions">
-			<a class="btn btn-primary" href={resolve('/(app)/rides/[id]', { id: String(activityId) })}>
-				Fahrt ansehen
-			</a>
-			<button class="btn btn-secondary" onclick={reset}>Noch eine hochladen</button>
+{#if status === 'success'}
+	<p class="rk-actions result" role="status">
+		<span>Fahrt ist da.</span>
+		<a
+			class="rk-btn rk-btn--primary"
+			href={resolve('/(app)/rides/[id]', { id: String(activityId) })}
+		>
+			Fahrt ansehen
+		</a>
+		<button class="rk-btn" type="button" onclick={reset}>Noch eine hochladen</button>
+	</p>
+{:else if status === 'error'}
+	<p class="rk-empty" data-status="error" role="alert">{errorMessage}</p>
+	<p class="rk-actions">
+		<button class="rk-btn rk-btn--primary" type="button" onclick={reset}>Erneut versuchen</button>
+	</p>
+{/if}
+
+<details class="phone reveal" style="--i: 2" ontoggle={loadTokens}>
+	<summary class="rk-group">Direkt vom Handy hochladen</summary>
+	<p class="rk-facts">ohne Umweg über den Rechner</p>
+
+	<h2 class="rk-kicker">Android</h2>
+	<p>
+		Nichts einzurichten. Öffne die Fahrt in SIGMA RIDE, geh auf <b>Teilen</b> und wähle
+		<b>WFF</b> aus der Liste. Die Fahrt landet direkt hier — vorausgesetzt, du hast WFF über
+		<em>„Zum Startbildschirm hinzufügen"</em> installiert.
+	</p>
+
+	<h2 class="rk-kicker">iPhone</h2>
+	<p>
+		Apple lässt Web-Apps nicht in die Teilen-Liste. Der Umweg ist ein <b>Kurzbefehl</b> — einmal angelegt,
+		taucht er beim Teilen genauso auf. Dafür braucht er einen eigenen Schlüssel, weil er sich nicht per
+		Face ID anmelden kann.
+	</p>
+
+	<h3 class="rk-kicker">1. Schlüssel anlegen</h3>
+	{#if tokenError}
+		<p class="rk-empty" data-status="error" role="alert">{tokenError}</p>
+	{/if}
+	<div class="add">
+		<div class="rk-field">
+			<label class="rk-label" for="token-name">Name des Geräts</label>
+			<input id="token-name" class="rk-input" bind:value={newTokenName} maxlength="60" />
 		</div>
-	{:else if status === 'error'}
-		<p role="alert">{errorMessage}</p>
-		<button class="btn btn-primary" onclick={reset}>Erneut versuchen</button>
+		<button class="rk-btn" type="button" onclick={addToken}>Schlüssel erzeugen</button>
+	</div>
+
+	{#if freshToken}
+		<div class="rk-field fresh">
+			<label class="rk-label" for="fresh-token">Jetzt kopieren</label>
+			<input
+				id="fresh-token"
+				class="rk-input"
+				readonly
+				value={freshToken}
+				onclick={(e) => e.currentTarget.select()}
+			/>
+			<p class="rk-hint">Danach zeigt ihn dir niemand mehr — auch die App nicht.</p>
+		</div>
+		<p class="rk-actions">
+			<button class="rk-btn rk-btn--primary" type="button" onclick={copyToken}>
+				Schlüssel kopieren
+			</button>
+		</p>
 	{/if}
 
-	<details class="phone reveal" style="--i: 2" ontoggle={loadTokens}>
-		<summary>Direkt vom Handy hochladen — ohne Umweg über den Rechner</summary>
+	{#if tokens.length > 0}
+		<ul class="rk-rows tokens">
+			{#each tokens as token (token.id)}
+				<li>
+					<div>
+						<b>{token.name}</b>
+						<p class="rk-meta">
+							angelegt am {tokenDate(token.created_at)} ·
+							{token.last_used_at
+								? `zuletzt benutzt am ${tokenDate(token.last_used_at)}`
+								: 'noch nie benutzt'}
+						</p>
+					</div>
+					<button class="rk-btn" type="button" onclick={() => revoke(token)}>Löschen</button>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 
-		<h2>Android</h2>
-		<p>
-			Nichts einzurichten. Öffne die Fahrt in SIGMA RIDE, geh auf <strong>Teilen</strong> und wähle
-			<strong>WFF</strong> aus der Liste. Die Fahrt landet direkt hier — vorausgesetzt, du hast WFF
-			über <em>„Zum Startbildschirm hinzufügen"</em> installiert.
-		</p>
+	<h3 class="rk-kicker">2. Kurzbefehl bauen</h3>
+	<ol class="recipe">
+		<li>App <b>Kurzbefehle</b> öffnen, oben rechts auf <b>+</b>.</li>
+		<li><b>Aktion hinzufügen</b> → nach <em>„Inhalte von URL abrufen"</em> suchen und antippen.</li>
+		<li>Auf <b>URL</b> tippen und eintragen: <code>{page.url.origin}/api/activities</code></li>
+		<li>
+			Auf <em>„Weitere anzeigen"</em> tippen und <b>Methode</b> auf <code>POST</code> stellen.
+		</li>
+		<li>
+			Bei <b>Header</b> ein Feld hinzufügen: Schlüssel <code>Authorization</code>, Wert
+			<code>Bearer</code> + Leerzeichen + dein Schlüssel von oben.
+		</li>
+		<li>
+			Bei <b>Anfragetext</b> die Art <b>Formular</b> wählen, ein Feld hinzufügen, dessen Typ auf
+			<b>Datei</b> stellen, Schlüssel <code>file</code>, Wert <em>„Kurzbefehlseingabe"</em>.
+		</li>
+		<li>
+			Oben auf den Namen tippen → <em>„Details"</em> → <b>„Bei Teilen-Sheet anzeigen"</b>
+			einschalten, Eingabetyp <b>Dateien</b>.
+		</li>
+		<li>Kurzbefehl benennen, z. B. <em>„An WFF senden"</em>, und sichern.</li>
+	</ol>
 
-		<h2>iPhone</h2>
-		<p>
-			Apple lässt Web-Apps nicht in die Teilen-Liste. Der Umweg ist ein <strong>Kurzbefehl</strong> —
-			einmal angelegt, taucht er beim Teilen genauso auf. Dafür braucht er einen eigenen Schlüssel, weil
-			er sich nicht per Face ID anmelden kann.
-		</p>
+	<h3 class="rk-kicker">3. Benutzen</h3>
+	<p>
+		Fahrt in SIGMA RIDE öffnen → <b>Exportieren/Teilen</b> → <code>.fit</code> → in der Liste
+		<em>„An WFF senden"</em>. Danach steht sie unter „Fahrten".
+	</p>
 
-		<h3>1. Schlüssel anlegen</h3>
-		{#if tokenError}
-			<p role="alert">{tokenError}</p>
-		{/if}
-		<div class="token-new">
-			<input class="input" bind:value={newTokenName} aria-label="Name des Geräts" maxlength="60" />
-			<button class="btn btn-secondary" type="button" onclick={addToken}>Schlüssel erzeugen</button>
-		</div>
-
-		{#if freshToken}
-			<div class="token-fresh">
-				<p>
-					<strong>Jetzt kopieren.</strong> Danach zeigt ihn dir niemand mehr — auch die App nicht.
-				</p>
-				<code>{freshToken}</code>
-				<button class="btn btn-secondary" type="button" onclick={copyToken}>
-					{copied ? 'Kopiert' : 'Kopieren'}
-				</button>
-			</div>
-		{/if}
-
-		{#if tokens.length > 0}
-			<ul class="token-list">
-				{#each tokens as token (token.id)}
-					<li>
-						<div>
-							<strong>{token.name}</strong>
-							<span class="token-meta">
-								angelegt am {tokenDate(token.created_at)} ·
-								{token.last_used_at
-									? `zuletzt benutzt am ${tokenDate(token.last_used_at)}`
-									: 'noch nie benutzt'}
-							</span>
-						</div>
-						<button class="btn btn-secondary" type="button" onclick={() => revoke(token)}>
-							Löschen
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-
-		<h3>2. Kurzbefehl bauen</h3>
-		<ol class="recipe">
-			<li>App <strong>Kurzbefehle</strong> öffnen, oben rechts auf <strong>+</strong>.</li>
-			<li>
-				<strong>Aktion hinzufügen</strong> → nach <em>„Inhalte von URL abrufen"</em> suchen und antippen.
-			</li>
-			<li>
-				Auf <strong>URL</strong> tippen und eintragen: <code>{page.url.origin}/api/activities</code>
-			</li>
-			<li>
-				Auf <em>„Weitere anzeigen"</em> tippen und <strong>Methode</strong> auf <code>POST</code> stellen.
-			</li>
-			<li>
-				Bei <strong>Header</strong> ein Feld hinzufügen: Schlüssel <code>Authorization</code>, Wert
-				<code>Bearer</code> + Leerzeichen + dein Schlüssel von oben.
-			</li>
-			<li>
-				Bei <strong>Anfragetext</strong> die Art <strong>Formular</strong> wählen, ein Feld
-				hinzufügen, dessen Typ auf <strong>Datei</strong> stellen, Schlüssel <code>file</code>, Wert
-				<em>„Kurzbefehlseingabe"</em>.
-			</li>
-			<li>
-				Oben auf den Namen tippen → <em>„Details"</em> →
-				<strong>„Bei Teilen-Sheet anzeigen"</strong>
-				einschalten, Eingabetyp <strong>Dateien</strong>.
-			</li>
-			<li>Kurzbefehl benennen, z. B. <em>„An WFF senden"</em>, und sichern.</li>
-		</ol>
-
-		<h3>3. Benutzen</h3>
-		<p>
-			Fahrt in SIGMA RIDE öffnen → <strong>Exportieren/Teilen</strong> → <code>.fit</code> → in der
-			Liste <em>„An WFF senden"</em>. Danach steht sie unter „Fahrten".
-		</p>
-
-		<p class="token-note">
-			Der Schlüssel darf nur eines: Fahrten hochladen. Er kommt an keine Fahrt, keine Auswertung und
-			kein Profil heran und kann sich auch nicht selbst verlängern. Geht das Handy verloren, löschst
-			du ihn hier — ab dem Moment nimmt die App von diesem Gerät nichts mehr an.
-		</p>
-	</details>
-</div>
+	<p class="rk-facts">
+		Der Schlüssel darf nur eines: Fahrten hochladen. Er kommt an keine Fahrt, keine Auswertung und
+		kein Profil heran und kann sich auch nicht selbst verlängern. Geht das Handy verloren, löschst
+		du ihn hier — ab dem Moment nimmt die App von diesem Gerät nichts mehr an.
+	</p>
+</details>
 
 <style>
-	.lead {
-		color: var(--color-text-muted);
-		max-width: 55ch;
+	h1 {
+		margin-bottom: var(--rk-space-s);
 	}
 
-	.shared-problem {
-		background: color-mix(in srgb, var(--color-warning) var(--wash-strength), var(--wash-base));
-		border-radius: var(--radius-sm);
-		padding: 0.875rem 1rem;
-		max-width: 55ch;
+	.sub {
+		max-width: 60ch;
+		margin-bottom: var(--rk-space-l);
+		color: var(--rk-text-contrast-high);
 	}
 
-	.done {
-		color: var(--color-success);
-		font-weight: 700;
+	.rk-drop {
+		max-width: 36rem;
 	}
 
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
+	.rk-drop .rk-progress {
+		width: min(100%, 16rem);
 	}
 
-	.dropzone {
-		background: color-mix(in srgb, var(--color-brand) 6%, var(--color-surface));
-		box-shadow: var(--shadow-md);
-		border-radius: var(--radius-md);
-		padding: 3rem 1rem;
-		text-align: center;
-		cursor: pointer;
-		transition:
-			box-shadow 0.15s ease,
-			background 0.15s ease;
-	}
-
-	.dropzone.dragover {
-		background: color-mix(in srgb, var(--color-brand) 14%, var(--color-surface));
-		box-shadow: var(--shadow-lg);
+	.result,
+	.rk-empty {
+		margin-top: var(--rk-space-m);
 	}
 
 	.phone {
-		background: var(--color-surface);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-md);
-		padding: 1.25rem 1.5rem;
-		margin-top: 2rem;
 		max-width: 60ch;
+		margin-top: var(--rk-space-xl);
+		padding-top: var(--rk-space-m);
+		border-top: 1px solid var(--rk-text-contrast-low);
 	}
 
 	.phone summary {
 		cursor: pointer;
-		font-weight: 700;
 	}
 
-	.phone h2 {
-		font-size: var(--text-lg);
-		margin: 1.5rem 0 0.25rem;
+	.phone :is(p, ol, ul, .add, .fresh) {
+		margin-top: var(--rk-space-s);
 	}
 
-	.phone h3 {
-		font-size: var(--text-base);
-		margin: 1.25rem 0 0.5rem;
+	.phone :is(h2, h3) {
+		margin-top: var(--rk-space-l);
 	}
 
-	.phone code {
-		background: color-mix(in srgb, var(--color-brand) var(--wash-strength), var(--wash-base));
-		border-radius: var(--radius-sm);
-		padding: 0.1rem 0.35rem;
-		/* anywhere, not break-all: only break inside the word when the line has
-		   no other option, otherwise a phone chops `file` into `fil e`. */
-		overflow-wrap: anywhere;
-	}
-
-	.token-new {
+	/* A field and its button on one line, the button on the field's baseline. */
+	.add {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
+		align-items: end;
+		gap: var(--rk-space-s);
 	}
 
-	.token-new .input {
-		flex: 1 1 12ch;
+	.add .rk-field {
+		flex: 1 1 12rem;
 	}
 
-	.token-fresh {
-		background: color-mix(in srgb, var(--color-warning) var(--wash-strength), var(--wash-base));
-		border-radius: var(--radius-sm);
-		padding: 0.875rem 1rem;
-		margin-top: 0.75rem;
+	.recipe {
+		padding-left: 1.25rem;
+		display: grid;
+		gap: var(--rk-space-xs);
 	}
 
-	.token-fresh code {
-		display: block;
-		background: var(--color-bg);
-		margin: 0.5rem 0;
-		padding: 0.5rem;
-		/* The token has no break opportunities at all, so here break-all is the
-		   only thing that keeps it inside the box on a phone. */
-		word-break: break-all;
-	}
-
-	.token-list {
-		list-style: none;
-		padding: 0;
-		margin: 1rem 0 0;
-	}
-
-	.token-list li {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		border-top: 1px solid var(--color-border);
-		padding: 0.6rem 0;
-	}
-
-	.token-meta {
-		display: block;
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-	}
-
-	.recipe li {
-		margin-bottom: 0.5rem;
-	}
-
-	.token-note {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		border-top: 1px solid var(--color-border);
-		padding-top: 1rem;
-		margin-top: 1.5rem;
+	code {
+		font-family: var(--rk-font-mono);
+		font-size: 0.9em;
 	}
 </style>

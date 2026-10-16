@@ -30,6 +30,7 @@
 	import StoryCards from '$lib/components/StoryCards.svelte';
 	import ZoneBars from '$lib/components/ZoneBars.svelte';
 	import { confirm, pivot } from '$lib/rekta/rekta.js';
+	import { toast } from '$lib/toast';
 
 	// maplibre-gl's own worker-URL construction is a runtime string template
 	// (`new URL('./maplibre-gl-worker.mjs', import.meta.url)`), which Vite's
@@ -75,7 +76,6 @@
 	// ride still renders fine without knowing whether it's shared yet.
 	let shareStatus: ShareStatus | null = $state(null);
 	let shareBusy = $state(false);
-	let copied = $state(false);
 	let shareUrl = $derived.by(() => {
 		const token = shareStatus?.token;
 		return token ? `${page.url.origin}/share/${token}` : '';
@@ -155,8 +155,7 @@
 
 	async function copyShareLink() {
 		await navigator.clipboard.writeText(shareUrl);
-		copied = true;
-		setTimeout(() => (copied = false), 2000);
+		toast('Link kopiert');
 	}
 
 	// MapLibre paint properties take a resolved colour, not a CSS custom
@@ -638,7 +637,7 @@
 				</div>
 				<p class="rk-actions">
 					<button class="rk-btn rk-btn--primary" type="button" onclick={copyShareLink}>
-						{copied ? 'Kopiert' : 'Link kopieren'}
+						Link kopieren
 					</button>
 					<button class="rk-btn" type="button" onclick={unshare} disabled={shareBusy}>
 						Teilen beenden

@@ -114,345 +114,229 @@
 	}
 </script>
 
-<div class="page-center">
-	<h1>Deine Räder</h1>
+<h1 class="rk-title reveal" style="--i: 0">Deine Räder</h1>
 
-	{#if viewState === 'loading'}
-		<p>Lädt…</p>
-	{:else if viewState === 'error'}
-		<p role="alert">{errorMessage}</p>
-	{:else}
-		<div class="reveal" style="--i: 0">
-			<p class="hint">
-				Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
-				nichts auswählen.
+{#if viewState === 'loading'}
+	<p>Lädt…</p>
+{:else if viewState === 'error'}
+	<p role="alert">{errorMessage}</p>
+{:else}
+	<p class="sub reveal" style="--i: 0">
+		Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
+		nichts auswählen.
+	</p>
+
+	<!-- Rekta rows: the bike's state as a tag (a square and a word), its
+	     actions as buttons with a verb. The active bike is "active" in Rekta's
+	     sense (info); a chain past its interval waits for you (warning). -->
+	<ul class="rk-rows bikes reveal" style="--i: 1">
+		{#each bikeList as bike (bike.id)}
+			<li>
+				<div class="bike">
+					<p class="name">
+						<b>{bike.name}</b>
+						{#if bike.active}
+							<span class="rk-tag" data-status="info">aktiv</span>
+						{:else if bike.retired_at}
+							<span class="rk-tag">stillgelegt</span>
+						{/if}
+						{#if bike.chain_due_km <= 0 && !bike.retired_at}
+							<span class="rk-tag" data-status="warning">Kette fällig</span>
+						{/if}
+					</p>
+					<p class="rk-meta">{bike.distance_km.toFixed(0)} km gefahren · {chainLabel(bike)}</p>
+				</div>
+				<p class="rk-actions">
+					{#if !bike.active && !bike.retired_at}
+						<button class="rk-btn" disabled={busy} onclick={() => run(() => activateBike(bike.id))}>
+							Als aktiv setzen
+						</button>
+					{/if}
+					<button
+						class="rk-btn"
+						disabled={busy}
+						onclick={() => run(() => markChainReplaced(bike.id))}
+					>
+						Kette gewechselt
+					</button>
+					{#if bike.retired_at}
+						<button
+							class="rk-btn"
+							disabled={busy}
+							onclick={() => run(() => updateBike(bike.id, { retired: false }))}
+						>
+							Reaktivieren
+						</button>
+					{:else}
+						<button
+							class="rk-btn"
+							disabled={busy}
+							onclick={() => run(() => updateBike(bike.id, { retired: true }))}
+						>
+							Stilllegen
+						</button>
+					{/if}
+				</p>
+			</li>
+		{/each}
+	</ul>
+
+	<form class="add reveal" style="--i: 2" onsubmit={addBike}>
+		<div class="rk-field">
+			<label class="rk-label" for="new-bike-name">Neues Rad</label>
+			<input
+				id="new-bike-name"
+				class="rk-input"
+				type="text"
+				bind:value={newName}
+				placeholder="Name"
+			/>
+		</div>
+		<button class="rk-btn rk-btn--primary" type="submit" disabled={busy || !newName.trim()}>
+			Anlegen
+		</button>
+	</form>
+
+	<!-- Comparison (#731): honest cumulative figures, same as Strava/Garmin
+	     Gear, deliberately not a constructed "which bike is faster" score. -->
+	{#if bikeList.length > 0}
+		<section class="sec reveal" style="--i: 3">
+			<h2 class="rk-group">Vergleich</h2>
+			{#if bikeList.length < 2}
+				<p class="rk-empty">Lege ein zweites Rad an, um sie hier zu vergleichen.</p>
+			{:else}
+				<div class="rk-table-wrap">
+					<table class="rk-table">
+						<thead>
+							<tr>
+								<th scope="col">Rad</th>
+								<th scope="col">Fahrten</th>
+								<th scope="col">Distanz</th>
+								<th scope="col">Zeit</th>
+								<th scope="col">Höhenmeter</th>
+								<th scope="col">⌀ Tempo</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each bikeList as bike (bike.id)}
+								<tr>
+									<th scope="row"
+										>{bike.name}{#if bike.retired_at}&nbsp;<span class="rk-meta">(stillgelegt)</span
+											>{/if}</th
+									>
+									<td data-label="Fahrten">{bike.ride_count}</td>
+									<td data-label="Distanz">{bike.distance_km.toFixed(0)} km</td>
+									<td data-label="Zeit">{formatDuration(bike.moving_seconds)}</td>
+									<td data-label="Höhenmeter">{Math.round(bike.elevation_gain_meters)} m</td>
+									<td data-label="⌀ Tempo"
+										>{bike.avg_speed_kmh > 0
+											? `${formatDecimal(bike.avg_speed_kmh, 1)} km/h`
+											: '–'}</td
+									>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</section>
+	{/if}
+
+	<!-- Backfill for the initial rollout (#729): rides from before this bike
+	     existed, or uploaded without an active bike set. -->
+	{#if unassigned.length > 0}
+		<section class="sec reveal" style="--i: 4">
+			<h2 class="rk-group">Fahrten ohne Rad</h2>
+			<p class="sub">
+				{unassigned.length}
+				{unassigned.length === 1 ? 'Fahrt wartet' : 'Fahrten warten'} noch auf ein Rad.
 			</p>
 
-			<ul class="bikes">
-				{#each bikeList as bike (bike.id)}
-					<li class="bike-row" class:retired={bike.retired_at}>
-						<div class="bike-header">
-							<strong>{bike.name}</strong>
-							{#if bike.active}
-								<span class="chip" style="--chip-color: var(--color-success)">Aktiv</span>
-							{:else if bike.retired_at}
-								<span class="chip" style="--chip-color: var(--color-text-muted)">Stillgelegt</span>
-							{/if}
-						</div>
-						<p class="stat">{bike.distance_km.toFixed(0)} km gefahren</p>
-						<p class="stat" class:overdue={bike.chain_due_km <= 0}>{chainLabel(bike)}</p>
-						<div class="actions">
-							{#if !bike.active && !bike.retired_at}
-								<button
-									class="btn btn-secondary"
-									disabled={busy}
-									onclick={() => run(() => activateBike(bike.id))}
-								>
-									Als aktiv setzen
-								</button>
-							{/if}
-							<button
-								class="btn btn-secondary"
-								disabled={busy}
-								onclick={() => run(() => markChainReplaced(bike.id))}
-							>
-								Kette gewechselt
-							</button>
-							{#if bike.retired_at}
-								<button
-									class="btn btn-secondary"
-									disabled={busy}
-									onclick={() => run(() => updateBike(bike.id, { retired: false }))}
-								>
-									Reaktivieren
-								</button>
-							{:else}
-								<button
-									class="btn btn-secondary"
-									disabled={busy}
-									onclick={() => run(() => updateBike(bike.id, { retired: true }))}
-								>
-									Stilllegen
-								</button>
-							{/if}
-						</div>
+			<ul class="rk-rows">
+				<li>
+					<label class="rk-switch">
+						<input
+							type="checkbox"
+							checked={selectedIds.size === unassigned.length}
+							onchange={toggleSelectAll}
+						/>
+						Alle auswählen
+					</label>
+				</li>
+				{#each unassigned as activity (activity.id)}
+					<li>
+						<label class="rk-switch">
+							<input
+								type="checkbox"
+								checked={selectedIds.has(activity.id)}
+								onchange={() => toggleSelected(activity.id)}
+							/>
+							{formatRideDate(activity)} · {formatDistance(activity.distance_meters)}
+						</label>
 					</li>
 				{/each}
 			</ul>
-		</div>
 
-		<form class="add-bike reveal" style="--i: 1" onsubmit={addBike}>
-			<label for="new-bike-name">Neues Rad</label>
-			<div class="add-bike-row">
-				<input
-					id="new-bike-name"
-					class="input"
-					type="text"
-					bind:value={newName}
-					placeholder="Name"
-				/>
-				<button class="btn btn-primary" type="submit" disabled={busy || !newName.trim()}>
-					Anlegen
-				</button>
-			</div>
-		</form>
-
-		<!-- Comparison (#731): honest cumulative figures, same as Strava/Garmin
-		     Gear, deliberately not a constructed "which bike is faster" score —
-		     speed depends too much on route and wind to attribute to the bike. -->
-		{#if bikeList.length > 0}
-			<section class="section reveal" style="--i: 2">
-				<h2>Vergleich</h2>
-				{#if bikeList.length < 2}
-					<p class="hint">Lege ein zweites Rad an, um sie hier zu vergleichen.</p>
-				{:else}
-					<div class="table-scroll">
-						<table class="compare">
-							<thead>
-								<tr>
-									<th>Rad</th>
-									<th>Fahrten</th>
-									<th>Distanz</th>
-									<th>Zeit</th>
-									<th>Höhenmeter</th>
-									<th>⌀ Tempo</th>
-								</tr>
-							</thead>
-							<tbody>
-								{#each bikeList as bike (bike.id)}
-									<tr class:retired={bike.retired_at}>
-										<td
-											>{bike.name}{#if bike.retired_at}<span class="muted">
-													(stillgelegt)</span
-												>{/if}</td
-										>
-										<td>{bike.ride_count}</td>
-										<td>{bike.distance_km.toFixed(0)} km</td>
-										<td>{formatDuration(bike.moving_seconds)}</td>
-										<td>{Math.round(bike.elevation_gain_meters)} m</td>
-										<td
-											>{bike.avg_speed_kmh > 0
-												? `${formatDecimal(bike.avg_speed_kmh, 1)} km/h`
-												: '–'}</td
-										>
-									</tr>
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
-			</section>
-		{/if}
-
-		<!-- Backfill for the initial rollout (#729): rides from before this bike
-		     existed, or uploaded without an active bike set. -->
-		{#if unassigned.length > 0}
-			<section class="section reveal" style="--i: 3">
-				<h2>Fahrten ohne Rad</h2>
-				<p class="hint">
-					{unassigned.length}
-					{unassigned.length === 1 ? 'Fahrt wartet' : 'Fahrten warten'} noch auf ein Rad.
-				</p>
-
-				<ul class="unassigned">
-					<li class="unassigned-row unassigned-all">
-						<label>
-							<input
-								type="checkbox"
-								checked={selectedIds.size === unassigned.length}
-								onchange={toggleSelectAll}
-							/>
-							Alle auswählen
-						</label>
-					</li>
-					{#each unassigned as activity (activity.id)}
-						<li class="unassigned-row">
-							<label>
-								<input
-									type="checkbox"
-									checked={selectedIds.has(activity.id)}
-									onchange={() => toggleSelected(activity.id)}
-								/>
-								{formatRideDate(activity)} · {formatDistance(activity.distance_meters)}
-							</label>
-						</li>
-					{/each}
-				</ul>
-
-				<div class="assign-row">
-					<select class="input" bind:value={assignBikeId} disabled={assignBusy}>
+			<div class="add">
+				<div class="rk-field" data-status={assignError ? 'error' : undefined}>
+					<label class="rk-label" for="assign-bike">Zuweisen an</label>
+					<select id="assign-bike" class="rk-input" bind:value={assignBikeId} disabled={assignBusy}>
 						<option value="">Rad wählen…</option>
 						{#each bikeList as bike (bike.id)}
 							<option value={bike.id}>{bike.name}{bike.retired_at ? ' (stillgelegt)' : ''}</option>
 						{/each}
 					</select>
-					<button
-						class="btn btn-primary"
-						disabled={assignBusy || selectedIds.size === 0 || assignBikeId === ''}
-						onclick={assignSelected}
-					>
-						{selectedIds.size > 0 ? `${selectedIds.size} zuweisen` : 'Zuweisen'}
-					</button>
+					{#if assignError}<p class="rk-hint" role="alert">{assignError}</p>{/if}
 				</div>
-				{#if assignError}
-					<p role="alert" class="error-text">{assignError}</p>
-				{/if}
-			</section>
-		{/if}
+				<button
+					class="rk-btn rk-btn--primary"
+					disabled={assignBusy || selectedIds.size === 0 || assignBikeId === ''}
+					onclick={assignSelected}
+				>
+					{selectedIds.size > 0 ? `${selectedIds.size} zuweisen` : 'Zuweisen'}
+				</button>
+			</div>
+		</section>
 	{/if}
-</div>
+{/if}
 
 <style>
-	.hint {
-		color: var(--color-text-muted);
-		font-size: var(--text-sm);
-		max-width: 48ch;
+	h1 {
+		margin-bottom: var(--rk-space-s);
 	}
 
-	/* Flat, divider-based list rather than a stack of shadowed cards — with
-	   three sections now sharing this page, that reads calmer and more
-	   modern than repeating the same boxed-card pattern three times over. */
-	.bikes {
-		list-style: none;
-		padding: 0;
-		margin: 1.25rem 0 2rem;
+	.sub {
+		max-width: 60ch;
+		margin-bottom: var(--rk-space-m);
+		color: var(--rk-text-contrast-high);
 	}
 
-	.bike-row {
-		padding: 0.9rem 0;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.bike-row.retired {
-		opacity: 0.7;
-	}
-
-	.bike-header {
-		display: flex;
+	.bikes > li {
 		align-items: center;
-		gap: 0.75rem;
-		margin-bottom: 0.375rem;
 	}
 
-	.stat {
-		margin: 0.25rem 0;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.stat.overdue {
-		color: var(--color-danger);
-		font-weight: 700;
-	}
-
-	.actions {
+	.name {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
-		margin-top: 0.75rem;
-	}
-
-	.add-bike {
-		max-width: 24rem;
-	}
-
-	.add-bike-row {
-		display: flex;
-		gap: 0.5rem;
-	}
-
-	.add-bike-row .input {
-		flex: 1;
-	}
-
-	.section {
-		margin-top: 2.5rem;
-		padding-top: 1.5rem;
-		border-top: 1px solid var(--color-border);
-	}
-
-	.section h2 {
-		margin: 0 0 0.5rem;
-	}
-
-	.table-scroll {
-		overflow-x: auto;
-		margin-top: 1rem;
-	}
-
-	.compare {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: var(--text-sm);
-		white-space: nowrap;
-	}
-
-	.compare th {
-		text-align: left;
-		color: var(--color-text-muted);
-		font-weight: 700;
-		padding: 0.5rem 0.75rem 0.5rem 0;
-	}
-
-	.compare td {
-		padding: 0.6rem 0.75rem 0.6rem 0;
-		border-top: 1px solid var(--color-border);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.compare tr.retired {
-		color: var(--color-text-muted);
-	}
-
-	.muted {
-		color: var(--color-text-muted);
-		font-size: var(--text-xs);
-	}
-
-	.unassigned {
-		list-style: none;
-		padding: 0;
-		margin: 1rem 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.unassigned-row {
-		padding: 0.4rem 0;
-		border-bottom: 1px solid var(--color-border);
-		font-size: var(--text-sm);
-	}
-
-	.unassigned-all {
-		font-weight: 700;
-		border-bottom: 1px solid var(--color-text-muted);
-	}
-
-	.unassigned-row label {
-		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
+		gap: var(--rk-space-s);
 	}
 
-	.assign-row {
+	/* A field and its button on one line, the button on the field's baseline. */
+	.add {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem;
-		align-items: center;
+		align-items: end;
+		gap: var(--rk-space-s);
+		max-width: 36rem;
+		margin-top: var(--rk-space-l);
 	}
 
-	.assign-row select {
-		/* flex-basis:0% via the shorthand overrides the global .input's
-		   width:100% for sizing purposes — same trick the share-link row on
-		   the ride-detail page already relies on. */
-		flex: 1;
-		min-width: 12rem;
+	.add .rk-field {
+		flex: 1 1 14rem;
 	}
 
-	.error-text {
-		color: var(--color-danger);
-		font-size: var(--text-sm);
-		margin-top: 0.5rem;
+	.sec {
+		margin-top: var(--rk-space-xl);
 	}
 </style>

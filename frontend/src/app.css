@@ -162,18 +162,6 @@ a {
 	transform: translateY(-1px);
 }
 
-.btn-secondary {
-	background: color-mix(in srgb, var(--color-brand) 14%, transparent);
-	/* Not plain --color-brand: the button's own translucent wash stacks on top
-	   of whatever it sits on, and on an already-tinted card that came to 3.96:1
-	   in the light scheme. Mixing in text colour holds AA on both. */
-	color: color-mix(in srgb, var(--color-brand) 65%, var(--color-text));
-}
-
-.btn-secondary:not(:disabled):hover {
-	background: color-mix(in srgb, var(--color-brand) 22%, transparent);
-}
-
 .input {
 	display: block;
 	width: 100%;
@@ -207,51 +195,6 @@ a {
 	flex-direction: column;
 	justify-content: center;
 	min-height: calc(100dvh - 8rem);
-}
-
-/* Numbers that lead a view: large, tight, and tabular so they don't jitter
-   when they change. */
-.stat-value {
-	font-size: var(--text-4xl);
-	font-weight: 800;
-	line-height: 1;
-	letter-spacing: -0.03em;
-	font-variant-numeric: tabular-nums;
-}
-
-.stat-unit {
-	font-size: var(--text-sm);
-	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: 0.08em;
-}
-
-/* A filled bar is how a percentage should read, not as four digits of text.
-   Rekta's meter look (.rk-meter): a 6px hairline-grey track, the fill in ink. */
-.meter {
-	height: 6px;
-	background: var(--rk-text-contrast-low);
-	overflow: hidden;
-}
-
-.meter > span {
-	display: block;
-	height: 100%;
-	background: var(--rk-text-primary);
-}
-
-/* Cancels .content's side padding so a fact band / chart can run full-bleed
-   instead of sitting in a box inside a box (Nocturne v2). */
-.bleed {
-	margin-inline: -1rem;
-	width: calc(100% + 2rem);
-}
-
-@media (min-width: 768px) {
-	.bleed {
-		margin-inline: 0;
-		width: 100%;
-	}
 }
 
 /* Fact Band / Fact Tile / Skala-Band (Nocturne v2, design-wff-nocturne-v2) —

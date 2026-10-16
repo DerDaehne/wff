@@ -6,7 +6,8 @@
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
 	import { pivotWidths } from '$lib/pivot';
-	import { keys, prefs, turn } from '$lib/rekta/rekta.js';
+	import { keys, prefs, toaster, turn } from '$lib/rekta/rekta.js';
+	import { setToaster } from '$lib/toast';
 
 	let { children } = $props();
 
@@ -93,6 +94,19 @@
 		})
 	);
 
+	// The toast region stays mounted after the place, so a toast outlives the
+	// view that raised it (Rekta behaviour.md, toaster).
+	function toastRegion(el: HTMLElement) {
+		const t = toaster(el);
+		setToaster(t);
+		return {
+			destroy() {
+				setToaster(null);
+				t.destroy();
+			}
+		};
+	}
+
 	const paletteEntries: PaletteEntry[] = [
 		...places.map((p) => ({ ...p, group: 'Orte' })),
 		{ label: 'Räder', group: 'Orte', href: resolve('/(app)/raeder'), keywords: 'fahrrad kette' },
@@ -146,6 +160,8 @@
 			{@render children()}
 		</div>
 	</main>
+
+	<div class="rk-toasts" role="status" aria-atomic="false" use:toastRegion></div>
 
 	<div class="rk-appbar" role="region" aria-label="App-Leiste">
 		{#if parent}

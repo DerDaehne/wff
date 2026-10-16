@@ -45,3 +45,15 @@ export function confirm(options: {
 	safe?: 'ok' | 'cancel';
 	root?: HTMLElement;
 }): Promise<boolean>;
+
+export function toaster(region: HTMLElement): Handle & {
+	show(text: string, options?: { key?: string; from?: HTMLElement | null }): void;
+	dismiss(): void;
+};
+
+export function drop(
+	el: HTMLElement,
+	options?: { onFiles?: (accepted: File[], refused: File[]) => void; accept?: string }
+): Handle;
+
+export function sheet(dialog: HTMLDialogElement): Handle;

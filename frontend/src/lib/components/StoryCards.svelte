@@ -25,7 +25,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';
-	import BottomSheet from './BottomSheet.svelte';
+	import Sheet from './Sheet.svelte';
 	import LineChart from './LineChart.svelte';
 
 	// A small chart to show inside a kind's detail sheet, when real history for
@@ -169,7 +169,7 @@
 	{@const group = activeGroup}
 	{@const metrics = metricsOf(group)}
 	{@const spark = context[group.kind]}
-	<BottomSheet open={true} title={statementLabel[group.kind]} onClose={closeDetail}>
+	<Sheet title={statementLabel[group.kind]} onClose={closeDetail}>
 		{#if metrics.length > 0}
 			<div class="rk-tiles detail-stats">
 				{#each metrics as m, i (i)}
@@ -207,7 +207,7 @@
 		{#if group.kind === 'hint_profile'}
 			<a class="detail-action" href={resolve('/(app)/profile')}> Werte im Profil eintragen </a>
 		{/if}
-	</BottomSheet>
+	</Sheet>
 {/if}
 
 <style>
