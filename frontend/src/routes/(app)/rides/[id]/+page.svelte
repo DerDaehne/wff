@@ -507,7 +507,7 @@
 {:else}
 	<!-- The ride's own title: what kind of ride it was, with the day (and the
 	     weather) as its kicker (Rekta: kicker, one bold title). -->
-	<header class="head reveal" style="--i: 0">
+	<header class="head">
 		<p class="rk-kicker">{story?.subtitle}{conditions[0] ? ` · ${conditions[0]}` : ''}</p>
 		<h1 class="rk-title">{story?.title || 'Deine Fahrt'}</h1>
 	</header>

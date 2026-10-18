@@ -215,7 +215,7 @@
 	}
 </script>
 
-<header class="head reveal" style="--i: 0">
+<header class="head">
 	{#if viewState === 'ready'}
 		<p class="rk-kicker">@{username}</p>
 		<h1 class="rk-title">{displayName}</h1>
@@ -232,7 +232,7 @@
 	{#if gaps.length > 0}
 		<!-- What the app cannot tell yet, and the ride that would change it
 		     (#612): missing prerequisites, so Rekta's warning tiles. -->
-		<section class="sec reveal" style="--i: 1">
+		<section class="sec">
 			<h2 class="rk-group">Was die App noch nicht über dich weiß</h2>
 			<p class="sub">
 				Kein Test-Modus, kein Knopf während der Fahrt — die Fahrt normal hochladen genügt, den Rest
@@ -250,7 +250,7 @@
 		</section>
 	{/if}
 
-	<section class="sec reveal" style="--i: 2">
+	<section class="sec">
 		<h2 class="rk-group">Trainingswerte</h2>
 		<p class="sub">
 			Diese beiden Werte sagen der App, wie hart eine Fahrt <em>für dich</em> war. Ohne mindestens einen
@@ -415,7 +415,7 @@
 
 	<!-- Places below the profile open as tiles (Rekta: a tile that opens is a
 	     link to a place). -->
-	<section class="sec reveal" style="--i: 3">
+	<section class="sec">
 		<h2 class="rk-group">Mehr</h2>
 		<div class="rk-tiles">
 			<a class="rk-tile rk-w2" href={resolve('/(app)/raeder')} style="--rk-i: 0">
@@ -433,7 +433,7 @@
 		</div>
 	</section>
 
-	<section class="sec reveal" style="--i: 4">
+	<section class="sec">
 		<h2 class="rk-group">Passkeys</h2>
 		<p class="sub">
 			Der einzige Weg in dieses Konto — es gibt kein Passwort und keine E-Mail-Wiederherstellung.
@@ -503,7 +503,7 @@
 		{/if}
 	</section>
 
-	<section class="sec reveal" style="--i: 5">
+	<section class="sec">
 		<h2 class="rk-group">Neue Person einladen</h2>
 		<p class="sub">
 			Jede registrierte Person kann weitere einladen — es gibt keine Admin-Rolle. Der Link ist 72
@@ -563,7 +563,7 @@
 		{/if}
 	</section>
 
-	<section class="sec reveal" style="--i: 6">
+	<section class="sec">
 		<h2 class="rk-group">Deine Daten</h2>
 		<p class="sub">
 			Alle deine Fahrten, Profildaten und die Original-Dateien als ZIP-Archiv. Für einzelne Fahrten

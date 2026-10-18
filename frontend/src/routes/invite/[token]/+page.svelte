@@ -21,7 +21,7 @@
 </script>
 
 <!-- Rekta: no card; a kicker, the one title, a sentence and the action. -->
-<main class="rk-place auth reveal" style="--i: 0">
+<main class="rk-place auth">
 	<div class="box">
 		<p class="rk-kicker">Einladung</p>
 		<h1 class="rk-title">Willkommen bei WFF</h1>

@@ -29,11 +29,11 @@ export default defineConfig({
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
 			adapter: adapter({ fallback: 'index.html' }), // SPA fallback for client-side routing
-			// The vendored rekta.js is not ours to type-check (checkJs); lib/rekta/rekta.d.ts
-			// types the parts WFF uses (ADR adr-004-wff-rekta-js).
+			// The vendored rekta.js and its German strings are not ours to type-check (checkJs);
+			// the .d.ts files beside them type the parts WFF uses (ADR adr-004-wff-rekta-js).
 			typescript: {
 				config: (config) => {
-					config.exclude = [...(config.exclude ?? []), '../src/lib/rekta/rekta.js'];
+					config.exclude = [...(config.exclude ?? []), '../src/lib/rekta/*.js'];
 					return config;
 				}
 			},

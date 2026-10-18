@@ -109,8 +109,8 @@
 	];
 </script>
 
-<h1 class="rk-title reveal" style="--i: 0">Was die Begriffe bedeuten</h1>
-<p class="sub reveal" style="--i: 0">
+<h1 class="rk-title">Was die Begriffe bedeuten</h1>
+<p class="sub">
 	Die App zeigt dir überall zuerst, was etwas bedeutet, und die Fachbezeichnung nur klein daneben.
 	Hier stehen sie alle — falls du eine davon woanders liest oder genauer wissen willst, was dahinter
 	steckt.
@@ -119,8 +119,8 @@
 <!-- One term per hairline row: the term, its jargon small beside it, the
      explanation below (Rekta: content over chrome, no cards or chips). -->
 <dl class="glossary">
-	{#each entries as entry, i (entry.term)}
-		<div class="entry reveal" style="--i: {i + 1}">
+	{#each entries as entry (entry.term)}
+		<div class="entry">
 			<dt>
 				<b>{entry.term}</b>
 				{#if entry.jargon}<span class="rk-meta">{entry.jargon}</span>{/if}

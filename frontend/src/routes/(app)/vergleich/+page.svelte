@@ -28,7 +28,7 @@
 	}
 </script>
 
-<h1 class="rk-title reveal" style="--i: 0">Trainingserfolg im Vergleich</h1>
+<h1 class="rk-title">Trainingserfolg im Vergleich</h1>
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
@@ -41,12 +41,12 @@
 		actionLabel="Im Profil zustimmen"
 	/>
 {:else if result}
-	<p class="sub reveal" style="--i: 1">
+	<p class="sub">
 		Veränderung deines Trainingszustands (CTL) über die letzten vier Wochen — eine relative Zahl,
 		bezogen auf die eigene Kapazität, kein Vergleich absoluter Kilometer oder Höhenmeter.
 	</p>
 	<!-- Hairline rows, no cards; you are the bold row. -->
-	<ul class="rk-rows entries reveal" style="--i: 2">
+	<ul class="rk-rows entries">
 		{#each result.entries as entry (entry.display_name)}
 			<li class:you={entry.is_you}>
 				<span>{entry.display_name}{entry.is_you ? ' (du)' : ''}</span>

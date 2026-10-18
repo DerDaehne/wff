@@ -38,7 +38,7 @@
 	}
 </script>
 
-<header class="head reveal" style="--i: 0">
+<header class="head">
 	<h1 class="rk-title">Dein Jahr {year}</h1>
 	<p class="rk-actions">
 		<a class="rk-btn" href="{resolve('/(app)/rueckblick')}?year={year - 1}">← {year - 1}</a>

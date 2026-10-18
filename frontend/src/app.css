@@ -1,11 +1,12 @@
 /* WFF on Rekta Design (ADRs adr-002-wff-rekta-design, adr-003-wff-datenfarben-rekta,
-   adr-004-wff-rekta-js). lib/rekta/rekta.tokens.css, rekta.fonts.css and
-   rekta.css load before this file (routes/+layout.svelte) and own colour,
-   type, spacing, radius, motion, light/dark, density and reduced motion;
-   <body class="rk"> is Rekta's root. This file only adds what WFF needs on
-   top, in Rekta's tokens. Components read --rk-* directly and never set a
-   hex value or a --rk-* colour, text or focus value: Rekta's AA checks only
-   hold for its own values. */
+   adr-004-wff-rekta-js, adr-005-wff-pulszonen-farbcode). lib/rekta/rekta.tokens.css,
+   rekta.fonts.css and rekta.css load before this file (routes/+layout.svelte)
+   and own colour, type, spacing, radius, motion, light/dark, density and
+   reduced motion; <body class="rk"> is Rekta's root. This file only adds what
+   WFF needs on top, in Rekta's tokens. Components read --rk-* directly and
+   never set a hex value or a --rk-* colour, text or focus value: Rekta's AA
+   checks only hold for its own values. The one product slot WFF fills is
+   Rekta's domain colour code (--rk-series-N, below). */
 
 /* Scrollbar hidden everywhere (page, the tables' own overflow, the sheet)
    for a native-app look; scrolling itself (wheel, touch, keyboard) is
@@ -33,22 +34,37 @@ h3 {
 	font-weight: var(--rk-font-weight-semibold);
 }
 
-/* Build-in on arrival for page sections, in Rekta's timing (rk-build-in:
-   6px rise, duration-moderate, ease-in, duration-stagger per step, at most 10
-   steps), staggered by a per-item --i the caller sets. Rekta tiles build in
-   by themselves (--rk-i, data-rk-arriving). */
-.reveal {
-	transition:
-		opacity var(--rk-duration-moderate) var(--rk-ease-in),
-		transform var(--rk-duration-moderate) var(--rk-ease-in);
-	transition-delay: calc(min(var(--i, 0), 10) * var(--rk-duration-stagger));
+/* Heart-rate zones, cool to warm: WFF's domain colour code (Rekta 0.3
+   docs/data.md, ADR adr-005-wff-pulszonen-farbcode), per theme with the
+   selectors rekta.tokens.css uses. Rekta's showcase values, which its
+   --check holds to 3:1 on bg and surface and apart under colour blindness;
+   after a change run `node scripts/build.mjs --check-product` in a Rekta
+   clone against this file. Small marks only (a zone's square, a strip),
+   never text, never a tile. Codes per zone in lib/zones.ts. */
+:root {
+	--rk-series-1: #608ab5;
+	--rk-series-2: #147175;
+	--rk-series-3: #679368;
+	--rk-series-4: #805b21;
+	--rk-series-5: #6d2a27;
 }
 
-@starting-style {
-	.reveal {
-		opacity: 0;
-		transform: translateY(6px);
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme='light']) {
+		--rk-series-1: #4f8ac6;
+		--rk-series-2: #3ebfc6;
+		--rk-series-3: #a3e4a4;
+		--rk-series-4: #d79f4a;
+		--rk-series-5: #c9635d;
 	}
+}
+
+:root[data-theme='dark'] {
+	--rk-series-1: #4f8ac6;
+	--rk-series-2: #3ebfc6;
+	--rk-series-3: #a3e4a4;
+	--rk-series-4: #d79f4a;
+	--rk-series-5: #c9635d;
 }
 
 /* A position on a scale (intensity, Frische): the value alone means nothing
@@ -108,12 +124,6 @@ h3 {
 	margin-left: 0.2em;
 	font-size: var(--rk-font-size-s);
 	font-weight: var(--rk-font-weight-medium);
-}
-
-/* Rekta only measured primary text for AA on a status fill (Rekta issue #5),
-   so a kicker on a status tile takes the tile's own text colour. */
-.rk-tile[data-status] .rk-kicker {
-	color: inherit;
 }
 
 /* A tile's kicker (its question) stays at the top, its figures at the foot. */

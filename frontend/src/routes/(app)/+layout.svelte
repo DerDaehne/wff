@@ -5,8 +5,7 @@
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
-	import { pivotWidths } from '$lib/pivot';
-	import { keys, prefs, toaster, turn } from '$lib/rekta/rekta.js';
+	import { appbar, keys, prefs, toaster, turn } from '$lib/rekta/rekta.js';
 	import { setToaster } from '$lib/toast';
 
 	let { children } = $props();
@@ -30,12 +29,18 @@
 	// Rekta shell (#1057, ADR adr-002-wff-rekta-design, Rekta docs/navigation.md):
 	// the top places are picked by the pivot at the top of the place; every place
 	// below them starts with a crumb to its parent; the app bar at the bottom
-	// carries commands only, plus "zurück" on a phone. Upload is a command there,
-	// not a place. Rekta does not allow places in the app bar yet (Rekta #1065).
+	// carries the commands, plus "zurück" on a phone. Upload is a command there,
+	// not a place. On a phone the places sit in the app bar instead of the pivot,
+	// in the thumb's reach, and the commands move into "mehr" (#1105, Rekta 0.3
+	// .rk-ab-places). Icons are Rekta's (src/icons), inline.
 	const places = [
-		{ href: resolve('/(app)'), label: 'Start' },
-		{ href: resolve('/(app)/rides'), label: 'Fahrten' },
-		{ href: resolve('/(app)/profile'), label: 'Profil' }
+		{ href: resolve('/(app)'), label: 'Start', icon: 'M3 9.5 10 3.5l7 6M5 8v9h10V8' },
+		{ href: resolve('/(app)/rides'), label: 'Fahrten', icon: 'M3 5h14M3 10h14M3 15h14' },
+		{
+			href: resolve('/(app)/profile'),
+			label: 'Profil',
+			icon: 'M13.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0M3.5 17a6.5 6.5 0 0 1 13 0'
+		}
 	];
 	const parentOf: Record<string, (typeof places)[number]> = {
 		'/(app)/rides/[id]': places[1],
@@ -48,6 +53,8 @@
 	};
 	let isTop = $derived(places.some((p) => p.href === page.url.pathname));
 	let parent = $derived(page.route.id ? parentOf[page.route.id] : undefined);
+	// The place you are in; below a place (a detail), the place it belongs to.
+	let here = $derived(places.find((p) => p.href === page.url.pathname) ?? parent);
 
 	// "Back stays in the app": with no step taken inside the app yet (a cold
 	// entry on a deep link), back goes forward to the parent instead of leaving.
@@ -142,7 +149,7 @@
 {:else if authState === 'authed'}
 	<main class="rk-place" bind:this={placeEl}>
 		{#if isTop}
-			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte" use:pivotWidths>
+			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte">
 				{#each places as p (p.href)}
 					<a href={p.href} aria-current={page.url.pathname === p.href ? 'page' : undefined}>
 						{p.label}
@@ -163,17 +170,28 @@
 
 	<div class="rk-toasts" role="status" aria-atomic="false" use:toastRegion></div>
 
-	<div class="rk-appbar" role="region" aria-label="App-Leiste">
+	<!-- rekta.js appbar(): while the places show in the bar (a phone), every
+	     command is in "mehr"; wider, only what does not fit. -->
+	<div class="rk-appbar" role="region" aria-label="App-Leiste" use:appbar>
 		{#if parent}
 			<button class="rk-ab rk-ab-back" type="button" onclick={back}>
 				<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 4 5 10l6 6M5 10h11" /></svg>
 				<span>zurück</span>
 			</button>
 		{/if}
+		<nav class="rk-ab-places" aria-label="Orte">
+			{#each places as p (p.href)}
+				<a class="rk-ab" href={p.href} aria-current={here === p ? 'page' : undefined}>
+					<svg viewBox="0 0 20 20" aria-hidden="true"><path d={p.icon} /></svg>
+					<span>{p.label.toLowerCase()}</span>
+				</a>
+			{/each}
+		</nav>
 		<button
 			class="rk-ab goto"
 			type="button"
 			popovertarget="palette"
+			aria-label="gehe zu"
 			aria-keyshortcuts="Control+K Meta+K"
 		>
 			<svg viewBox="0 0 20 20" aria-hidden="true"
@@ -186,6 +204,12 @@
 			<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3M6 7l4-4 4 4M4 16h12" /></svg>
 			<span>hochladen</span>
 		</a>
+		<button class="rk-ab rk-ab-more" type="button" hidden>
+			<svg viewBox="0 0 20 20" aria-hidden="true"
+				><path d="M3 9h2v2H3zM9 9h2v2H9zM15 9h2v2h-2z" fill="currentColor" stroke="none" /></svg
+			>
+			<span>mehr</span>
+		</button>
 	</div>
 
 	<Palette entries={paletteEntries} />
@@ -211,6 +235,15 @@
 	/* No live status in WFF's bar, so the commands push themselves to the end. */
 	.goto {
 		margin-inline-start: auto;
+	}
+
+	/* On a phone the places are in the app bar (Rekta: below 760px, decided by
+	   the bar's own width, which here is the window's); the pivot at the top
+	   would say the same twice. */
+	@media (max-width: 759.98px) {
+		.rk-pivot--nav {
+			display: none;
+		}
 	}
 
 	a.rk-ab {

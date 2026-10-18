@@ -131,8 +131,8 @@
 	}
 </script>
 
-<h1 class="rk-title reveal" style="--i: 0">Fahrt hochladen</h1>
-<p class="sub reveal" style="--i: 0">
+<h1 class="rk-title">Fahrt hochladen</h1>
+<p class="sub">
 	Zieh die <code>.fit</code>-Datei deines Radcomputers hier hinein. Auswertung, Wetter und
 	Einordnung macht die App danach von allein.
 </p>
@@ -143,7 +143,7 @@
 
 <!-- Rekta's drop zone (rekta.js drop()): a dashed frame around the file
      input; a dragged file makes it solid, a drop or a choice uploads. -->
-<label class="rk-drop reveal" style="--i: 1" use:dropZone>
+<label class="rk-drop" use:dropZone>
 	<input bind:this={fileInput} type="file" accept=".fit" disabled={status === 'uploading'} />
 	{#if status === 'uploading'}
 		<b>Wird hochgeladen…</b>
@@ -172,7 +172,7 @@
 	</p>
 {/if}
 
-<details class="phone reveal" style="--i: 2" ontoggle={loadTokens}>
+<details class="phone" ontoggle={loadTokens}>
 	<summary class="rk-group">Direkt vom Handy hochladen</summary>
 	<p class="rk-facts">ohne Umweg über den Rechner</p>
 

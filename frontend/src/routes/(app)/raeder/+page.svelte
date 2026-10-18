@@ -114,14 +114,14 @@
 	}
 </script>
 
-<h1 class="rk-title reveal" style="--i: 0">Deine Räder</h1>
+<h1 class="rk-title">Deine Räder</h1>
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
 {:else if viewState === 'error'}
 	<p role="alert">{errorMessage}</p>
 {:else}
-	<p class="sub reveal" style="--i: 0">
+	<p class="sub">
 		Neue Fahrten werden automatisch dem aktiven Rad zugeordnet — beim Hochladen selbst musst du
 		nichts auswählen.
 	</p>
@@ -129,7 +129,7 @@
 	<!-- Rekta rows: the bike's state as a tag (a square and a word), its
 	     actions as buttons with a verb. The active bike is "active" in Rekta's
 	     sense (info); a chain past its interval waits for you (warning). -->
-	<ul class="rk-rows bikes reveal" style="--i: 1">
+	<ul class="rk-rows bikes">
 		{#each bikeList as bike (bike.id)}
 			<li>
 				<div class="bike">
@@ -181,7 +181,7 @@
 		{/each}
 	</ul>
 
-	<form class="add reveal" style="--i: 2" onsubmit={addBike}>
+	<form class="add" onsubmit={addBike}>
 		<div class="rk-field">
 			<label class="rk-label" for="new-bike-name">Neues Rad</label>
 			<input
@@ -200,7 +200,7 @@
 	<!-- Comparison (#731): honest cumulative figures, same as Strava/Garmin
 	     Gear, deliberately not a constructed "which bike is faster" score. -->
 	{#if bikeList.length > 0}
-		<section class="sec reveal" style="--i: 3">
+		<section class="sec">
 			<h2 class="rk-group">Vergleich</h2>
 			{#if bikeList.length < 2}
 				<p class="rk-empty">Lege ein zweites Rad an, um sie hier zu vergleichen.</p>
@@ -245,7 +245,7 @@
 	<!-- Backfill for the initial rollout (#729): rides from before this bike
 	     existed, or uploaded without an active bike set. -->
 	{#if unassigned.length > 0}
-		<section class="sec reveal" style="--i: 4">
+		<section class="sec">
 			<h2 class="rk-group">Fahrten ohne Rad</h2>
 			<p class="sub">
 				{unassigned.length}

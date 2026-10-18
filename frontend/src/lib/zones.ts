@@ -44,10 +44,19 @@ const zoneNames: Record<string, string> = {
 	vo2: 'Ganz hart'
 };
 
+/** Each band's place in WFF's colour code, cool to warm: `--rk-series-N` in
+ *  app.css, `data-rk-code` on a Rekta tag (ADR adr-005-wff-pulszonen-farbcode). */
+export const zoneCode: Record<string, number> = {
+	recovery: 1,
+	endurance: 2,
+	tempo: 3,
+	threshold: 4,
+	vo2: 5
+};
+
 /** A ride's character in words, for the ride list: the band it spent most
  *  time in, plus how much was at threshold or harder ("meist Grundlage ·
- *  12 % hart"). Words instead of a coloured bar, since WFF has no colour code
- *  for zones while Rekta has none (ADR adr-003-wff-datenfarben-rekta). */
+ *  12 % hart"). The words say it; the zone strip beside them only shows it. */
 export function zoneCharacter(z: ZoneShares): string {
 	const main = z.zones.reduce((a, b) => (b.share > a.share ? b : a));
 	const hard = z.zones

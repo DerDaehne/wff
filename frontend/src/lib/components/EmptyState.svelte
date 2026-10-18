@@ -19,7 +19,7 @@
 
 <!-- Rekta's empty state (.rk-empty): a sentence that says why, with the way
      on, on a hairline instead of in a box. -->
-<div class="reveal" style="--i: 0">
+<div>
 	{#if heading}
 		<h1 class="rk-title">{heading}</h1>
 	{/if}

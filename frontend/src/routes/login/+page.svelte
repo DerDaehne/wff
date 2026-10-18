@@ -23,7 +23,7 @@
 
 <!-- Rekta: no card around a form; a kicker, the one title, the field and the
      primary action on the ground. -->
-<main class="rk-place auth reveal" style="--i: 0">
+<main class="rk-place auth">
 	<form onsubmit={login}>
 		<p class="rk-kicker">WFF — wir fahren Fahrrad</p>
 		<h1 class="rk-title">Anmelden</h1>

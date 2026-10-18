@@ -34,7 +34,7 @@
 
 <!-- A shared ride for someone without an account: the day as title, its
      figures as Rekta tiles, on the ground (no card). -->
-<main class="rk-place share reveal" style="--i: 0">
+<main class="rk-place share">
 	{#if viewState === 'loading'}
 		<p>Lädt…</p>
 	{:else if viewState === 'error'}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ZoneDistribution } from '$lib/zones';
+	import { zoneCode, type ZoneDistribution } from '$lib/zones';
 
 	let { distribution, label }: { distribution: ZoneDistribution; label: string } = $props();
 
@@ -18,9 +18,9 @@
 	}
 </script>
 
-<!-- One Rekta meter per zone, cool to warm, in ink: the zone is told by its
-     name, not by a colour (ADR adr-003-wff-datenfarben-rekta, until Rekta has
-     a slot for colour codes, Rekta #1053). -->
+<!-- One Rekta meter per zone, cool to warm, in ink. The zone's name is a Rekta
+     tag whose square carries its colour code (ADR adr-005-wff-pulszonen-farbcode):
+     the colour a rider knows from their device, the word for everyone. -->
 <figure class="zones">
 	<figcaption class="rk-sr">{label}</figcaption>
 	{#if distribution.assumed}
@@ -33,7 +33,7 @@
 		{#each used as zone (zone.key)}
 			<li>
 				<p class="rk-meter-head">
-					<span class="name">{zone.name}</span>
+					<span class="rk-tag" data-rk-code={zoneCode[zone.key]}>{zone.name}</span>
 					<b>{percent(zone.share)}</b>
 				</p>
 				<div
@@ -72,11 +72,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-
-	.name {
-		color: var(--rk-text-primary);
-		font-weight: var(--rk-font-weight-semibold);
 	}
 
 	.meaning {

@@ -228,7 +228,7 @@
 {:else if viewState === 'ready'}
 	<!-- The answer first (#602): what the training says is the one title of
 	     this place; the tiles below are the figures behind it. -->
-	<header class="head reveal" style="--i: 0">
+	<header class="head">
 		<p class="rk-kicker">Dein Trainingsstand</p>
 		<h1 class="rk-title">{status?.title || 'Dein Trainingsstand'}</h1>
 	</header>
@@ -360,7 +360,7 @@
 		{/snippet}
 	</StoryCards>
 
-	<section class="sec reveal" style="--i: 1">
+	<section class="sec">
 		<h2 class="rk-group">Wie sich das entwickelt hat</h2>
 		<p class="sub">
 			Fitness wächst langsam über Wochen, Müdigkeit steigt und fällt mit den letzten Tagen. Wo die
@@ -397,7 +397,7 @@
 	</section>
 
 	{#if insights.length > 0}
-		<section class="sec reveal" style="--i: 2">
+		<section class="sec">
 			<h2 class="rk-group">Was du jetzt tun kannst</h2>
 			<p class="sub">
 				Aus deinem Trainingsverlauf abgeleitet — mit Begründung, damit du es nachvollziehen kannst.
@@ -421,7 +421,7 @@
 	<!-- Only when there is a distribution to show: without a threshold pulse
 	     the heading would introduce nothing, and the hint tile says why. -->
 	{#if progress && progress.zones.total_seconds > 0}
-		<section class="sec reveal" style="--i: 3">
+		<section class="sec">
 			<h2 class="rk-group">Wie hart fährst du eigentlich?</h2>
 			<p class="sub">
 				Die letzten vier Wochen, aufgeteilt nach Puls. Die Verteilung entscheidet mehr über den
@@ -441,7 +441,7 @@
 	<!-- One frame for every "am I getting better" figure (Nocturne v3): the
 	     facet pivot picks which one the chart shows. -->
 	{#if progress}
-		<section class="sec reveal" style="--i: 4">
+		<section class="sec">
 			<h2 class="rk-group">Wirst du besser?</h2>
 			<!-- Rekta's facet pivot (rekta.js pivot()): the strip glides by the
 			     facet's place in the order, its panel slides in, ← → Home End move. -->

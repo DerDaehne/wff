@@ -158,7 +158,7 @@
 						{/each}
 					</span>
 				{:else if summaryOf(group)}
-					<span class="rk-tile-msg summary">{summaryOf(group)}</span>
+					<span class="rk-tile-msg">{summaryOf(group)}</span>
 				{/if}
 			</button>
 		{/each}
@@ -198,11 +198,16 @@
 			</div>
 			<p class="rk-facts detail-caption">{spark.caption}</p>
 		{/if}
+		<!-- Each statement a Rekta statement block (typography.md): the sentence,
+		     its small value below, over a hairline. The sheet's title names them,
+		     so no kicker repeats it. -->
 		{#each group.items as statement, j (j)}
-			<p class="detail-text">{statement.text}</p>
-			{#if metrics.length === 0 && statement.metric}
-				<p class="rk-facts detail-metric">{statement.metric}</p>
-			{/if}
+			<div class="rk-statement">
+				<p>{statement.text}</p>
+				{#if metrics.length === 0 && statement.metric}
+					<p class="rk-facts">{statement.metric}</p>
+				{/if}
+			</div>
 		{/each}
 		{#if group.kind === 'hint_profile'}
 			<a class="detail-action" href={resolve('/(app)/profile')}> Werte im Profil eintragen </a>
@@ -221,31 +226,12 @@
 		gap: var(--rk-space-s) var(--rk-space-l);
 	}
 
-	/* The sentence of a group without figures, at most three lines in the
-	   tile; the whole of it is in the sheet. */
-	.summary {
-		display: -webkit-box;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
-		-webkit-box-orient: vertical;
-		overflow: hidden;
-	}
-
 	.detail-stats {
 		margin-bottom: var(--rk-space-m);
 	}
 
 	.detail-caption {
 		margin-bottom: var(--rk-space-m);
-	}
-
-	.detail-text + .detail-text,
-	.detail-metric + .detail-text {
-		margin-top: var(--rk-space-m);
-	}
-
-	.detail-metric {
-		margin-top: var(--rk-space-s);
 	}
 
 	.detail-action {

@@ -7,7 +7,14 @@ interface Handle {
 	destroy(): void;
 }
 
-export function start(options?: { root?: Document | HTMLElement; restore?: boolean }): Handle;
+type Strings = Record<string, string | ((...args: never[]) => string)>;
+
+export function start(options?: {
+	root?: Document | HTMLElement;
+	restore?: boolean;
+	locale?: string;
+	strings?: Strings;
+}): Handle;
 
 export const turn: {
 	readonly running: boolean;
@@ -57,3 +64,5 @@ export function drop(
 ): Handle;
 
 export function sheet(dialog: HTMLDialogElement): Handle;
+
+export function appbar(el: HTMLElement): Handle & { layout(): void };

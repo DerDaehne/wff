@@ -82,7 +82,7 @@
 	const bpm = (h: number | null) => (h !== null ? `${Math.round(h)} bpm` : '–');
 </script>
 
-<h1 class="rk-title reveal" style="--i: 0">Fahrten im Vergleich</h1>
+<h1 class="rk-title">Fahrten im Vergleich</h1>
 
 {#if viewState === 'loading'}
 	<p>Lädt…</p>
@@ -99,7 +99,7 @@
 	]}
 	<!-- Rekta hairline rows, one figure per row, the two rides side by side:
 	     content over chrome, no box around the comparison. -->
-	<ul class="rk-rows compare reveal" style="--i: 1">
+	<ul class="rk-rows compare">
 		<li class="head">
 			<span></span>
 			<a class="rk-kicker" href={resolve('/(app)/rides/[id]', { id: String(rideA.id) })}
