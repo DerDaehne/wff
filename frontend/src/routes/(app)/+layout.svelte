@@ -221,12 +221,11 @@
 {/if}
 
 <style>
-	main {
-		max-width: 64rem;
-		margin-inline: auto;
-	}
-
+	/* The place spans the window and its content starts flush left under the
+	   strip, at every place (Rekta: content is flush left, never centred). A
+	   list or a form keeps a readable measure; a panorama does not (below). */
 	.content {
+		max-width: 64rem;
 		padding: var(--rk-space-m) var(--rk-space-m)
 			calc(var(--rk-appbar-height) + env(safe-area-inset-bottom) + var(--rk-space-l));
 	}
@@ -242,6 +241,7 @@
 	   the top and the app bar, the sections stand side by side and each one
 	   scrolls on its own; the page itself does not scroll. */
 	main:has(> .content > :global(.rk-panorama)) > .content {
+		max-width: none;
 		padding-inline: 0;
 	}
 
@@ -249,7 +249,6 @@
 		main:has(> .content > :global(.rk-panorama)) {
 			display: flex;
 			flex-direction: column;
-			max-width: none;
 			height: calc(100dvh - var(--rk-appbar-height) - env(safe-area-inset-bottom));
 		}
 
