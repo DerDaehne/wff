@@ -232,6 +232,35 @@
 		}
 	}
 
+	/* A place of named sections is a Rekta panorama (layout.md): the panorama
+	   brings its own side padding. Sideways the place fills the height between
+	   the top and the app bar, the sections stand side by side and each one
+	   scrolls on its own; the page itself does not scroll. */
+	main:has(> .content > :global(.rk-panorama)) > .content {
+		padding-inline: 0;
+	}
+
+	@media (min-width: 760px) and (min-height: 481px) {
+		main:has(> .content > :global(.rk-panorama)) {
+			display: flex;
+			flex-direction: column;
+			max-width: none;
+			height: calc(100dvh - var(--rk-appbar-height) - env(safe-area-inset-bottom));
+		}
+
+		main:has(> .content > :global(.rk-panorama)) > .content {
+			display: flex;
+			flex: 1 1 auto;
+			flex-direction: column;
+			min-height: 0;
+			padding-block: 0;
+		}
+
+		.content > :global(.rk-panorama) {
+			flex: 1 1 auto;
+		}
+	}
+
 	/* No live status in WFF's bar, so the commands push themselves to the end. */
 	.goto {
 		margin-inline-start: auto;

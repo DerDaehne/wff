@@ -66,3 +66,8 @@ export function drop(
 export function sheet(dialog: HTMLDialogElement): Handle;
 
 export function appbar(el: HTMLElement): Handle & { layout(): void };
+
+export function panorama(
+	el: HTMLElement,
+	options?: { pivot?: HTMLElement | null }
+): Handle & { goTo(section: HTMLElement | string, options?: { focus?: boolean; instant?: boolean }): void };
