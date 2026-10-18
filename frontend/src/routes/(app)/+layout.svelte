@@ -74,14 +74,19 @@
 	// turns away, SvelteKit swaps the route, the new place turns in and its
 	// tiles build in. Back, or a top place earlier in the pivot's order, runs it
 	// the other way round. Only a new path is a new place: Rückblick's ?year=
-	// stays where it is.
+	// stays where it is. Between two top places the strip that picks them stays
+	// put and only the place below it turns (Rekta motion.md: the pivot that
+	// picks the place turns the place, not itself); to or from a place below
+	// them the strip comes or goes, so the whole place turns.
 	let placeEl: HTMLElement | undefined = $state();
+	let contentEl: HTMLElement | undefined = $state();
 	onNavigate((nav) => {
-		const el = placeEl;
 		const from = nav.from?.url.pathname;
 		const to = nav.to?.url.pathname;
-		if (!el || nav.willUnload || !from || !to || from === to) return;
+		if (nav.willUnload || !from || !to || from === to) return;
 		const order = (path: string) => places.findIndex((p) => p.href === path);
+		const el = order(from) >= 0 && order(to) >= 0 ? contentEl : placeEl;
+		if (!el) return;
 		const back =
 			nav.type === 'popstate'
 				? (nav.delta ?? 0) < 0
@@ -157,7 +162,7 @@
 				{/each}
 			</nav>
 		{/if}
-		<div class="content">
+		<div class="content" bind:this={contentEl}>
 			{#if parent}
 				<a class="rk-crumb" href={parent.href}>
 					<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M11 4 5 10l6 6M5 10h11" /></svg>
