@@ -312,9 +312,13 @@
 		return sorted[i];
 	}
 
-	// The segments actually drawn colour-coded — gaps in the chosen metric
+	// The stretches actually drawn by value — gaps in the chosen metric
 	// (sensor dropout) simply have no feature here, so the plain track layer
-	// underneath shows through rather than a fabricated value.
+	// underneath shows through rather than a fabricated value. A stretch is
+	// about 15 s at its mean: power and heart rate flicker from second to
+	// second, and a width per one-second segment drew as hatching, not as a
+	// line that swells where the effort was.
+	const STRETCH_MS = 15_000;
 	let coloredTrack = $derived.by(() => {
 		if (colorMetric === 'none' || trackSamples.length < 2) return null;
 		const features: {
@@ -323,24 +327,42 @@
 			geometry: { type: 'LineString'; coordinates: [number, number][] };
 		}[] = [];
 		const values: number[] = [];
+		let coordinates: [number, number][] = [];
+		let sum = 0;
+		let count = 0;
+		let start = 0;
+		const close = () => {
+			if (count > 0) {
+				const value = sum / count;
+				features.push({
+					type: 'Feature',
+					properties: { value },
+					geometry: { type: 'LineString', coordinates }
+				});
+				values.push(value);
+			}
+			coordinates = [];
+			sum = 0;
+			count = 0;
+		};
 		for (let i = 0; i < trackSamples.length - 1; i++) {
 			const a = trackSamples[i];
 			const b = trackSamples[i + 1];
 			const value = segmentValue(colorMetric, a, b);
-			if (value === null) continue;
-			features.push({
-				type: 'Feature',
-				properties: { value },
-				geometry: {
-					type: 'LineString',
-					coordinates: [
-						[a.lon, a.lat],
-						[b.lon, b.lat]
-					]
-				}
-			});
-			values.push(value);
+			if (value === null) {
+				close();
+				continue;
+			}
+			if (count === 0) {
+				coordinates = [[a.lon, a.lat]];
+				start = new Date(a.time).getTime();
+			}
+			coordinates.push([b.lon, b.lat]);
+			sum += value;
+			count++;
+			if (new Date(b.time).getTime() - start >= STRETCH_MS) close();
 		}
+		close();
 		if (values.length === 0) return null;
 		const sorted = [...values].sort((x, y) => x - y);
 		// 5th/95th percentile, not the raw min/max — one leftover GPS-speed
@@ -445,7 +467,9 @@
 	// colour stops are baked to this metric's own value range, so switching
 	// metric always needs a fresh one anyway.
 	$effect(() => {
-		if (!map || !mapReady) return;
+		// mapReady first: `map` is not reactive, and an effect that returns
+		// before reading any state never runs again — the overlay never showed.
+		if (!mapReady || !map) return;
 		if (map.getLayer('track-colored')) {
 			map.removeLayer('track-colored');
 			map.removeSource('track-colored');
@@ -471,7 +495,9 @@
 			// The value is the line's width, in ink: thin where it was low,
 			// thick where it was high. Rekta has no colour ramp for data (ADR
 			// adr-003-wff-datenfarben-rekta), and on a map the width reads at a
-			// glance just as well.
+			// glance just as well. Round ends and joins, so one stretch flows into
+			// the next instead of a step at every seam.
+			layout: { 'line-cap': 'round', 'line-join': 'round' },
 			paint: {
 				'line-color': trackColor(),
 				'line-width': ['interpolate', ['linear'], ['get', 'value'], lo, 3, hi, 12]
