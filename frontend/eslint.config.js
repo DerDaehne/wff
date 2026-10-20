@@ -11,7 +11,7 @@ const gitignorePath = path.resolve(import.meta.dirname, '.gitignore');
 export default defineConfig(
 	includeIgnoreFile(gitignorePath),
 	// Vendored byte-for-byte from Rekta Design (scripts/sync-rekta.mjs); not ours to lint.
-	{ ignores: ['src/lib/rekta/*.js'] },
+	{ ignores: ['src/lib/rekta/rekta.*'] },
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,

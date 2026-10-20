@@ -18,8 +18,8 @@
 	}
 </script>
 
-<!-- One Rekta meter per zone, cool to warm, in ink. The zone's name is a Rekta
-     tag whose square carries its colour code (ADR adr-005-wff-pulszonen-farbcode):
+<!-- One Rekta meter per zone, cool to warm. The meter's fill and the square of
+     the zone's tag carry its colour code (ADR adr-005-wff-pulszonen-farbcode):
      the colour a rider knows from their device, the word for everyone. -->
 <figure class="zones">
 	<figcaption class="rk-sr">{label}</figcaption>
@@ -38,6 +38,7 @@
 				</p>
 				<div
 					class="rk-meter"
+					data-rk-code={zoneCode[zone.key]}
 					role="meter"
 					aria-label={zone.name}
 					aria-valuemin="0"

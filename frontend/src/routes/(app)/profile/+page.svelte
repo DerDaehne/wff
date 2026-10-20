@@ -469,6 +469,7 @@
 							{:else}
 								<button
 									class="rk-btn"
+									data-status="error"
 									type="button"
 									disabled={deletingPasskeyID === passkey.id}
 									onclick={() => askRemovePasskey(passkey.id, passkey.name)}

@@ -2,7 +2,7 @@
 // the (app) layout mounts the region and hands it over here, and any view
 // says what just happened with toast(text). Without an undo, Rekta adds no
 // words of its own, so the text stays German.
-type Toaster = { show(text: string): void };
+import type { Toaster } from '$lib/rekta/rekta.js';
 
 let current: Toaster | null = null;
 

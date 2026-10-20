@@ -234,7 +234,9 @@
 								: 'noch nie benutzt'}
 						</p>
 					</div>
-					<button class="rk-btn" type="button" onclick={() => revoke(token)}>Löschen</button>
+					<button class="rk-btn" data-status="error" type="button" onclick={() => revoke(token)}
+						>Löschen</button
+					>
 				</li>
 			{/each}
 		</ul>

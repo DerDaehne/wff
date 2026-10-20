@@ -5,7 +5,7 @@
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
-	import { appbar, keys, prefs, toaster, turn } from '$lib/rekta/rekta.js';
+	import { appbar, keys, prefs, strip, toaster, turn } from '$lib/rekta/rekta.js';
 	import { setToaster } from '$lib/toast';
 
 	let { children } = $props();
@@ -31,11 +31,18 @@
 	// below them starts with a crumb to its parent; the app bar at the bottom
 	// carries the commands, plus "zurück" on a phone. Upload is a command there,
 	// not a place. On a phone the places sit in the app bar instead of the pivot,
-	// in the thumb's reach, and the commands move into "mehr" (#1105, Rekta 0.3
-	// .rk-ab-places). Icons are Rekta's (src/icons), inline.
+	// in the thumb's reach, and the commands move into "mehr" (#1105, Rekta
+	// .rk-ab-places; appbar() then hides the pivot). Icons are Rekta's
+	// (src/icons), inline. A place whose only title is the pivot gets Rekta's
+	// .rk-place-name, which shows while the pivot steps aside.
 	const places = [
 		{ href: resolve('/(app)'), label: 'Start', icon: 'M3 9.5 10 3.5l7 6M5 8v9h10V8' },
-		{ href: resolve('/(app)/rides'), label: 'Fahrten', icon: 'M3 5h14M3 10h14M3 15h14' },
+		{
+			href: resolve('/(app)/rides'),
+			label: 'Fahrten',
+			icon: 'M3 5h14M3 10h14M3 15h14',
+			placeName: true
+		},
 		{
 			href: resolve('/(app)/profile'),
 			label: 'Profil',
@@ -76,8 +83,9 @@
 	// the other way round. Only a new path is a new place: Rückblick's ?year=
 	// stays where it is. Between two top places the strip that picks them stays
 	// put and only the place below it turns (Rekta motion.md: the pivot that
-	// picks the place turns the place, not itself); to or from a place below
-	// them the strip comes or goes, so the whole place turns.
+	// picks the place turns the place, not itself), while strip() grows the
+	// new title; to or from a place below them, or while the places are in the
+	// app bar and the strip is gone, the whole place turns.
 	let placeEl: HTMLElement | undefined = $state();
 	let contentEl: HTMLElement | undefined = $state();
 	onNavigate((nav) => {
@@ -85,7 +93,11 @@
 		const to = nav.to?.url.pathname;
 		if (nav.willUnload || !from || !to || from === to) return;
 		const order = (path: string) => places.findIndex((p) => p.href === path);
-		const el = order(from) >= 0 && order(to) >= 0 ? contentEl : placeEl;
+		const stripStays =
+			order(from) >= 0 &&
+			order(to) >= 0 &&
+			!document.documentElement.hasAttribute('data-rk-places');
+		const el = stripStays ? contentEl : placeEl;
 		if (!el) return;
 		const back =
 			nav.type === 'popstate'
@@ -133,18 +145,29 @@
 		},
 		{ label: 'Abmelden', group: 'Befehle', run: handleLogout, keywords: 'logout' },
 		// Rekta's own switches (prefs), remembered in this browser.
-		...[
-			['Darstellung: hell', 'theme', 'light'],
-			['Darstellung: dunkel', 'theme', 'dark'],
-			['Darstellung: wie das System', 'theme', 'system'],
-			['Bewegung: aus', 'motion', 'off'],
-			['Bewegung: an', 'motion', 'on'],
-			['Bewegung: wie das System', 'motion', 'system']
-		].map(([label, name, value]) => ({
-			label,
+		...(
+			[
+				['hell', 'light'],
+				['dunkel', 'dark'],
+				['wie das System', 'system']
+			] as const
+		).map(([word, value]) => ({
+			label: `Darstellung: ${word}`,
 			group: 'Einstellungen',
-			keywords: name === 'theme' ? 'theme farben modus' : 'animation motion',
-			run: () => prefs.set(name as 'theme' | 'motion', value)
+			keywords: 'theme farben modus',
+			run: () => prefs.set('theme', value)
+		})),
+		...(
+			[
+				['aus', 'off'],
+				['an', 'on'],
+				['wie das System', 'system']
+			] as const
+		).map(([word, value]) => ({
+			label: `Bewegung: ${word}`,
+			group: 'Einstellungen',
+			keywords: 'animation motion',
+			run: () => prefs.set('motion', value)
 		}))
 	];
 </script>
@@ -154,13 +177,16 @@
 {:else if authState === 'authed'}
 	<main class="rk-place" bind:this={placeEl}>
 		{#if isTop}
-			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte">
+			<nav class="rk-pivot rk-pivot--nav" aria-label="Orte" use:strip>
 				{#each places as p (p.href)}
 					<a href={p.href} aria-current={page.url.pathname === p.href ? 'page' : undefined}>
 						{p.label}
 					</a>
 				{/each}
 			</nav>
+			{#if here?.placeName}
+				<h1 class="rk-place-name">{here.label}</h1>
+			{/if}
 		{/if}
 		<div class="content" bind:this={contentEl}>
 			{#if parent}
@@ -268,15 +294,6 @@
 	/* No live status in WFF's bar, so the commands push themselves to the end. */
 	.goto {
 		margin-inline-start: auto;
-	}
-
-	/* On a phone the places are in the app bar (Rekta: below 760px, decided by
-	   the bar's own width, which here is the window's); the pivot at the top
-	   would say the same twice. */
-	@media (max-width: 759.98px) {
-		.rk-pivot--nav {
-			display: none;
-		}
 	}
 
 	a.rk-ab {

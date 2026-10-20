@@ -1,9 +1,9 @@
 // Vendors Rekta Design (ADRs adr-002-wff-rekta-design, adr-004-wff-rekta-js)
 // into src/lib/rekta/: rekta.tokens.css, rekta.fonts.css, rekta.css, rekta.js and
-// rekta.strings.de.js byte-for-byte below a provenance header, plus the Barlow woff2
-// files rekta.fonts.css points at.
+// rekta.strings.de.js, with their TypeScript declarations, byte-for-byte below a
+// provenance header, plus the Barlow woff2 files rekta.fonts.css points at.
 // No npm dependency on purpose: a dependency would change the Nix
-// fixed-output hash on every Rekta bump, and Rekta has no release tag yet.
+// fixed-output hash on every Rekta bump.
 //
 //   node scripts/sync-rekta.mjs ~/Projekte/rekta-design   # build that clone's HEAD and copy
 //   node scripts/sync-rekta.mjs --verify                  # vendored files still match their header hash
@@ -18,7 +18,9 @@ const FILES = [
 	'rekta.fonts.css',
 	'rekta.css',
 	'rekta.js',
-	'rekta.strings.de.js'
+	'rekta.strings.de.js',
+	'rekta.d.ts',
+	'rekta.strings.de.d.ts'
 ];
 const HASH_LINE = /^ \* SHA-256 of everything below this header: ([0-9a-f]{64})$/m;
 
@@ -50,7 +52,7 @@ function sync(repo) {
 	try {
 		tag = git('describe', '--tags', '--exact-match');
 	} catch {
-		// No tag on this commit (Rekta has none yet, issue #7): the commit is the pin.
+		// No tag on this commit: the commit is the pin.
 	}
 
 	// --check first: it fails on a contrast or token regression, and then nothing is copied.

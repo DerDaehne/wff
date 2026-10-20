@@ -128,8 +128,8 @@
 
 	// Irreversible (#701) — everything derived from the ride goes with it,
 	// same as the confirm-then-cascade pattern the CLI's user-delete already
-	// uses. Native confirm() rather than a custom sheet: this is a one-shot
-	// yes/no gate, not a view worth its own component.
+	// uses. The button is framed in the error colour (Rekta forms.md, the
+	// destructive button).
 	async function deleteRide() {
 		const label = story?.subtitle ? `Fahrt vom ${story.subtitle}` : 'diese Fahrt';
 		// Rekta's question sheet; keeping the ride is the safe, focused answer.
@@ -699,7 +699,13 @@
 			{/if}
 
 			<p class="rk-actions delete">
-				<button class="rk-btn" type="button" onclick={deleteRide} disabled={deleteBusy}>
+				<button
+					class="rk-btn"
+					data-status="error"
+					type="button"
+					onclick={deleteRide}
+					disabled={deleteBusy}
+				>
 					Fahrt löschen
 				</button>
 			</p>

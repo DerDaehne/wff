@@ -109,12 +109,6 @@
 	}
 </script>
 
-<!-- Sideways the pivot above already names this place ("Fahrten"); a visible
-     title would say it twice (Rekta typography), so there the heading is for
-     screen readers only. On a phone the places are in the app bar and the
-     title shows. -->
-<h1 class="rk-title page-title">Deine Fahrten</h1>
-
 {#if viewState === 'ready'}
 	<p class="rk-actions tools">
 		<button class="rk-btn" type="button" onclick={toggleCompareMode}>
@@ -175,18 +169,16 @@
 								{#if ride.is_shared}<span class="rk-tag">geteilt</span>{/if}
 							</span>
 							<!-- The ride's character in words (#633), right under the date, and
-							     its zones as a strip in their colour code (ADR
+							     its zones as a share bar in their colour code (ADR
 							     adr-005-wff-pulszonen-farbcode): the words say it, the strip only
 							     shows it, so screen readers skip it. -->
 							{#if ride.zones && ride.zones.zones.some((z) => z.share > 0)}
 								<span class="rk-meta"
 									>{zoneCharacter(ride.zones)}{ride.zones.assumed ? ' (geschätzt)' : ''}</span
 								>
-								<span class="zones" aria-hidden="true">
+								<span class="rk-shares zones" aria-hidden="true">
 									{#each ride.zones.zones.filter((z) => z.share > 0) as z (z.key)}
-										<span
-											style="flex-grow: {z.share}; background: var(--rk-series-{zoneCode[z.key]})"
-										></span>
+										<span data-rk-code={zoneCode[z.key]} style="--rk-v: {z.share}"></span>
 									{/each}
 								</span>
 							{/if}
@@ -212,22 +204,6 @@
 {/if}
 
 <style>
-	.page-title {
-		margin-bottom: var(--rk-space-m);
-	}
-
-	/* Where the pivot shows (the app layout hides it below 760px): Rekta's .rk-sr. */
-	@media (min-width: 760px) {
-		.page-title {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
-		}
-	}
-
 	.tools {
 		margin-bottom: var(--rk-space-m);
 	}
@@ -267,18 +243,8 @@
 		gap: var(--rk-space-s);
 	}
 
-	/* A small mark per zone, its share of the strip's width (Rekta data.md: a
-	   domain colour code is for small marks only). */
 	.zones {
-		display: flex;
-		gap: 2px;
-		height: 6px;
-		max-width: calc(3 * var(--rk-tile-unit) + 2 * var(--rk-space-s));
 		margin-block: var(--rk-space-xs) 2px;
-	}
-
-	.zones > span {
-		min-width: 2px;
 	}
 
 	.figures {

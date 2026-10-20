@@ -34,17 +34,18 @@ h3 {
 	font-weight: var(--rk-font-weight-semibold);
 }
 
-/* Heart-rate zones, cool to warm: WFF's domain colour code (Rekta 0.3
+/* Heart-rate zones, cool to warm: WFF's domain colour code (Rekta
    docs/data.md, ADR adr-005-wff-pulszonen-farbcode), per theme with the
-   selectors rekta.tokens.css uses. Rekta's showcase values, which its
-   --check holds to 3:1 on bg and surface and apart under colour blindness;
-   after a change run `node scripts/build.mjs --check-product` in a Rekta
-   clone against this file. Small marks only (a zone's square, a strip),
-   never text, never a tile. Codes per zone in lib/zones.ts. */
+   selectors rekta.tokens.css uses. Rekta's showcase values (0.4: light
+   zones 1 and 3 apart under tritanopia too), which its --check holds to
+   3:1 on bg and surface and apart under colour blindness; sync-rekta.mjs
+   runs `build.mjs --check-product` against this file. Small marks only (a
+   zone's square, its meter, a ride's share bar), never text, never a tile.
+   Codes per zone in lib/zones.ts. */
 :root {
-	--rk-series-1: #608ab5;
+	--rk-series-1: #5489b6;
 	--rk-series-2: #147175;
-	--rk-series-3: #679368;
+	--rk-series-3: #7d8d5e;
 	--rk-series-4: #805b21;
 	--rk-series-5: #6d2a27;
 }
