@@ -5,6 +5,7 @@
 	import { formatDistance, formatDuration } from '$lib/rides';
 	import { ApiError } from '$lib/api';
 	import EmptyState from '$lib/components/EmptyState.svelte';
+	import { grid } from '$lib/rekta/rekta.js';
 
 	let viewState: 'loading' | 'error' | 'ready' = $state('loading');
 	let errorMessage = $state('');
@@ -55,7 +56,7 @@
 {:else if review}
 	<!-- The year in Rekta tiles; the two records open their ride and wear
 	     Rekta's success fill with the word, as a record does on a ride. -->
-	<section class="rk-tiles" aria-label="Dein Jahr in Zahlen">
+	<section class="rk-tiles" aria-label="Dein Jahr in Zahlen" use:grid>
 		<div class="rk-tile" style="--rk-i: 0">
 			<span class="rk-stat"
 				><b>{review.ride_count}</b><span>{review.ride_count === 1 ? 'Fahrt' : 'Fahrten'}</span

@@ -5,7 +5,18 @@
 	import { page } from '$app/state';
 	import { whoAmI, logout } from '$lib/webauthn';
 	import Palette, { type PaletteEntry } from '$lib/components/Palette.svelte';
-	import { appbar, keys, prefs, strip, toaster, turn } from '$lib/rekta/rekta.js';
+	import type { Snapshot } from '@sveltejs/kit';
+	import {
+		appbar,
+		keys,
+		prefs,
+		scrollState,
+		strip,
+		toaster,
+		turn,
+		type ScrollRestore,
+		type ScrollState
+	} from '$lib/rekta/rekta.js';
 	import { setToaster } from '$lib/toast';
 
 	let { children } = $props();
@@ -89,6 +100,7 @@
 	let placeEl: HTMLElement | undefined = $state();
 	let contentEl: HTMLElement | undefined = $state();
 	onNavigate((nav) => {
+		restoring?.cancel();
 		const from = nav.from?.url.pathname;
 		const to = nav.to?.url.pathname;
 		if (nav.willUnload || !from || !to || from === to) return;
@@ -107,6 +119,20 @@
 		const pressed = active instanceof HTMLElement && el.contains(active) ? active : null;
 		return turn.leave(el, { back, pressed }).then(() => () => turn.enter(el, { back }));
 	});
+
+	// Back puts every scroll offset of the place back: the panorama's sections
+	// too, which SvelteKit does not know (Rekta navigation.md, "Back with a
+	// router of your own"). The places load their data after mount, so the
+	// restore waits for the sections to appear, until the user scrolls or the
+	// next navigation.
+	let restoring: ScrollRestore | undefined;
+	export const snapshot: Snapshot<ScrollState | undefined> = {
+		capture: () => (placeEl ? scrollState(placeEl).capture() : undefined),
+		restore: (s) =>
+			requestAnimationFrame(() => {
+				if (placeEl) restoring = scrollState(placeEl).restore(s);
+			})
+	};
 
 	// One back for everything (Rekta navigation.md): Escape goes back a place,
 	// once nothing inner (a sheet, the palette, a text field) wants it.
@@ -168,6 +194,19 @@
 			group: 'Einstellungen',
 			keywords: 'animation motion',
 			run: () => prefs.set('motion', value)
+		})),
+		// More contrast: every text at 7:1, for a phone read in the sun.
+		...(
+			[
+				['mehr', 'more'],
+				['normal', 'normal'],
+				['wie das System', 'system']
+			] as const
+		).map(([word, value]) => ({
+			label: `Kontrast: ${word}`,
+			group: 'Einstellungen',
+			keywords: 'contrast lesbarkeit sonne',
+			run: () => prefs.set('contrast', value)
 		}))
 	];
 </script>
@@ -229,7 +268,7 @@
 				><circle cx="9" cy="9" r="5.5" /><path d="m13 13 4 4" /></svg
 			>
 			<span>gehe zu</span>
-			<span class="rk-key rk-ab-k" aria-hidden="true">Strg K</span>
+			<span class="rk-key rk-ab-k" aria-hidden="true">Strg+K</span>
 		</button>
 		<a class="rk-ab" href={resolve('/(app)/upload')}>
 			<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 13V3M6 7l4-4 4 4M4 16h12" /></svg>

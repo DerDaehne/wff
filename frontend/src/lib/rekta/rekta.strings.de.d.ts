@@ -1,7 +1,7 @@
 /*! Rekta Design, vendored by WFF. Do not edit: run frontend/scripts/sync-rekta.mjs.
  * Source: https://github.com/DerDaehne/rekta-design
- * Commit: 1a4133f27c37025f4e6de97db8a8f4a30129a148
- * Tag: v0.5.0
+ * Commit: 1116956c67ed9d34a90a0bed18e1046ebdb3366e
+ * Tag: v0.6.0
  * Generator: scripts/build.mjs -> dist/rekta.strings.de.d.ts
  * SHA-256 of everything below this header: 2ac8558406bbc08bef5ec31b5fb547a1035f25129a9fee51fd6b9427f91aab04
  * License: MIT (code, tokens, CSS, JS), see LICENSE and NOTICE in the source repository;

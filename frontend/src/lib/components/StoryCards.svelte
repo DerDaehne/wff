@@ -27,6 +27,7 @@
 	import type { Snippet } from 'svelte';
 	import Sheet from './Sheet.svelte';
 	import LineChart from './LineChart.svelte';
+	import { grid } from '$lib/rekta/rekta.js';
 
 	// A small chart to show inside a kind's detail sheet, when real history for
 	// that exact figure already lives on the page — e.g. the dashboard's
@@ -131,7 +132,9 @@
 </script>
 
 {#if groups.length > 0 || tiles}
-	<section class="rk-tiles story" aria-label={label}>
+	<!-- Tiles that open are one tab stop, the arrows move among them (Rekta
+	     grid(), navigation.md). -->
+	<section class="rk-tiles story" aria-label={label} use:grid>
 		{@render tiles?.(sheetFor)}
 		{#each groups.filter((g) => !own.includes(g.kind)) as group, i (i)}
 			{@const status = statusOf[group.kind]}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { confirm, panorama } from '$lib/rekta/rekta.js';
+	import { confirm, grid, panorama } from '$lib/rekta/rekta.js';
 	import { toast } from '$lib/toast';
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
@@ -257,7 +257,7 @@
 			<!-- Places below the profile open as tiles (Rekta: a tile that opens is a
 	     link to a place). -->
 			<h2 class="rk-group">Mehr</h2>
-			<div class="rk-tiles">
+			<div class="rk-tiles" use:grid>
 				<a class="rk-tile rk-w2" href={resolve('/(app)/raeder')} style="--rk-i: 0">
 					<span class="rk-kicker">deine Räder</span>
 					<span class="rk-tile-msg"

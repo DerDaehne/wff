@@ -1,9 +1,9 @@
 /*! Rekta Design, vendored by WFF. Do not edit: run frontend/scripts/sync-rekta.mjs.
  * Source: https://github.com/DerDaehne/rekta-design
- * Commit: 1a4133f27c37025f4e6de97db8a8f4a30129a148
- * Tag: v0.5.0
+ * Commit: 1116956c67ed9d34a90a0bed18e1046ebdb3366e
+ * Tag: v0.6.0
  * Generator: scripts/build.mjs -> dist/rekta.strings.de.js
- * SHA-256 of everything below this header: 2916f297f00fdbdada1508c4f222ea2918a7c31996bef4279e1373547a9be777
+ * SHA-256 of everything below this header: e2161d4b1c2c7472f5a0b651fb4e94f3b43889bf8eddbc4278e818fe3f05c7e8
  * License: MIT (code, tokens, CSS, JS), see LICENSE and NOTICE in the source repository;
  * some token values derive from the Porsche Design System (Apache-2.0, values only).
  * Barlow: SIL Open Font License 1.1, see fonts/OFL.txt.
@@ -29,6 +29,7 @@ export const de = {
   guardKeep: 'weiter bearbeiten',
   discardTitle: 'Eingaben verwerfen?',
   move: (item) => `${item} verschieben`,
+  inBack: (name) => `zurück · ${name}`,
   nothingToUndo: 'Nichts rückgängig zu machen.',
   undone: (what) => `Rückgängig: ${what}`,
   justNow: 'gerade eben',
@@ -52,4 +53,7 @@ export const de = {
   putDown: (item, at, of) => `${item} abgelegt auf Position ${at} von ${of}.`,
   putBack: (item) => `${item} zurückgelegt.`,
   position: (item, at, of) => (item ? `${item}: Position ${at} von ${of}.` : `Position ${at} von ${of}`),
+  keyMeta: (os) => (os === 'windows' ? 'Win' : 'Super'),
+  cannotAct: (label, reason) => `${label} (${reason})`,
+  back: 'zurück',
 };
